@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asani Logo Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --teal:#0F766E; --mint:#CCFBF1; --navy:#1E3A8A; --ink:#0f2a28; --muted:#5b6f6d; --line:#e3ecea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#f4f7f6; color:var(--ink); font-family:'Nunito',system-ui,sans-serif; }
+  header { max-width:1200px; margin:0 auto; padding:40px 16px 8px; }
+  h1 { margin:0 0 6px; font-weight:900; color:var(--teal); font-size:32px; letter-spacing:-.5px; }
+  header p { margin:0; color:var(--muted); font-weight:600; }
+  .swatches { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .sw { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--muted); }
+  .sw i { width:18px; height:18px; border-radius:6px; border:1px solid var(--line); display:inline-block; }
+  main { max-width:1200px; margin:0 auto; padding:20px 16px 60px; display:grid; gap:20px;
+         grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
+  .card { background:#fff; border:1px solid var(--line); border-radius:20px; overflow:hidden; display:flex; flex-direction:column; }
+  .logo { background:#fff; display:flex; justify-content:center; align-items:center; padding:28px 20px 18px; }
+  .logo svg { width:220px; height:auto; }
+  .meta { padding:14px 18px 6px; border-top:1px solid var(--line); }
+  .meta h2 { margin:0; font-size:17px; font-weight:800; }
+  .meta h2 span { color:var(--teal); margin-right:6px; }
+  .meta p { margin:4px 0 0; font-size:13.5px; color:var(--muted); font-weight:600; line-height:1.4; }
+  .icons { display:flex; align-items:flex-end; gap:14px; padding:14px 18px; }
+  .icons svg { display:block; filter:drop-shadow(0 2px 4px rgba(15,118,110,.18)); }
+  .icons small { margin-left:auto; color:var(--muted); font-size:12px; font-weight:700; }
+  .dl { display:flex; flex-wrap:wrap; gap:8px; padding:0 18px 18px; margin-top:auto; }
+  .dl button { font:inherit; font-size:12.5px; font-weight:800; border:1.5px solid var(--teal); color:var(--teal);
+               background:#fff; border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .dl button:hover { background:var(--mint); }
+</style>
+</head>
+<body>
+<header>
+  <h1>asani — 10 logo concepts</h1>
+  <p>Each concept: full logo on white, app icon at 3 sizes, and SVG / 1024px PNG downloads.</p>
+  <div class="swatches">
+    <span class="sw"><i style="background:#0F766E"></i>#0F766E teal</span>
+    <span class="sw"><i style="background:#CCFBF1"></i>#CCFBF1 mint</span>
+    <span class="sw"><i style="background:#1E3A8A"></i>#1E3A8A navy</span>
+  </div>
+</header>
+<main id="grid"></main>
+
+<script>
+const FONT = "Nunito, 'Varela Round', 'Arial Rounded MT Bold', Arial, sans-serif";
+// Light (on white) and icon (on teal) colour roles
+const L = { fg:'#0F766E', cut:'#FFFFFF', hl:'#1E3A8A', soft:'#CCFBF1' };
+const I = { fg:'#FFFFFF', cut:'#0F766E', hl:'#CCFBF1', soft:'#2B8F86' };
+const R = 'stroke-linecap="round" stroke-linejoin="round" fill="none"';
+
+// Every symbol is drawn in a 100x100 box.
+const concepts = [
+  { name:'Token Ticket', slug:'token-ticket',
+    concept:'A rounded token ticket with a check mark cut out: your turn, confirmed.',
+    draw:c=>`
+      <rect x="14" y="22" width="72" height="50" rx="11" fill="${c.soft}" transform="rotate(-9 50 50)"/>
+      <rect x="10" y="27" width="80" height="48" rx="11" fill="${c.fg}"/>
+      <circle cx="10" cy="51" r="8" fill="${c.cut}"/><circle cx="90" cy="51" r="8" fill="${c.cut}"/>
+      <path d="M36 51 L46 61 L65 41" stroke="${c.cut}" stroke-width="8" ${R}/>` },
+
+  { name:'Number Badge', slug:'number-badge',
+    concept:'A soft badge with a bold "1" and a notification dot: it’s your turn.',
+    draw:c=>`
+      <rect x="14" y="18" width="68" height="68" rx="21" fill="${c.fg}"/>
+      <path d="M41 41 L51 34 V72" stroke="${c.cut}" stroke-width="9" ${R}/>
+      <circle cx="80" cy="22" r="11" fill="${c.hl}" stroke="${c.cut}" stroke-width="5"/>` },
+
+  { name:'Calm Clock', slug:'calm-clock',
+    concept:'A clock whose hands form a gentle check mark: time saved, no stress.',
+    draw:c=>`
+      <circle cx="50" cy="50" r="36" fill="${c.soft}" stroke="${c.fg}" stroke-width="7"/>
+      <circle cx="50" cy="23" r="2.8" fill="${c.fg}"/><circle cx="77" cy="50" r="2.8" fill="${c.fg}"/>
+      <circle cx="50" cy="77" r="2.8" fill="${c.fg}"/><circle cx="23" cy="50" r="2.8" fill="${c.fg}"/>
+      <path d="M38 41 L50 53 L67 33" stroke="${c.fg}" stroke-width="7" ${R}/>
+      <circle cx="50" cy="53" r="4.5" fill="${c.fg}"/>` },
+
+  { name:'Queue Dots', slug:'queue-dots',
+    concept:'Three dots growing left to right, the last with a cross: the queue moving forward.',
+    draw:c=>`<g transform="translate(0,-4)">
+      <circle cx="14" cy="64" r="8" fill="${c.fg}" opacity=".3"/>
+      <circle cx="38" cy="61" r="11" fill="${c.fg}" opacity=".6"/>
+      <circle cx="71" cy="53" r="19" fill="${c.fg}"/>
+      <path d="M71 44 V62 M62 53 H80" stroke="${c.cut}" stroke-width="6" ${R}/></g>` },
+
+  { name:'Plus + Path', slug:'plus-path',
+    concept:'A soft plus whose lower arm curves into a road: an easy journey to the clinic.',
+    draw:c=>`
+      <path d="M50 14 V42 M22 42 H78 M50 42 C50 64 32 66 32 88" stroke="${c.fg}" stroke-width="18" ${R}/>
+      <path d="M50 42 C50 64 32 66 32 88" stroke="${c.cut}" stroke-width="3.5" fill="none"
+            stroke-dasharray="0 15 6 7 6 7 6 7 6 7"/>` },
+
+  { name:'Letter “a” Monogram', slug:'a-monogram',
+    concept:'A lowercase "a" whose counter holds a small plus; elegant and minimal.',
+    draw:c=>`<g transform="translate(6,-4)">
+      <circle cx="44" cy="54" r="22" stroke="${c.fg}" stroke-width="13" fill="none"/>
+      <path d="M66 31 V77" stroke="${c.fg}" stroke-width="13" ${R}/>
+      <path d="M44 47 V61 M37 54 H51" stroke="${c.hl}" stroke-width="5" ${R}/></g>` },
+
+  { name:'Chair to Phone', slug:'chair-phone',
+    concept:'A waiting-room chair merging into a phone: waiting moves to your pocket.',
+    draw:c=>`
+      <path d="M17 36 V62 H46 M21 62 V84 M40 62 V84" stroke="${c.hl}" stroke-width="7" ${R}/>
+      <rect x="46" y="12" width="38" height="76" rx="10" stroke="${c.fg}" stroke-width="7" fill="none"/>
+      <path d="M59 23 H71" stroke="${c.fg}" stroke-width="4" ${R}/>
+      <path d="M56 51 L63 58 L75 45" stroke="${c.fg}" stroke-width="6" ${R}/>` },
+
+  { name:'Bell + Plus', slug:'bell-plus',
+    concept:'A friendly bell with a plus: we notify you when your turn is near.',
+    draw:c=>`
+      <circle cx="50" cy="22" r="5" fill="${c.fg}"/>
+      <path d="M30 64 V48 a20 20 0 0 1 40 0 V64 l7 8 H23 Z" fill="${c.fg}" stroke="${c.fg}" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M42 79 a8 8 0 0 0 16 0 Z" fill="${c.fg}"/>
+      <path d="M50 44 V60 M42 52 H58" stroke="${c.cut}" stroke-width="6" ${R}/>
+      <path d="M81 33 a17 17 0 0 1 4 19 M19 33 a17 17 0 0 0 -4 19" stroke="${c.hl}" stroke-width="4.5" ${R}/>` },
+
+  { name:'Location Pin + Token', slug:'pin-token',
+    concept:'A map pin holding a token number: arrive at the clinic right on time.',
+    draw:c=>`
+      <ellipse cx="50" cy="93" rx="15" ry="3.5" fill="${c.soft}"/>
+      <path d="M50 90 C38 77 22 61 22 41 A28 28 0 0 1 78 41 C78 61 62 77 50 90 Z" fill="${c.fg}"/>
+      <circle cx="50" cy="41" r="17" fill="${c.cut}"/>
+      <text x="50" y="49.5" text-anchor="middle" font-family="${FONT}" font-weight="900" font-size="24" fill="${c.fg}">3</text>` },
+
+  { name:'Ease Wave', slug:'ease-wave',
+    concept:'A soft wave rising into a pulse, then settling flat: relief and ease.',
+    draw:c=>`
+      <circle cx="50" cy="50" r="42" fill="${c.soft}"/>
+      <path d="M12 56 C18 56 20 47 27 47 S35 56 41 56 L46 56 L53 30 L61 72 L67 51 L82 51" stroke="${c.fg}" stroke-width="7" ${R}/>
+      <circle cx="84" cy="51" r="6" fill="${c.hl}"/>` },
+];
+
+const FONT_CSS = `<style>@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap');</style>`;
+const wordmark = `<text x="100" y="172" text-anchor="middle" font-family="${FONT}" font-weight="800" font-size="46" letter-spacing="-1" fill="#0F766E">asani</text>`;
+
+function logoSVG(k, { text=true, font=false, w, h }={}) {
+  const size = w ? `width="${w}" height="${h}"` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 190" ${size}>${font?FONT_CSS:''}`
+       + `<g transform="translate(50,8)">${concepts[k].draw(L)}</g>${text?wordmark:''}</svg>`;
+}
+function iconSVG(k, px) {
+  const size = px ? `width="${px}" height="${px}"` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" ${size}>`
+       + `<rect width="100" height="100" rx="22" fill="#0F766E"/>`
+       + `<g transform="translate(13,13) scale(.74)">${concepts[k].draw(I)}</g></svg>`;
+}
+
+function save(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function png(svg, w, h, name, withText) {
+  await document.fonts.load('800 46px Nunito');
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  await img.decode();
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  if (withText) {
+    const s = w / 200;
+    ctx.font = `800 ${46*s}px Nunito`; ctx.fillStyle = '#0F766E'; ctx.textAlign = 'center';
+    try { ctx.letterSpacing = `${-1*s}px`; } catch (e) {}
+    ctx.fillText('asani', 100*s, 172*s);
+  }
+  cv.toBlob(b => save(b, name), 'image/png');
+}
+
+const grid = document.getElementById('grid');
+concepts.forEach((c, k) => {
+  const n = String(k + 1).padStart(2, '0');
+  const card = document.createElement('article');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="logo">${logoSVG(k)}</div>
+    <div class="meta"><h2><span>${n}</span>${c.name}</h2><p>${c.concept}</p></div>
+    <div class="icons">${iconSVG(k,96)}${iconSVG(k,56)}${iconSVG(k,32)}<small>app icon</small></div>
+    <div class="dl">
+      <button data-a="ls">Logo SVG</button><button data-a="lp">Logo PNG</button>
+      <button data-a="is">Icon SVG</button><button data-a="ip">Icon PNG</button>
+    </div>`;
+  card.querySelector('.dl').addEventListener('click', e => {
+    const a = e.target.dataset.a; if (!a) return;
+    const base = `asani-${n}-${c.slug}`;
+    const svgType = { type:'image/svg+xml' };
+    if (a === 'ls') save(new Blob([logoSVG(k, { font:true })], svgType), `${base}-logo.svg`);
+    if (a === 'is') save(new Blob([iconSVG(k)], svgType), `${base}-icon.svg`);
+    if (a === 'lp') png(logoSVG(k, { text:false, w:1024, h:973 }), 1024, 973, `${base}-logo.png`, true);
+    if (a === 'ip') png(iconSVG(k, 1024), 1024, 1024, `${base}-icon.png`, false);
+  });
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>
