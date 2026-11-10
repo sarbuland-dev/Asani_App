@@ -21,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _sizes = [
   (name: 'small 320x640 @1.0', size: Size(320, 640), scale: 1.0),
   (name: 'phone 360x740 @1.3', size: Size(360, 740), scale: 1.3),
+  (name: 'tiny 320x568 @1.3', size: Size(320, 568), scale: 1.3),
 ];
 
 Future<void> _loadFonts() async {

@@ -20,21 +20,26 @@ class MainShell extends StatelessWidget {
     return Scaffold(
       extendBody: true,
       body: shell,
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
-        child: Container(
-          height: 68,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(Radii.pill),
-            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 18, offset: const Offset(0, 6))],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: Gap.sm),
-          child: Row(
-            children: [
-              for (var i = 0; i < _items.length; i++)
-                Expanded(child: _NavItem(item: _items[i], selected: shell.currentIndex == i, onTap: () => _go(i))),
-            ],
+      bottomNavigationBar: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.1,
+        child: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+          child: Container(
+            height: 68,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(Radii.pill),
+              boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 18, offset: const Offset(0, 6))],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: Gap.sm),
+            child: Row(
+              children: [
+                for (var i = 0; i < _items.length; i++)
+                  Expanded(
+                    child: _NavItem(item: _items[i], selected: shell.currentIndex == i, onTap: () => _go(i)),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -74,9 +79,16 @@ class _NavItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             ExcludeSemantics(
-              child: Text(label,
-                  style: AppText.labelSmall.copyWith(
-                      color: AppColors.onPrimary, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, fontSize: 11.5)),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.labelSmall.copyWith(
+                  color: AppColors.onPrimary,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 11.5,
+                ),
+              ),
             ),
           ],
         ),
