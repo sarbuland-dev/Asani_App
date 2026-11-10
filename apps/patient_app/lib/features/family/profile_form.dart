@@ -185,6 +185,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
                 _label('Relation'),
                 DropdownButtonFormField<Relation>(
                   initialValue: _relation,
+                  isExpanded: true,
                   style: AppText.bodyLarge,
                   borderRadius: BorderRadius.circular(Radii.button),
                   items: [for (final r in _relations) DropdownMenuItem(value: r, child: Text(r.label))],

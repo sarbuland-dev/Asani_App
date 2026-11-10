@@ -42,7 +42,8 @@ class HomeScreen extends ConsumerWidget {
                   if (recent.isNotEmpty) ...[
                     const SectionTitle('Recent clinics'),
                     SizedBox(
-                      height: 128,
+                      // Grows with the user's text size (up to 1.3×).
+                      height: 52 + MediaQuery.textScalerOf(context).scale(84),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
@@ -203,18 +204,29 @@ class _ActiveTokensState extends State<_ActiveTokens> {
   @override
   Widget build(BuildContext context) {
     if (widget.tokens.length == 1) return ActiveTokenBanner(token: widget.tokens.first);
-    // Several active tokens → carousel (DESIGN S-05).
+    // Several active tokens → swipeable cards sized to their content (DESIGN S-05).
+    final width = MediaQuery.sizeOf(context).width - Gap.screen * 2 - 24;
     return Column(children: [
-      SizedBox(
-        height: 290,
-        child: PageView.builder(
-          controller: PageController(viewportFraction: 0.94),
-          padEnds: false,
-          onPageChanged: (p) => setState(() => _page = p),
-          itemCount: widget.tokens.length,
-          itemBuilder: (_, i) => Padding(
-            padding: const EdgeInsets.only(right: Gap.sm),
-            child: ActiveTokenBanner(token: widget.tokens[i]),
+      NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          final page = (n.metrics.pixels / (width + Gap.sm)).round().clamp(0, widget.tokens.length - 1);
+          if (page != _page) setState(() => _page = page);
+          return false;
+        },
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final t in widget.tokens)
+                  Padding(
+                    padding: const EdgeInsets.only(right: Gap.sm),
+                    child: SizedBox(width: width, child: ActiveTokenBanner(token: t)),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

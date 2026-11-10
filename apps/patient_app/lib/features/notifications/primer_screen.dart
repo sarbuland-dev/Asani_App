@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/common.dart';
 import '../../data/providers.dart';
 
 /// S-17 notification permission primer, shown once before the first booking.
@@ -29,9 +30,10 @@ class PrimerScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Padding(
+        child: FillScrollView(
           padding: const EdgeInsets.all(Gap.xl),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
               Container(
@@ -102,7 +104,7 @@ class PrimerScreen extends ConsumerWidget {
             child: DefaultTextStyle(style: AppText.labelMedium.copyWith(color: AppColors.primary), child: leading),
           ),
           const SizedBox(width: Gap.md),
-          Text(text, style: AppText.labelMedium),
+          Expanded(child: Text(text, style: AppText.labelMedium)),
         ]),
       );
 }
