@@ -423,6 +423,25 @@ class IconBox extends StatelessWidget {
       );
 }
 
+/// A full-height column that scrolls when space runs out (small phones,
+/// large text, open keyboard). Lets screens keep `Spacer`s safely.
+class FillScrollView extends StatelessWidget {
+  const FillScrollView({super.key, required this.child, this.padding = EdgeInsets.zero});
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, c) => SingleChildScrollView(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: (c.maxHeight - padding.vertical).clamp(0, double.infinity)),
+            child: IntrinsicHeight(child: child),
+          ),
+        ),
+      );
+}
+
 void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

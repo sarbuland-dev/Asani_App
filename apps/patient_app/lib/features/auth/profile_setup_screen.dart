@@ -52,7 +52,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Padding(
+        child: FillScrollView(
           padding: const EdgeInsets.all(Gap.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

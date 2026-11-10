@@ -43,8 +43,8 @@ class TokenSlip extends StatelessWidget {
                   Row(children: [
                     AsaniMark(size: 22, color: ink),
                     const SizedBox(width: 4),
-                    Text(clinic.name, style: AppText.labelMedium),
-                    const Spacer(),
+                    Expanded(child: Text(clinic.name, style: AppText.labelMedium, overflow: TextOverflow.ellipsis)),
+                    const SizedBox(width: Gap.sm),
                     Text(clinic.area, style: AppText.labelSmall),
                   ]),
               ]),
@@ -122,7 +122,12 @@ class TokenSlip extends StatelessWidget {
         children: [
           slip,
           if (cancelled && !compact)
-            Transform.rotate(
+            Positioned.fill(
+              child: Center(
+                child: FractionallySizedBox(
+                  widthFactor: 0.78,
+                  child: FittedBox(
+                    child: Transform.rotate(
               angle: -0.32,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.xs),
@@ -134,6 +139,10 @@ class TokenSlip extends StatelessWidget {
                 child: Text('CANCELLED',
                     style: AppText.displaySmall.copyWith(color: AppColors.danger, fontWeight: FontWeight.w900, letterSpacing: 2)),
               ),
+                    ),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -142,10 +151,10 @@ class TokenSlip extends StatelessWidget {
 
   Widget _row(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(children: [
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: AppText.bodyMedium),
-          const Spacer(),
-          Text(value, style: AppText.labelMedium),
+          const SizedBox(width: Gap.md),
+          Expanded(child: Text(value, style: AppText.labelMedium, textAlign: TextAlign.right)),
         ]),
       );
 
