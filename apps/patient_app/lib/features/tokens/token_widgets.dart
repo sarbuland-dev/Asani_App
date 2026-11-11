@@ -63,8 +63,11 @@ class ActiveTokenBanner extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Text(isToday ? 'ACTIVE TOKEN' : 'UPCOMING TOKEN', style: AppText.overline.copyWith(color: AppColors.primary)),
-                    const Spacer(),
+                    Expanded(
+                      child: Text(isToday ? 'ACTIVE TOKEN' : 'UPCOMING TOKEN',
+                          style: AppText.overline.copyWith(color: AppColors.primary), overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: Gap.sm),
                     StatusChip(token.status),
                   ]),
                   const SizedBox(height: Gap.xs),
@@ -107,7 +110,7 @@ class ActiveTokenBanner extends ConsumerWidget {
                     if (isToday && running && !called) ...[
                       const Icon(Icons.schedule_rounded, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
-                      Text('${Fmt.wait(pos!.waitMinutes)} wait', style: AppText.labelMedium),
+                      Flexible(child: Text('${Fmt.wait(pos!.waitMinutes)} wait', style: AppText.labelMedium)),
                     ],
                     const Spacer(),
                     Container(

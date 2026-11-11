@@ -12,7 +12,7 @@ void main() {
   Future<void> signIn(String phone) async {
     await backend.sendCode(phone);
     await backend.verifyCode(DemoBackend.demoOtp);
-    await backend.completeProfile('Ali Khan');
+    await backend.completeProfile(name: 'Ali Khan', age: 28, gender: Gender.male);
   }
 
   setUp(() async {
@@ -28,7 +28,7 @@ void main() {
     expect(() => backend.verifyCode('000000'), throwsA(isA<AppException>()));
     await backend.verifyCode(DemoBackend.demoOtp);
     expect(backend.current.status, AuthStatus.needsProfile);
-    await backend.completeProfile('Sara');
+    await backend.completeProfile(name: 'Sara', age: 31, gender: Gender.female);
     expect(backend.current.status, AuthStatus.signedIn);
   });
 

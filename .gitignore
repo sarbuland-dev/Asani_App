@@ -1,0 +1,24 @@
+# Secrets and private files (docs/02 §9) — never commit
+**/serviceAccount*.json
+**/.env*
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p8
+emulator-data/
+apps/patient_app/android/app/src/prod/google-services.json
+apps/patient_app/ios/Runner/prod/GoogleService-Info.plist
+
+# Firebase CLI / emulator logs
+.firebase/
+*-debug.log
+firebase-debug.*.log
+
+# Local design reference
+.design-ref/
+
+# Node
+node_modules/
+
+# IDE
+.idea/

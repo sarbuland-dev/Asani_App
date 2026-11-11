@@ -21,6 +21,8 @@ class HomeScreen extends ConsumerWidget {
     final city = ref.watch(selectedCityProvider);
     final clinics = ref.watch(clinicsProvider(city));
     final recent = ref.watch(recentClinicsProvider).value ?? const [];
+    // Keeps the city list loaded for the city picker (unwatched providers are paused).
+    ref.watch(citiesProvider);
     final active = ref.watch(myActiveTokensProvider).value ?? const [];
     final followUps = ref.watch(upcomingFollowUpsProvider);
 
@@ -161,10 +163,20 @@ class _Header extends ConsumerWidget {
 }
 
 Future<void> showCityPicker(BuildContext context, WidgetRef ref) async {
-  final cities = ref.read(citiesProvider);
   final current = ref.read(selectedCityProvider);
+  var loaded = ref.read(citiesProvider).value;
+  if (loaded == null) {
+    try {
+      loaded = await ref.read(citiesProvider.future).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      loaded = const <String>[]; // offline: show only the current city
+    }
+    if (!context.mounted) return;
+  }
+  final cities = loaded.contains(current) ? loaded : [current, ...loaded];
   final picked = await showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true, // above the floating nav bar
     builder: (ctx) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -25,8 +26,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   Timer? _timer;
+  static const _maxResends = 3;
   int _secondsLeft = 60;
+  int _resendCount = 0;
   bool _verifying = false;
+  bool _resending = false;
   String? _error;
 
   @override
@@ -74,11 +78,23 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   Future<void> _resend() async {
     final phone = _phone;
-    if (phone == null) return;
-    await ref.read(authRepositoryProvider).sendCode(phone);
-    if (!mounted) return;
-    showSnack(context, 'A new code has been sent.');
-    _startTimer();
+    if (phone == null || _resending || _resendCount >= _maxResends) return;
+    setState(() => _resending = true);
+    try {
+      await ref.read(authRepositoryProvider).sendCode(phone);
+      if (!mounted) return;
+      _controller.clear();
+      setState(() {
+        _resendCount++;
+        _error = null;
+      });
+      showSnack(context, 'A new code has been sent.');
+      _startTimer();
+    } catch (e) {
+      if (mounted) setState(() => _error = AppException.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
   }
 
   void _changeNumber() {
@@ -139,6 +155,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       child: TextField(
                         controller: _controller,
                         focusNode: _focus,
+                        enabled: !_verifying,
                         autofocus: true,
                         keyboardType: TextInputType.number,
                         autofillHints: const [AutofillHints.oneTimeCode],
@@ -166,14 +183,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         children: [
                           const Icon(Icons.schedule_rounded, size: 18, color: AppColors.textSecondary),
                           const SizedBox(width: 6),
-                          Text('Resend code in ', style: AppText.bodyMedium),
+                          Flexible(child: Text("Didn't get it? Resend in ", style: AppText.bodyMedium)),
                           Text('0:${_secondsLeft.toString().padLeft(2, '0')}', style: AppText.labelMedium),
                         ],
                       )
-                    : TextButton(onPressed: _resend, child: const Text('Resend code')),
+                    : _resendCount >= _maxResends
+                        ? Text('Resend limit reached. Please try again later.',
+                            textAlign: TextAlign.center, style: AppText.bodyMedium)
+                        : TextButton(
+                            onPressed: _resending || _verifying ? null : _resend,
+                            child: _resending
+                                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text('Resend code'),
+                          ),
               ),
               const SizedBox(height: Gap.lg),
-              const DemoNote(text: 'Demo mode: the code is ${DemoBackend.demoOtp}.'),
+              if (Env.isDemo) const DemoNote(text: 'Demo mode: the code is ${DemoBackend.demoOtp}.'),
               const Spacer(),
               FilledButton(
                 onPressed: code.length == 6 && !_verifying ? _verify : null,

@@ -226,6 +226,7 @@ class AccountScreen extends ConsumerWidget {
   void _showMiuiGuide(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true, // above the floating nav bar
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl),

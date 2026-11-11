@@ -21,6 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _sizes = [
   (name: 'small 320x640 @1.0', size: Size(320, 640), scale: 1.0),
   (name: 'phone 360x740 @1.3', size: Size(360, 740), scale: 1.3),
+  (name: 'tiny 320x568 @1.3', size: Size(320, 568), scale: 1.3),
 ];
 
 Future<void> _loadFonts() async {
@@ -99,7 +100,20 @@ void main() {
         await settle();
       }
 
-      // Login screens
+      // Intro pages (first launch), then login screens
+      // Not visit(): it would scroll the PageView to the last page.
+      current = 'intro 1';
+      router.go('/intro');
+      await settle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/intro');
+      for (var i = 2; i <= 3; i++) {
+        current = 'intro $i';
+        await tester.tap(find.text('Next'));
+        await settle();
+      }
+      await tester.tap(find.text('Get started'));
+      await settle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/login/phone');
       await visit('phone', '/login/phone');
       await tester.runAsync(() => backend.sendCode('+923001234567'));
       await settle();
@@ -108,7 +122,7 @@ void main() {
       await settle();
       await visit('name & consent', '/login/profile');
       await tester.runAsync(() async {
-        await backend.completeProfile('Muhammad Abdullah Khan Niazi');
+        await backend.completeProfile(name: 'Muhammad Abdullah Khan Niazi', age: 34, gender: Gender.male);
         await backend.update(backend.settings.copyWith(primerShown: true, notificationsAllowed: false));
         final today = dayKey(DateTime.now());
         final shazia = (await backend.watchMyPatients().first).firstWhere((p) => p.name == 'Shazia Begum');

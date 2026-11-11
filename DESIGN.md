@@ -124,6 +124,12 @@ Wireframes are layout guides, not pixel specs.
 ### S-01 Splash
 Logo centred on `primary` background. Max 1.5 s while auth state loads.
 
+### S-00 Intro pages (first launch only)
+Three swipeable pages on `surface`, shown once before S-02 (D-16): "Find your clinic", "Skip the waiting room",
+"We'll tell you when to go". Each page: large icon in `primaryContainer` circles, title, one line of body text.
+Logo top-left, **Skip** top-right (hidden on the last page), page dots, primary button **Next** / **Get started**.
+Skip or Get started → S-02. Not shown again after sign-out.
+
 ### S-02 Phone entry
 ```
 ┌──────────────────────────────┐
@@ -150,8 +156,9 @@ Logo centred on `primary` background. Max 1.5 s while auth state loads.
 - "Didn't get it? Resend in 0:59", then a "Resend code" link.
 - "Wrong number? Change" link back to S-02.
 
-### S-04 Name & consent (first login only)
-- "What's your name?" field.
+### S-04 Tell us about you (first login only)
+- Full name, Age (years, 0–120), Gender (Male / Female / Other) — D-15.
+- "Use another number" text button signs out.
 - Checkbox: "I agree to the **Terms** and **Privacy Policy**" (links open in-app browser).
 - [Continue] enabled when name ≥ 2 chars and checkbox ticked.
 

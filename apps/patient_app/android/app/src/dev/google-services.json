@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "835282537903",
+    "project_id": "asani-b2b17",
+    "storage_bucket": "asani-b2b17.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:835282537903:android:71be27b280b0d3c25df35a",
+        "android_client_info": {
+          "package_name": "pk.asani.patient.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAn6vVODtn4L600Ktd0I1NHGBwGzQ9nMgo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

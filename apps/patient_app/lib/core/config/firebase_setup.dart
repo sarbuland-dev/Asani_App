@@ -1,0 +1,42 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../firebase_options_dev.dart' as dev;
+import '../../firebase_options_prod.dart' as prod;
+import '../utils/logger.dart';
+import 'env.dart';
+
+/// Firebase region for Functions (docs: asia-south1, Mumbai).
+const firebaseRegion = 'asia-south1';
+
+abstract final class FirebaseSetup {
+  static Future<void> init() async {
+    final options = Env.isProd ? prod.DefaultFirebaseOptions.currentPlatform : dev.DefaultFirebaseOptions.currentPlatform;
+    await Firebase.initializeApp(options: options);
+    await _connectEmulators();
+    if (Env.authTestMode && !Env.isProd) {
+      // No reCAPTCHA; only Firebase test phone numbers work (FIREBASE_SETUP.md).
+      await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+      AppLogger.warn('AUTH_TEST_MODE on: reCAPTCHA disabled, test numbers only');
+    }
+  }
+
+  static String get _emulatorHost {
+    if (Env.emulatorHost.isNotEmpty) return Env.emulatorHost; // real phone
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) return '10.0.2.2'; // Android emulator
+    return 'localhost';
+  }
+
+  /// Only with --dart-define=USE_EMULATOR=true, and never in prod (AGENTS.md §7).
+  static Future<void> _connectEmulators() async {
+    if (!Env.useEmulator || Env.isProd) return;
+    final host = _emulatorHost;
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+    FirebaseFunctions.instanceFor(region: firebaseRegion).useFunctionsEmulator(host, 5001);
+    AppLogger.info('Firebase emulators connected at $host');
+  }
+}

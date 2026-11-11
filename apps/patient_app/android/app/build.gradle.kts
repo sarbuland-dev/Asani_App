@@ -1,5 +1,8 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -15,14 +18,32 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "app.asani.patient_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "pk.asani.patient"
         minSdk = 26 // Android 8.0+ (PRD §6)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // Needed for the per-flavor app_name below.
+    buildFeatures {
+        resValues = true
+    }
+
+    // docs/02 §4: dev → Firebase asani-dev, prod → asani-prod.
+    // Each flavor gets its google-services.json in src/dev/ or src/prod/.
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationId = "pk.asani.patient.dev"
+            resValue("string", "app_name", "Asani Dev")
+        }
+        create("prod") {
+            dimension = "env"
+            applicationId = "pk.asani.patient"
+            resValue("string", "app_name", "Asani")
+        }
     }
 
     buildTypes {

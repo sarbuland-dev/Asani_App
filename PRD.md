@@ -65,10 +65,12 @@ Design for older and less tech-comfortable users: large text, few steps, clear s
 Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2** = later
 
 ### F-01 Phone OTP login (P0)
+- On the very first launch, three short intro pages explain the app before login; they can be skipped and are not shown again (D-16).
 - User enters a Pakistani mobile number (`+92` prefix fixed, 10 digits after it, starting with `3`).
 - Receives a 6-digit OTP via Firebase Phone Auth; auto-read on Android where possible.
 - Resend OTP after 60 seconds. Clear error messages for wrong code, expired code, too many attempts.
-- First login: ask for the user's **name**, accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this.
+- First login ("Tell us about you"): ask for the user's **name, age and gender**, accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this (D-15). "Use another number" signs out.
+- The number field accepts `3001234567`, `03001234567`, `923001234567` and `+92 300 1234567`. Resend is limited to 3 times per login.
 - After login, call `linkPatientProfiles`: any patient profiles created earlier for this phone number (e.g. by a receptionist in future) are attached to the account.
 - Session persists; the user stays logged in until logout.
 
@@ -215,6 +217,8 @@ Rules:
 | D-12 | 2026-11-10 | App icon and logo: the lowercase **"a" monogram with a small plus** (logo concept 06), as in the UI design. |
 | D-13 | 2026-11-10 | Token numbers are shown with the doctor's letter, e.g. **A-11** (`doctors.tokenPrefix`), as in the UI design. Numbering is still per doctor per day. |
 | D-14 | 2026-11-10 | The live token screen shows the token code instead of a QR code (UI design). QR returns with the desktop app if reception needs scanning. |
+| D-15 | 2026-11-10 | First login asks **name, age and gender** (asani_auth screens), so the Self profile is complete for booking. |
+| D-16 | 2026-11-11 | **Intro pages** (S-00): three skippable pages on first launch only, before phone login. Stored on the device, not in Firestore. |
 
 ## 10. Open questions (confirm before building the related part)
 

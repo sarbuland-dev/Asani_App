@@ -1,0 +1,21 @@
+Asani patient app - features still on DEMO data
+================================================
+
+Already on Firebase: phone login (test numbers), users/{uid}, "Self" patient profile, name/city update.
+
+Move these one by one, in this order (each step needs the ones before it):
+
+1.  Clinics list + search        - DONE 2026-11-11: Firestore clinics, seeded by tools/admin-scripts/seed-dev.js. (Free)
+2.  Clinic detail + doctors      - DONE 2026-11-12: Firestore doctors (schedule, leave), same seed script. (Free)
+3.  Family profiles              - add, edit, delete, profile detail.                              (Free)
+4.  Settings                     - notification primer, permission flags (can stay on phone).      (Free)
+5.  Token booking                - bookToken Cloud Function gives token number (A-11), BR-1..BR-7. (Emulator free / live needs Blaze)
+6.  Token cancel                 - cancelToken Cloud Function.                                      (Emulator free / live needs Blaze)
+7.  My tokens + history          - active and past tokens from Firestore.                          (Free, after 5)
+8.  Live queue screen            - now serving, patients ahead, wait time.                          (Free, after 5)
+9.  Queue simulator              - remove demo 15-sec auto-advance, use tools/queue-sim.           (Free)
+10. Queue notifications          - 3 / 2 / 1 / "Your turn" via FCM push.                            (Emulator free / live needs Blaze)
+11. Follow-ups                   - doctor follow-up reminders.                                       (Free)
+12. Delete account               - deploy deleteAccount Cloud Function.                             (Blaze)
+
+How to use: tell Claude "do 1", then "do 2", and so on.

@@ -18,7 +18,8 @@ abstract interface class AuthRepository {
   AuthState get current;
   Future<void> sendCode(String e164Phone);
   Future<void> verifyCode(String code);
-  Future<void> completeProfile(String name);
+  /// First login: creates the account and the "Self" patient profile.
+  Future<void> completeProfile({required String name, required int age, required Gender gender});
   Future<void> updateName(String name);
   Future<void> setCity(String city);
   void cancelLogin();
@@ -27,7 +28,8 @@ abstract interface class AuthRepository {
 }
 
 abstract interface class ClinicRepository {
-  List<String> get cities;
+  /// Cities that have at least one visible clinic, A-Z.
+  Stream<List<String>> watchCities();
   Stream<List<Clinic>> watchClinics(String city);
   Stream<Clinic?> watchClinic(String clinicId);
   Stream<List<Doctor>> watchDoctors(String clinicId);
@@ -77,23 +79,27 @@ abstract interface class SettingsRepository {
 }
 
 class AppSettings {
-  const AppSettings({this.primerShown = false, this.notificationsAllowed = false, this.autoAdvanceQueue = true});
+  const AppSettings({this.introSeen = false, this.primerShown = false, this.notificationsAllowed = false, this.autoAdvanceQueue = true});
+  /// Intro pages (S-00) were shown once (D-16).
+  final bool introSeen;
   final bool primerShown;
   final bool notificationsAllowed;
 
   /// Demo only: the simulated receptionist moves queues forward on a timer.
   final bool autoAdvanceQueue;
 
-  AppSettings copyWith({bool? primerShown, bool? notificationsAllowed, bool? autoAdvanceQueue}) => AppSettings(
+  AppSettings copyWith({bool? introSeen, bool? primerShown, bool? notificationsAllowed, bool? autoAdvanceQueue}) => AppSettings(
+        introSeen: introSeen ?? this.introSeen,
         primerShown: primerShown ?? this.primerShown,
         notificationsAllowed: notificationsAllowed ?? this.notificationsAllowed,
         autoAdvanceQueue: autoAdvanceQueue ?? this.autoAdvanceQueue,
       );
 
   Map<String, Object?> toMap() =>
-      {'primerShown': primerShown, 'notificationsAllowed': notificationsAllowed, 'autoAdvanceQueue': autoAdvanceQueue};
+      {'introSeen': introSeen, 'primerShown': primerShown, 'notificationsAllowed': notificationsAllowed, 'autoAdvanceQueue': autoAdvanceQueue};
 
   factory AppSettings.fromMap(Map m) => AppSettings(
+        introSeen: (m['introSeen'] as bool?) ?? false,
         primerShown: (m['primerShown'] as bool?) ?? false,
         notificationsAllowed: (m['notificationsAllowed'] as bool?) ?? false,
         autoAdvanceQueue: (m['autoAdvanceQueue'] as bool?) ?? true,

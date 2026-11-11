@@ -88,7 +88,7 @@ class ClinicCard extends ConsumerWidget {
             Row(
               children: [
                 if (suspended)
-                  const Pill(label: 'Online booking not available', fg: AppColors.textSecondary, bg: AppColors.muted)
+                  const Flexible(child: Pill(label: 'Online booking not available', fg: AppColors.textSecondary, bg: AppColors.muted))
                 else
                   Text.rich(
                     TextSpan(children: [
@@ -107,9 +107,12 @@ class ClinicCard extends ConsumerWidget {
                     style: AppText.labelSmall.copyWith(
                         color: info.open ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w600),
                   ),
-                const Spacer(),
+                const SizedBox(width: Gap.sm),
                 if (!suspended && (info.hours ?? info.nextOpen) != null)
-                  Text(info.hours ?? info.nextOpen!, style: AppText.labelSmall),
+                  Expanded(
+                    child: Text(info.hours ?? info.nextOpen!,
+                        style: AppText.labelSmall, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
               ],
             ),
           ],
