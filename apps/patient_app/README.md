@@ -7,10 +7,18 @@ Flutter app for patients (Android + iOS). Screens follow the UI design and DESIG
 ```bash
 cd apps/patient_app
 flutter pub get
-flutter run
+flutter run --flavor dev
 ```
 
-The app currently runs on a **demo backend** (`lib/data/demo/`, decision D-11). No Firebase setup is needed yet.
+Two modes:
+
+| Mode | Command | Login |
+|---|---|---|
+| Demo (default) | `flutter run --flavor dev` | code **123456**, all data on the phone |
+| Firebase | `flutter run --flavor dev --dart-define=BACKEND=firebase` | real SMS / test numbers, account in Firestore |
+
+Firebase mode needs a one-time setup: see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
+In both modes clinics, queues, tokens and family use demo data for now (D-11).
 
 - Login: any Pakistani mobile number (`3XX XXXXXXX`). The OTP is **123456**.
 - Use **300 1234567** to see a sample family, visit history and a follow-up.
@@ -43,9 +51,9 @@ flutter test
 cd ../../packages/asani_core && dart test
 ```
 
-## Next: connect Firebase
+## Next on Firebase
 
-1. Create `asani-dev` (Blaze, Firestore in `asia-south1`) and run `flutterfire configure`.
-2. Implement the repository interfaces in `lib/data/repositories/` with Firestore + Cloud Functions.
-3. Swap `DemoBackend` for the Firebase implementation in `main.dart` (`backendProvider`).
-4. Add FCM + `flutter_local_notifications` for real queue alerts (channels `queue_alerts`, `follow_ups`).
+1. Done: login (`lib/data/firebase/firebase_auth_repository.dart`), rules and indexes (repo root).
+2. Next: clinics, doctors and queue days from Firestore; `bookToken` / `cancelToken` Cloud Functions.
+3. Then: family profiles and follow-ups in Firestore.
+4. Then: FCM + `flutter_local_notifications` for real queue alerts (channels `queue_alerts`, `follow_ups`).

@@ -1,0 +1,113 @@
+// Source: docs/04-authentication-and-security.md §5. Change both together.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function myPhone() { return request.auth.token.phone_number; }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+    function validRelation(r) {
+      return r in ['self','mother','father','spouse','son','daughter','brother','sister','other'];
+    }
+    function validPatient(d) {
+      return d.name is string && d.name.size() >= 2 && d.name.size() <= 60
+        && d.nameLower == d.name.lower()
+        && d.birthYear is int
+        && d.birthYear >= request.time.year() - 120
+        && d.birthYear <= request.time.year()
+        && d.gender in ['male','female','other']
+        && validRelation(d.relation)
+        && (d.patientPhone == null || d.patientPhone.matches('^\\+923[0-9]{9}$'));
+    }
+
+    // ---------- users ----------
+    match /users/{userId} {
+      allow read: if signedIn() && uid() == userId;
+
+      allow create: if signedIn() && uid() == userId
+        && request.resource.data.phone == myPhone()
+        && request.resource.data.role == 'patient'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 60;
+
+      allow update: if signedIn() && uid() == userId
+        && changedOnly(['name','city','updatedAt','lastLoginAt',
+                        'consentAcceptedAt','consentVersion'])
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 60;
+
+      allow delete: if false;                 // deleteAccount function only
+
+      match /devices/{deviceId} {
+        allow read, delete: if signedIn() && uid() == userId;
+        allow create, update: if signedIn() && uid() == userId
+          && request.resource.data.keys().hasOnly(['fcmToken','platform','appVersion','updatedAt'])
+          && request.resource.data.platform in ['android','ios'];
+      }
+    }
+
+    // ---------- patients (family profiles) ----------
+    match /patients/{patientId} {
+      allow read: if signedIn() && resource.data.ownerUid == uid();
+
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.phone == myPhone()
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdBy == 'app'
+        && validPatient(request.resource.data)
+        // only one Self profile: allowed only while the user doc has no selfPatientId
+        && (request.resource.data.relation != 'self'
+            || !exists(/databases/$(database)/documents/users/$(uid()))
+            || get(/databases/$(database)/documents/users/$(uid())).data.get('selfPatientId', null) == null);
+
+      allow update: if signedIn()
+        && resource.data.ownerUid == uid()
+        && request.resource.data.ownerUid == uid()
+        && changedOnly(['name','nameLower','birthYear','gender','relation',
+                        'patientPhone','status','updatedAt'])
+        && request.resource.data.status in ['active','deleted']
+        && !(resource.data.relation == 'self' && request.resource.data.status == 'deleted')
+        && !(resource.data.relation != 'self' && request.resource.data.relation == 'self')
+        && validPatient(request.resource.data);
+
+      allow delete: if false;                 // soft delete only
+    }
+
+    // ---------- clinics & doctors (read-only for patients) ----------
+    match /clinics/{clinicId} {
+      allow read: if signedIn();
+      allow write: if false;
+      match /private/{docId} { allow read, write: if false; }   // billing, Phase 3
+      match /stats/{docId}   { allow read, write: if false; }   // Phase 2
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if signedIn();
+      allow write: if false;
+      match /days/{date} {
+        allow read: if signedIn();             // numbers only, no personal data
+        allow write: if false;
+      }
+    }
+
+    // ---------- tokens ----------
+    match /tokens/{tokenId} {
+      allow read: if signedIn()
+        && (resource.data.bookedByUserId == uid()
+            || resource.data.patientOwnerUid == uid());
+      allow write: if false;                  // bookToken / cancelToken / triggers only
+    }
+
+    // ---------- follow-ups ----------
+    match /followUps/{id} {
+      allow read: if signedIn() && resource.data.ownerUid == uid();
+      allow write: if false;
+    }
+  }
+}

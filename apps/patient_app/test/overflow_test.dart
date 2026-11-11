@@ -100,7 +100,20 @@ void main() {
         await settle();
       }
 
-      // Login screens
+      // Intro pages (first launch), then login screens
+      // Not visit(): it would scroll the PageView to the last page.
+      current = 'intro 1';
+      router.go('/intro');
+      await settle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/intro');
+      for (var i = 2; i <= 3; i++) {
+        current = 'intro $i';
+        await tester.tap(find.text('Next'));
+        await settle();
+      }
+      await tester.tap(find.text('Get started'));
+      await settle();
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/login/phone');
       await visit('phone', '/login/phone');
       await tester.runAsync(() => backend.sendCode('+923001234567'));
       await settle();
@@ -109,7 +122,7 @@ void main() {
       await settle();
       await visit('name & consent', '/login/profile');
       await tester.runAsync(() async {
-        await backend.completeProfile('Muhammad Abdullah Khan Niazi');
+        await backend.completeProfile(name: 'Muhammad Abdullah Khan Niazi', age: 34, gender: Gender.male);
         await backend.update(backend.settings.copyWith(primerShown: true, notificationsAllowed: false));
         final today = dayKey(DateTime.now());
         final shazia = (await backend.watchMyPatients().first).firstWhere((p) => p.name == 'Shazia Begum');

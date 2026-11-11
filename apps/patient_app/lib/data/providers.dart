@@ -27,7 +27,7 @@ final settingsProvider = StreamProvider<AppSettings>((ref) => ref.watch(settings
 
 // ---- clinics
 
-final citiesProvider = Provider<List<String>>((ref) => ref.watch(clinicRepositoryProvider).cities);
+final citiesProvider = StreamProvider<List<String>>((ref) => ref.watch(clinicRepositoryProvider).watchCities());
 
 final selectedCityProvider = Provider<String>((ref) => ref.watch(currentUserProvider)?.city ?? 'Lahore');
 

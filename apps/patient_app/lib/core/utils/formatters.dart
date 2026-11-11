@@ -79,9 +79,20 @@ abstract final class Fmt {
 abstract final class PhoneUtils {
   static String digits(String input) => input.replaceAll(RegExp(r'[^0-9]'), '');
 
-  static bool isValidLocal(String input) => RegExp(r'^3\d{9}$').hasMatch(digits(input));
+  /// Accepts "3001234567", "03001234567", "923001234567", "+92 300 1234567"
+  /// and returns the 10 local digits ("3001234567"), possibly incomplete.
+  static String normalizeLocal(String input) {
+    var d = digits(input);
+    if (d.startsWith('92') && d.length > 10) d = d.substring(2);
+    while (d.startsWith('0')) {
+      d = d.substring(1);
+    }
+    return d.length > 10 ? d.substring(0, 10) : d;
+  }
 
-  static String toE164(String local) => '+92${digits(local)}';
+  static bool isValidLocal(String input) => RegExp(r'^3\d{9}$').hasMatch(normalizeLocal(input));
+
+  static String toE164(String local) => '+92${normalizeLocal(local)}';
 
   /// "3001234567" → "300 1234567"
   static String formatLocal(String input) {

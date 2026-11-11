@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -94,11 +95,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       Expanded(
                         child: TextField(
                           controller: _controller,
+                          enabled: !_sending,
                           keyboardType: TextInputType.phone,
-                          autofocus: false,
+                          textInputAction: TextInputAction.done,
+                          autofocus: true,
                           autofillHints: const [AutofillHints.telephoneNumberNational],
                           style: AppText.bodyLarge.copyWith(fontSize: 18, letterSpacing: 0.5),
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10), _PkPhoneFormatter()],
+                          inputFormatters: [_PkPhoneFormatter()],
                           decoration: const InputDecoration(hintText: '300 1234567'),
                           onChanged: (_) => setState(() {}),
                           onSubmitted: (_) => _send(),
@@ -116,7 +119,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                   const SizedBox(height: Gap.md),
                   Text("We'll send a 6-digit code by SMS.", textAlign: TextAlign.center, style: AppText.bodyMedium),
                   const SizedBox(height: Gap.xl),
-                  const _DemoNote(text: 'Demo mode: use 300 1234567 to see a sample family and visit history. Any 3XX number works.'),
+                  if (Env.isDemo)
+                    const _DemoNote(text: 'Demo mode: use 300 1234567 to see a sample family and visit history. Any 3XX number works.'),
                 ],
               ),
             ),
@@ -127,11 +131,12 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   }
 }
 
-/// Formats as "3XX XXXXXXX" while typing.
+/// Formats as "3XX XXXXXXX" while typing. Typed or pasted "0300…",
+/// "92300…" and "+92 300…" are cleaned to the 10 local digits.
 class _PkPhoneFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = PhoneUtils.digits(newValue.text);
+    final digits = PhoneUtils.normalizeLocal(newValue.text);
     final text = PhoneUtils.formatLocal(digits);
     return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }

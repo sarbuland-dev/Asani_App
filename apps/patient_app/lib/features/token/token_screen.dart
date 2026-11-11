@@ -265,6 +265,7 @@ class TokenScreen extends ConsumerWidget {
       title: 'Cancel token ${token.label}?',
       message: 'Your place in the queue will be given up. This cannot be undone.',
       confirmLabel: 'Cancel token',
+      cancelLabel: 'Keep it',
       danger: true,
     );
     if (!ok) return;

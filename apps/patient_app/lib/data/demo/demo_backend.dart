@@ -91,6 +91,19 @@ class DemoBackend
     _simulator = Timer.periodic(simulatorInterval, (_) => _tick());
   }
 
+  /// Firebase mode: doctors read from Firestore replace the demo copies, so
+  /// booking rules and the queue use the real schedule.
+  void useDoctors(Iterable<Doctor> doctors) {
+    var changed = false;
+    for (final d in doctors) {
+      final old = _doctors[d.id];
+      if (old != null && old.toMap().toString() == d.toMap().toString()) continue;
+      _doctors[d.id] = d;
+      changed = true;
+    }
+    if (changed) _changed();
+  }
+
   void dispose() {
     _simulator?.cancel();
     _changes.close();
@@ -221,19 +234,20 @@ class DemoBackend
   }
 
   @override
-  Future<void> completeProfile(String name) async {
+  Future<void> completeProfile({required String name, required int age, required Gender gender}) async {
     await _latency(500);
     final me = _me;
-    if (me == null) throw AppException.generic;
+    if (me == null) throw const AppException('session-expired', 'Session expired. Please log in again.');
     final isDemo = me.phone == DemoSeed.demoPhone;
     final now = DateTime.now();
+    name = name.trim().replaceAll(RegExp(r'\s+'), ' ');
     final self = Patient(
       id: _newId('p'),
       ownerUid: me.uid,
       phone: me.phone,
-      name: name.trim(),
-      gender: isDemo ? Gender.male : Gender.other,
-      birthYear: isDemo ? now.year - 28 : null,
+      name: name,
+      gender: gender,
+      birthYear: now.year - age,
       relation: Relation.self,
       createdAt: now,
     );
@@ -307,12 +321,29 @@ class DemoBackend
     _changed();
   }
 
+  // ---------------------------------------------------------------- Firebase bridge
+
+  /// Firebase mode: login lives in Firebase, while clinics, tokens and
+  /// family still run on demo data for the signed-in account.
+  void attachAccount(AppUser user, Patient self) {
+    _users[user.uid] = user;
+    _patients[self.id] = self;
+    _currentUid = user.uid;
+    _changed();
+  }
+
+  void detachAccount() {
+    if (_currentUid == null) return;
+    _currentUid = null;
+    _changed();
+  }
+
   // ---------------------------------------------------------------- clinics
 
   bool _visible(Clinic c) => c.status.acceptsBookings;
 
   @override
-  List<String> get cities => (_clinics.where(_visible).map((c) => c.city).toSet().toList())..sort();
+  Stream<List<String>> watchCities() => _watch(() => (_clinics.where(_visible).map((c) => c.city).toSet().toList())..sort());
 
   @override
   Stream<List<Clinic>> watchClinics(String city) =>
@@ -336,14 +367,20 @@ class DemoBackend
 
   /// Clinics the user booked before, latest first, max 5 (PRD F-02).
   @override
-  Stream<List<Clinic>> watchRecentClinics() => _watch(() {
-        final mine = _myTokens()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        final ids = <String>[];
-        for (final t in mine) {
-          if (!ids.contains(t.clinicId)) ids.add(t.clinicId);
-        }
-        return ids.take(5).map((id) => _clinics.firstWhere((c) => c.id == id)).toList();
-      });
+  Stream<List<Clinic>> watchRecentClinics() =>
+      _watch(() => _recentClinicIds().map((id) => _clinics.firstWhere((c) => c.id == id)).toList());
+
+  /// IDs of the clinics in [watchRecentClinics], for the Firestore clinic repository.
+  Stream<List<String>> watchRecentClinicIds() => _watch(_recentClinicIds);
+
+  List<String> _recentClinicIds() {
+    final mine = _myTokens()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final ids = <String>[];
+    for (final t in mine) {
+      if (!ids.contains(t.clinicId)) ids.add(t.clinicId);
+    }
+    return ids.take(5).toList();
+  }
 
   // ---------------------------------------------------------------- queue
 

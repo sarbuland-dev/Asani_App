@@ -19,6 +19,11 @@ class SplashScreen extends StatelessWidget {
               const AsaniLogoTile(size: 96),
               const SizedBox(height: Gap.lg),
               Text('asani', style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
+              const SizedBox(height: Gap.xl),
+              const SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary),
+              ),
             ],
           ),
         ),
