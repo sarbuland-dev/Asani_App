@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/net/connectivity.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/launch.dart';
@@ -35,7 +37,7 @@ class TokenScreen extends ConsumerWidget {
     final status = token.status;
     final called = status == TokenStatus.called;
     final finished = !status.isActive;
-    final isToday = token.date == dayKey(DateTime.now());
+    final isToday = token.date == dayKey(pktNow());
     final session = pos?.day.sessionStatus;
     final live = isToday && !finished && session == SessionStatus.running;
     final relation = token.patientSnapshot.relation == Relation.self ? '' : ' (${token.patientSnapshot.relation.label})';
@@ -193,11 +195,15 @@ class TokenScreen extends ConsumerWidget {
                     ]),
                     if (status.canCancel) ...[
                       const SizedBox(height: Gap.sm),
-                      TextButton(
-                        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                        onPressed: () => _cancel(context, ref, token),
-                        child: const Text('Cancel token'),
-                      ),
+                      Builder(builder: (context) {
+                        // Cancelling needs internet (ARCHITECTURE.md §8).
+                        final online = Env.isDemo || ref.watch(isOnlineProvider);
+                        return TextButton(
+                          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                          onPressed: online ? () => _cancel(context, ref, token) : null,
+                          child: Text(online ? 'Cancel token' : 'Cancel token (needs internet)'),
+                        );
+                      }),
                     ],
                   ],
                 ),
@@ -213,7 +219,7 @@ class TokenScreen extends ConsumerWidget {
     final day = pos?.day;
     final notice = switch (session) {
       SessionStatus.notStarted => () {
-          final s = doctor.scheduleOn(DateTime.now());
+          final s = doctor.scheduleOn(pktNow());
           return "Doctor hasn't started yet.${s == null ? '' : ' Session starts at ${Fmt.time(s.start)}.'}";
         }(),
       SessionStatus.paused => 'Queue is paused for a moment.',
@@ -269,6 +275,8 @@ class TokenScreen extends ConsumerWidget {
       danger: true,
     );
     if (!ok) return;
+    // The function can take a few seconds; don't leave the user guessing (DESIGN.md principle 4).
+    if (context.mounted) showSnack(context, 'Cancelling token ${token.label}…');
     try {
       await ref.read(tokenRepositoryProvider).cancelToken(token.id);
       if (context.mounted) showSnack(context, 'Token ${token.label} cancelled.');

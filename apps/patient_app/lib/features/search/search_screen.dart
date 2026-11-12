@@ -49,7 +49,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final city = ref.watch(selectedCityProvider);
     final clinicsAsync = ref.watch(clinicsProvider(city));
     final byClinic = ref.watch(doctorsByClinicProvider).value ?? const {};
-    final now = DateTime.now();
+    final now = pktNow();
     final all = clinicsAsync.value ?? const <Clinic>[];
     final areas = (all.map((c) => c.area).toSet().toList()..sort());
 

@@ -127,7 +127,7 @@ final myFollowUpsProvider = StreamProvider<List<FollowUp>>((ref) {
 });
 
 final upcomingFollowUpsProvider = Provider<List<FollowUp>>((ref) {
-  final today = dayKey(DateTime.now());
+  final today = dayKey(pktNow());
   return (ref.watch(myFollowUpsProvider).value ?? const [])
       .where((f) => f.status == FollowUpStatus.pending && f.dueDate.compareTo(today) >= 0)
       .toList();
@@ -135,7 +135,7 @@ final upcomingFollowUpsProvider = Provider<List<FollowUp>>((ref) {
 
 /// A ticking clock so time-based labels (session started, ended) refresh.
 final clockProvider = StreamProvider<DateTime>(
-  (ref) => Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now()),
+  (ref) => Stream.periodic(const Duration(seconds: 30), (_) => pktNow()),
 );
 
-DateTime nowFrom(WidgetRef ref) => ref.watch(clockProvider).value ?? DateTime.now();
+DateTime nowFrom(WidgetRef ref) => ref.watch(clockProvider).value ?? pktNow();

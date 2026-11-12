@@ -37,7 +37,7 @@ class ActiveTokenBanner extends ConsumerWidget {
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     final pos = ref.watch(tokenPositionProvider(token.id)).value;
     final called = token.status == TokenStatus.called;
-    final isToday = token.date == dayKey(DateTime.now());
+    final isToday = token.date == dayKey(pktNow());
     final running = pos?.day.sessionStatus == SessionStatus.running;
 
     return Material(
@@ -140,7 +140,7 @@ class TokenListCard extends ConsumerWidget {
     final doctor = ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     final active = token.status.isActive;
-    final isToday = token.date == dayKey(DateTime.now());
+    final isToday = token.date == dayKey(pktNow());
     final pos = active && isToday ? ref.watch(tokenPositionProvider(token.id)).value : null;
     final (tileBg, tileFg) = switch (token.status) {
       TokenStatus.booked || TokenStatus.onHold => (AppColors.primaryContainer, AppColors.primary),

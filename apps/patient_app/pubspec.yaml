@@ -50,6 +50,8 @@ dependencies:
   firebase_messaging: ^17.0.1
   flutter_local_notifications: ^23.0.1
   app_settings: ^9.0.1
+  connectivity_plus: ^7.3.2
+  firebase_app_check: ^0.5.1
 
 dev_dependencies:
   flutter_test:

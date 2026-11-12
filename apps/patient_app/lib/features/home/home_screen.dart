@@ -306,7 +306,7 @@ class _RecentClinicCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctors = ref.watch(doctorsByClinicProvider).value?[clinic.id] ?? const <Doctor>[];
-    final open = clinicOpenOn(doctors, DateTime.now());
+    final open = clinicOpenOn(doctors, pktNow());
     final suspended = !clinic.status.acceptsBookings;
     return SizedBox(
       width: 160,

@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
+import '../../core/net/connectivity.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/common.dart';
@@ -28,6 +32,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   String? _patientId;
   String? _date;
   bool _booking = false;
+  bool _bookingSlow = false; // > 6 s: say we're still working
+  Timer? _slowTimer;
   String? _error;
   bool _prefilled = false;
 
@@ -44,7 +50,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       _step = 1;
       final d = widget.initialDate;
       if (d != null) {
-        final now = DateTime.now();
+        final now = pktNow();
         final ok = availabilityFor(doctor: doctor, date: parseDayKey(d), now: now).canBook && d.compareTo(dayKey(now)) >= 0;
         if (ok) {
           _date = d;
@@ -77,7 +83,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
     setState(() {
       _booking = true;
+      _bookingSlow = false;
       _error = null;
+    });
+    _slowTimer?.cancel();
+    _slowTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _bookingSlow = true);
     });
     try {
       final token = await ref.read(tokenRepositoryProvider).bookToken(
@@ -90,8 +101,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = AppException.messageOf(e));
     } finally {
+      _slowTimer?.cancel();
       if (mounted) setState(() => _booking = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _slowTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -109,14 +127,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     final titles = ['Who is the patient?', 'Pick a date', 'Confirm booking'];
     final patient = patients.where((p) => p.id == _patientId).firstOrNull;
-    final today = dayKey(DateTime.now());
+    final today = dayKey(pktNow());
     final blockedToday = patient == null ? null : _existingToken(tokens, patient.id, today);
     final blockedOnDate = (patient == null || _date == null) ? null : _existingToken(tokens, patient.id, _date!);
 
+    // Booking needs internet (ARCHITECTURE.md §8); the demo works without it.
+    final online = Env.isDemo || ref.watch(isOnlineProvider);
     final canContinue = switch (_step) {
       0 => patient != null && !(blockedToday != null && _isOnlyToday(doctor)),
       1 => _date != null && blockedOnDate == null,
-      _ => !_booking && blockedOnDate == null,
+      _ => !_booking && blockedOnDate == null && online,
     };
 
     return PopScope(
@@ -178,6 +198,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 ),
               ),
             ),
+            if (_booking)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.sm, Gap.screen, 0),
+                child: Text(
+                  _bookingSlow
+                      ? 'Still working on it… Please keep the app open.'
+                      : 'Getting your token number…',
+                  textAlign: TextAlign.center,
+                  style: AppText.bodyMedium,
+                ),
+              ),
             SafeArea(
               top: false,
               child: Padding(
@@ -200,7 +231,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
                       : Row(mainAxisSize: MainAxisSize.min, children: [
                           if (_step == 2) ...[const Icon(Icons.check_rounded), const SizedBox(width: Gap.sm)],
-                          Text(_step == 2 ? 'Confirm booking' : 'Next'),
+                          Text(_step == 2 ? (online ? 'Confirm booking' : 'Needs internet') : 'Next'),
                         ]),
                 ),
               ),
@@ -215,7 +246,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   bool _isOnlyToday(Doctor doctor) => doctor.bookingWindowDays <= 1;
 
   String? _firstBookableDate(Doctor doctor) {
-    final now = DateTime.now();
+    final now = pktNow();
     for (final d in bookingDates(doctor, now)) {
       final key = dayKey(d);
       final day = ref.read(queueDayProvider((doctorId: doctor.id, date: key))).value;
@@ -227,7 +258,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   // ---------------------------------------------------------------- step 1
 
   Widget _patientStep(List<Patient> patients, List<Token> tokens, Doctor doctor) {
-    final today = dayKey(DateTime.now());
+    final today = dayKey(pktNow());
     return ListView(
       padding: const EdgeInsets.all(Gap.screen),
       children: [
@@ -287,7 +318,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   // ---------------------------------------------------------------- step 2
 
   Widget _dateStep(Doctor doctor, Patient? patient, Token? blockedOnDate) {
-    final now = DateTime.now();
+    final now = pktNow();
     final dates = bookingDates(doctor, now);
     final selectedDate = _date == null ? null : parseDayKey(_date!);
     final selectedDay = _date == null ? null : ref.watch(queueDayProvider((doctorId: doctor.id, date: _date!))).value;

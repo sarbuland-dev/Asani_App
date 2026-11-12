@@ -91,8 +91,13 @@ class FirebaseAuthRepository implements AuthRepository {
         .snapshots(includeMetadataChanges: true)
         .where((s) => s.exists || !s.metadata.isFromCache)
         .listen((snap) => _onUserDoc(user, snap), onError: (Object e, StackTrace st) {
-      AppLogger.error('users/${user.uid} listen failed', e, st);
-      _emit(AuthState(AuthStatus.needsProfile, user: AppUser(uid: user.uid, phone: user.phoneNumber ?? '', name: '')));
+      // Never send a signed-up user to "Tell us about you" because of a network
+      // error: keep the splash screen and try again (it says "check your internet").
+      AppLogger.error('users/${user.uid} listen failed, retrying', e, st);
+      _userSub?.cancel();
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        if (_auth.currentUser?.uid == user.uid) _onAuthChanged(user);
+      });
     });
   }
 

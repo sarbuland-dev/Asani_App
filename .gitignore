@@ -25,3 +25,6 @@ node_modules/
 
 # Functions build output
 functions/lib/
+
+# Dart build cache
+**/.dart_tool/

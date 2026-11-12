@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -16,11 +17,27 @@ abstract final class FirebaseSetup {
   static Future<void> init() async {
     final options = Env.isProd ? prod.DefaultFirebaseOptions.currentPlatform : dev.DefaultFirebaseOptions.currentPlatform;
     await Firebase.initializeApp(options: options);
+    await _activateAppCheck();
     await _connectEmulators();
     if (Env.authTestMode && !Env.isProd) {
       // No reCAPTCHA; only Firebase test phone numbers work (FIREBASE_SETUP.md).
       await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
       AppLogger.warn('AUTH_TEST_MODE on: reCAPTCHA disabled, test numbers only');
+    }
+  }
+
+  /// App Check (ARCHITECTURE.md §6): prod functions only accept calls from
+  /// the real app. Play Integrity on Android, App Attest on iOS; dev uses the
+  /// debug provider (dev functions don't enforce it). Web preview: skipped.
+  static Future<void> _activateAppCheck() async {
+    if (kIsWeb || Env.useEmulator) return;
+    try {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: Env.isProd ? const AndroidPlayIntegrityProvider() : const AndroidDebugProvider(),
+        providerApple: Env.isProd ? const AppleAppAttestProvider() : const AppleDebugProvider(),
+      );
+    } catch (e) {
+      AppLogger.warn('App Check not active: $e');
     }
   }
 

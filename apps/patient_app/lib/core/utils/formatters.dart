@@ -6,7 +6,7 @@ abstract final class Fmt {
   /// "Today, 7 Nov" / "Tomorrow, 8 Nov" / "Mon, 10 Nov"
   static String relativeDay(String key, {DateTime? now}) {
     final date = parseDayKey(key);
-    final today = dateOnly(now ?? DateTime.now());
+    final today = dateOnly(now ?? pktNow());
     final diff = date.difference(today).inDays;
     final dm = DateFormat('d MMM').format(date);
     if (diff == 0) return 'Today, $dm';
