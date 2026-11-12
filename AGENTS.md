@@ -18,10 +18,10 @@ Asani is a clinic token and live-queue system for small and medium private clini
 | `functions/` | ✅ Active | Only functions the patient app needs (see ARCHITECTURE.md §5) |
 | `packages/asani_core` | ✅ Active | Shared models only |
 | `tools/queue-sim`, `tools/admin-scripts` | ✅ Active | Dev tooling |
-| Clinic desktop app | ⛔ Not started | **Do not create** `apps/clinic_desktop` or any desktop code |
-| Super admin panel | ⛔ Not started | **Do not create** admin UI, invoices or activity logs |
+| `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md). UI runs on an in-memory demo backend; Firebase wiring not started |
+| Clinic desktop (.exe) | ⛔ Dropped | Replaced by Flutter Web (D-06 updated). **Do not create** `apps/clinic_desktop` |
 
-The desktop app's technology is **not confirmed**: FlutterFire on Windows is development-only. Do not make choices that assume a specific desktop technology.
+The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
 
 ---
 
@@ -56,7 +56,7 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 4. **Language:** English UI only.
 5. **Patient identity:** the phone number identifies the *family account*; each patient is a *profile* (`patients` collection). Tokens point to `patientId`.
 6. **Token numbers** are assigned only by the `bookToken` Cloud Function inside a transaction. The client never writes a token number.
-7. **Clinic staff (future desktop)** will log in with phone/username + password, not OTP. Do not build staff login now.
+7. **Clinic staff** log in to the clinic web with **email + password** and set their own password from an invite email (PRD-CLINIC-WEB.md D-07 updated). Roles come from custom claims set only by Cloud Functions.
 
 ---
 
