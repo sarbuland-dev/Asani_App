@@ -32,7 +32,13 @@ abstract final class FirebaseSetup {
 
   /// Only with --dart-define=USE_EMULATOR=true, and never in prod (AGENTS.md §7).
   static Future<void> _connectEmulators() async {
-    if (!Env.useEmulator || Env.isProd) return;
+    if (Env.isProd) return;
+    if (Env.useFunctionsEmulator && !Env.useEmulator) {
+      FirebaseFunctions.instanceFor(region: firebaseRegion).useFunctionsEmulator(_emulatorHost, 5001);
+      AppLogger.info('Functions emulator at $_emulatorHost:5001 (Auth and Firestore: dev project)');
+      return;
+    }
+    if (!Env.useEmulator) return;
     final host = _emulatorHost;
     await FirebaseAuth.instance.useAuthEmulator(host, 9099);
     FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);

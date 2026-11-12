@@ -22,6 +22,8 @@ abstract interface class AuthRepository {
   Future<void> completeProfile({required String name, required int age, required Gender gender});
   Future<void> updateName(String name);
   Future<void> setCity(String city);
+  /// Account-wide queue alerts on/off (D-18), synced to every phone.
+  Future<void> setQueueAlerts(bool enabled);
   void cancelLogin();
   Future<void> signOut();
   Future<void> deleteAccount();

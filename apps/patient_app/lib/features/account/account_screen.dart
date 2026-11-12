@@ -1,16 +1,19 @@
+import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/config/app_info.dart';
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/launch.dart';
 import '../../core/widgets/common.dart';
 import '../../data/providers.dart';
+import '../../data/repositories/repositories.dart';
 import '../shell/main_shell.dart';
 
-const appVersion = '1.0.0';
 
 /// S-16 Account (PRD F-10).
 class AccountScreen extends ConsumerWidget {
@@ -51,9 +54,9 @@ class AccountScreen extends ConsumerWidget {
                   _Tile(
                     icon: Icons.notifications_none_rounded,
                     label: 'Notifications',
-                    value: settings?.notificationsAllowed == true ? 'On' : 'Off',
-                    valueColor: settings?.notificationsAllowed == true ? AppColors.success : AppColors.danger,
-                    onTap: () => _toggleNotifications(context, ref),
+                    value: _alertsOn(user, settings) ? 'On' : 'Off',
+                    valueColor: _alertsOn(user, settings) ? AppColors.success : AppColors.danger,
+                    onTap: () => _toggleNotifications(context, ref, _alertsOn(user, settings)),
                   ),
                   _Tile(icon: Icons.shield_outlined, label: 'Privacy Policy', onTap: () => openUrl(context, AppLinks.privacy)),
                   _Tile(icon: Icons.description_outlined, label: 'Terms', onTap: () => openUrl(context, AppLinks.terms)),
@@ -83,6 +86,8 @@ class AccountScreen extends ConsumerWidget {
                   ),
                 ]),
               ),
+              // Demo mode only: in Firebase mode tools/queue-sim moves the real queue.
+              if (Env.isDemo) ...[
               const SizedBox(height: Gap.lg),
               // Stand-in for the clinic desktop app until Phase 2 (tools/queue-sim).
               AppCard(
@@ -119,6 +124,7 @@ class AccountScreen extends ConsumerWidget {
                     Text('Book a token for today to move its queue by hand.', style: AppText.labelSmall),
                 ]),
               ),
+              ],
               const SizedBox(height: Gap.xl),
               SizedBox(
                 height: 52,
@@ -145,36 +151,35 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleNotifications(BuildContext context, WidgetRef ref) async {
-    final repo = ref.read(settingsRepositoryProvider);
-    final on = repo.settings.notificationsAllowed;
-    if (on) {
-      await repo.update(repo.settings.copyWith(notificationsAllowed: false));
-      if (context.mounted) showSnack(context, 'Queue alerts turned off.');
-    } else {
-      context.push('/notifications');
+  /// On = the account wants alerts (synced, D-18) AND this phone allows them.
+  static bool _alertsOn(AppUser user, AppSettings? settings) =>
+      user.queueAlertsEnabled && settings?.notificationsAllowed == true;
+
+  /// Off: only the account switch, so it is off on every phone.
+  /// On: account switch on; if this phone hasn't allowed notifications yet,
+  /// show the permission primer.
+  Future<void> _toggleNotifications(BuildContext context, WidgetRef ref, bool on) async {
+    final auth = ref.read(authRepositoryProvider);
+    try {
+      if (on) {
+        await auth.setQueueAlerts(false);
+        if (context.mounted) showSnack(context, 'Queue alerts turned off.');
+        return;
+      }
+      await auth.setQueueAlerts(true);
+      if (!context.mounted) return;
+      if (ref.read(settingsRepositoryProvider).settings.notificationsAllowed) {
+        showSnack(context, 'Queue alerts turned on.');
+      } else {
+        context.push('/notifications');
+      }
+    } catch (e) {
+      if (context.mounted) showSnack(context, AppException.messageOf(e));
     }
   }
 
   Future<void> _editName(BuildContext context, WidgetRef ref, String current) async {
-    final controller = TextEditingController(text: current);
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Edit name', style: AppText.titleLarge),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Full name'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
-        ],
-      ),
-    );
-    controller.dispose();
+    final name = await showDialog<String>(context: context, builder: (_) => _EditNameDialog(initial: current));
     if (name == null || name.trim().length < 2) return;
     await ref.read(authRepositoryProvider).updateName(name);
     if (context.mounted) showSnack(context, 'Name updated.');
@@ -190,31 +195,7 @@ class AccountScreen extends ConsumerWidget {
       danger: true,
     );
     if (!first || !context.mounted) return;
-    final controller = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: Text('Type DELETE to confirm', style: AppText.titleLarge),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(hintText: 'DELETE'),
-            onChanged: (_) => setState(() {}),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-              onPressed: controller.text.trim() == 'DELETE' ? () => Navigator.pop(ctx, true) : null,
-              child: const Text('Delete account'),
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
+    final confirmed = await showDialog<bool>(context: context, builder: (_) => const _TypeDeleteDialog());
     if (confirmed != true) return;
     try {
       await ref.read(authRepositoryProvider).deleteAccount();
@@ -227,8 +208,9 @@ class AccountScreen extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true, // above the floating nav bar
+      isScrollControlled: true, // may be taller than the default 9/16 of the screen
       builder: (ctx) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Keep Asani alerts working', style: AppText.titleLarge),
@@ -258,6 +240,79 @@ class AccountScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Owns its text controller, so it is disposed only after the dialog's
+/// closing animation (disposing it right after showDialog returns crashes).
+class _EditNameDialog extends StatefulWidget {
+  const _EditNameDialog({required this.initial});
+  final String initial;
+
+  @override
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('Edit name', style: AppText.titleLarge),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(hintText: 'Full name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
+        ],
+      );
+}
+
+/// Second step of account deletion: type DELETE (DESIGN S-16).
+class _TypeDeleteDialog extends StatefulWidget {
+  const _TypeDeleteDialog();
+
+  @override
+  State<_TypeDeleteDialog> createState() => _TypeDeleteDialogState();
+}
+
+class _TypeDeleteDialogState extends State<_TypeDeleteDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('Type DELETE to confirm', style: AppText.titleLarge),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(hintText: 'DELETE'),
+          onChanged: (_) => setState(() {}),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            onPressed: _controller.text.trim() == 'DELETE' ? () => Navigator.pop(context, true) : null,
+            child: const Text('Delete account'),
+          ),
+        ],
+      );
 }
 
 class _Tile extends StatelessWidget {

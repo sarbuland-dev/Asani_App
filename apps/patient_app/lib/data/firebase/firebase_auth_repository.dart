@@ -19,7 +19,8 @@ import '../repositories/repositories.dart';
 /// Firebase, the signed-in account is handed to the demo backend so clinics,
 /// tokens and family keep working ([DemoBackend.attachAccount]).
 class FirebaseAuthRepository implements AuthRepository {
-  FirebaseAuthRepository(this._demo, {FirebaseAuth? auth, FirebaseFirestore? db, FirebaseFunctions? functions})
+  FirebaseAuthRepository(this._demo,
+      {this.beforeSignOut, FirebaseAuth? auth, FirebaseFirestore? db, FirebaseFunctions? functions})
       : _auth = auth ?? FirebaseAuth.instance,
         _db = db ?? FirebaseFirestore.instance,
         _functions = functions ?? FirebaseFunctions.instanceFor(region: firebaseRegion) {
@@ -27,6 +28,9 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   static const consentVersion = '2026-11-v1';
+
+  /// e.g. remove this phone's FCM token while still signed in.
+  final Future<void> Function()? beforeSignOut;
 
   final DemoBackend _demo;
   final FirebaseAuth _auth;
@@ -108,6 +112,7 @@ class FirebaseAuthRepository implements AuthRepository {
       selfPatientId: data['selfPatientId'] as String?,
       consentAcceptedAt: (data['consentAcceptedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       consentVersion: data['consentVersion'] as String?,
+      queueAlertsEnabled: (data['queueAlertsEnabled'] as bool?) ?? true,
     );
     _demo.attachAccount(appUser, await _loadSelf(appUser));
     _emit(AuthState(AuthStatus.signedIn, user: appUser));
@@ -293,6 +298,7 @@ class FirebaseAuthRepository implements AuthRepository {
         'consentAcceptedAt': now,
         'consentVersion': consentVersion,
         'selfPatientId': patientRef.id,
+        'queueAlertsEnabled': true,
         'createdAt': now,
         'updatedAt': now,
         'lastLoginAt': now,
@@ -339,8 +345,20 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> setQueueAlerts(bool enabled) async {
+    final uid = _current.user?.uid;
+    if (uid == null) return;
+    try {
+      await _db.collection('users').doc(uid).update({'queueAlertsEnabled': enabled, 'updatedAt': FieldValue.serverTimestamp()});
+    } on FirebaseException catch (e) {
+      throw _mapFirestore(e, 'Could not change queue alerts. Please try again.');
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     cancelLogin();
+    await beforeSignOut?.call();
     await _auth.signOut();
   }
 

@@ -219,6 +219,10 @@ Rules:
 | D-14 | 2026-11-10 | The live token screen shows the token code instead of a QR code (UI design). QR returns with the desktop app if reception needs scanning. |
 | D-15 | 2026-11-10 | First login asks **name, age and gender** (asani_auth screens), so the Self profile is complete for booking. |
 | D-16 | 2026-11-11 | **Intro pages** (S-00): three skippable pages on first launch only, before phone login. Stored on the device, not in Firestore. |
+| D-17 | 2026-11-12 | Until the dev project is on **Blaze**, Cloud Functions run on the **local Functions emulator** against the dev database (`USE_FUNCTIONS_EMULATOR=true`). `bookToken` / `cancelToken` and `tools/queue-sim` also update `day.activeNumbers` in their transaction, because Firestore triggers (`onTokenWrite`) do not fire from the live database into the emulator. |
+| D-18 | 2026-11-12 | **Queue alerts on/off is account-wide** (`users.queueAlertsEnabled`), so turning it off on one phone turns it off everywhere. Intro, primer and notification permission stay per phone. Account shows "On" only when the account switch is on **and** this phone allows notifications. |
+| D-19 | 2026-11-12 | Queue notifications are sent by one shared function (`functions/src/queue/notify.ts`), called by `bookToken`, `cancelToken`, the `onTokenWrite`/`onQueueDayWrite` triggers (Blaze) and `tools/queue-sim` (until Blaze). Token labels in alerts use the doctor's letter: "Token A-11" (D-13). The primer's "Allow" opens the phone's own permission popup; if the phone says no, the app offers to open the phone's settings. |
+| D-20 | 2026-11-12 | Booking a doctor for a patient with a **pending follow-up** with that doctor marks the follow-up `booked` (any date) and the token gets `source: followUp`. Until Blaze, the 9 AM follow-up reminders are run by hand with `tools/admin-scripts/run-followup-reminders.js` (same code as the scheduled function). |
 
 ## 10. Open questions (confirm before building the related part)
 

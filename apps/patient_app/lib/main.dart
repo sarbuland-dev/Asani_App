@@ -5,16 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/config/env.dart';
 import 'core/config/firebase_setup.dart';
+import 'core/push/push_service.dart';
+import 'core/utils/logger.dart';
 import 'data/demo/demo_backend.dart';
 import 'data/firebase/firebase_auth_repository.dart';
 import 'data/firebase/firestore_clinic_repository.dart';
+import 'data/firebase/firestore_patient_repository.dart';
+import 'data/firebase/firestore_token_repository.dart';
 import 'data/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Doctors, queues, tokens and family: demo data until they move to Firebase.
+  // Demo backend: demo mode, plus device settings in Firebase mode.
   final backend = await DemoBackend.create();
 
   // Login: Firebase with --dart-define=BACKEND=firebase, demo otherwise (D-11).
@@ -37,10 +41,38 @@ Future<void> main() async {
       ));
       return;
     }
-    final auth = FirebaseAuthRepository(backend);
+    backend.stopSimulator(); // queues move via tools/queue-sim (step 9)
+
+    // Step 10: FCM queue notifications.
+    final push = PushService();
+    try {
+      await push.init();
+      // The OS permission is the truth: if it was turned off in phone settings,
+      // show "Off" in Account (and the primer can ask again).
+      final permission = await push.permission();
+      final s = backend.settings;
+      if (permission != PushPermission.granted && s.notificationsAllowed) {
+        await backend.update(s.copyWith(notificationsAllowed: false));
+      } else if (permission == PushPermission.granted && s.primerShown && !s.notificationsAllowed) {
+        await backend.update(s.copyWith(notificationsAllowed: true));
+      }
+    } catch (e) {
+      AppLogger.warn('Push setup failed: $e');
+    }
+    overrides.add(pushServiceProvider.overrideWithValue(push));
+
+    final auth = FirebaseAuthRepository(backend, beforeSignOut: push.unregister);
     overrides.add(authRepositoryProvider.overrideWithValue(auth));
-    // Step 1 (DEMO_TO_FIREBASE.txt): clinics from Firestore; doctors still demo.
-    overrides.add(clinicRepositoryProvider.overrideWithValue(FirestoreClinicRepository(backend)));
+    // Steps 1-2 (DEMO_TO_FIREBASE.txt): clinics and doctors from Firestore.
+    final tokens = FirestoreTokenRepository(alerts: push.alerts);
+    overrides.add(clinicRepositoryProvider.overrideWithValue(FirestoreClinicRepository(backend, tokens)));
+    // Step 3: family profiles in Firestore.
+    overrides.add(patientRepositoryProvider.overrideWithValue(FirestorePatientRepository(backend)));
+    // Steps 5-8: booking and cancelling via Cloud Functions; tokens and queue days from Firestore.
+    overrides.add(tokenRepositoryProvider.overrideWithValue(tokens));
+    overrides.add(queueRepositoryProvider.overrideWithValue(FirestoreQueueRepository()));
+    // Step 11: follow-ups from Firestore.
+    overrides.add(followUpRepositoryProvider.overrideWithValue(FirestoreFollowUpRepository()));
   }
 
   runApp(ProviderScope(overrides: overrides, child: const AsaniApp()));

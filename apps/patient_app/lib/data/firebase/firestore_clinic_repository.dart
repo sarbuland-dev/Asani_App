@@ -12,9 +12,10 @@ import '../repositories/repositories.dart';
 /// (`c_alshifa`, `d_ayesha`, ...), so demo tokens and queues keep pointing at
 /// real clinics and doctors until they move to Firebase (DEMO_TO_FIREBASE.txt).
 class FirestoreClinicRepository implements ClinicRepository {
-  FirestoreClinicRepository(this._demo, {fs.FirebaseFirestore? db}) : _db = db ?? fs.FirebaseFirestore.instance;
+  FirestoreClinicRepository(this._demo, this._tokens, {fs.FirebaseFirestore? db}) : _db = db ?? fs.FirebaseFirestore.instance;
 
   final DemoBackend _demo;
+  final TokenRepository _tokens;
   final fs.FirebaseFirestore _db;
 
   /// DATABASE.md §4: patients see pilot, active and grace clinics.
@@ -73,11 +74,23 @@ class FirestoreClinicRepository implements ClinicRepository {
   /// Clinics the user booked before, latest first, max 5 (PRD F-02).
   /// The order comes from the user's tokens; suspended clinics are included.
   @override
-  Stream<List<Clinic>> watchRecentClinics() => _demo.watchRecentClinicIds().asyncMap((ids) async {
+  Stream<List<Clinic>> watchRecentClinics() => _tokens.watchMyTokens().map(_recentIds).distinct(_sameList).asyncMap((ids) async {
         if (ids.isEmpty) return const <Clinic>[];
         final docs = await Future.wait(ids.map((id) => _clinics.doc(id).get()));
         return _parse(docs.where((d) => d.exists));
       });
+
+  /// Clinic IDs from my tokens, latest booking first, max 5.
+  static List<String> _recentIds(List<Token> tokens) {
+    final sorted = [...tokens]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final ids = <String>[];
+    for (final t in sorted) {
+      if (!ids.contains(t.clinicId)) ids.add(t.clinicId);
+    }
+    return ids.take(5).toList();
+  }
+
+  static bool _sameList(List<String> a, List<String> b) => a.join(',') == b.join(',');
 
   // ---------------------------------------------------------------- doctors
 

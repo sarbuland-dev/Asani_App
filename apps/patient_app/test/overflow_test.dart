@@ -162,6 +162,25 @@ void main() {
         await visit(label, path);
       }
 
+      // Sheets and dialogs opened from the shell screens
+      Future<void> openAndClose(String label, String path, Finder button) async {
+        current = label;
+        router.go(path); // not visit(): its scroll-to-end can unbuild the button
+        await settle();
+        await tester.ensureVisible(button.first);
+        await settle();
+        await tester.tap(button.first);
+        await settle();
+        rootNavigatorKey.currentState!.pop();
+        await settle();
+      }
+
+      await openAndClose('city picker', '/home', find.text('Lahore'));
+      await openAndClose('edit name dialog', '/account', find.text('Edit name'));
+      await openAndClose('autostart guide', '/account', find.text('Show me how'));
+      await openAndClose('log out dialog', '/account', find.text('Log out'));
+      await openAndClose('delete account dialog', '/account', find.text('Delete account'));
+
       // Booking steps 2 and 3
       current = 'booking steps';
       router.go('/book/c_alshifa/d_ayesha?patient=p_ahmed');

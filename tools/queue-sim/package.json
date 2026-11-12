@@ -1,0 +1,12 @@
+{
+  "name": "asani-queue-sim",
+  "private": true,
+  "description": "Acts as the clinic receptionist (ARCHITECTURE.md §10 contract). Emulator or dev only, never prod.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

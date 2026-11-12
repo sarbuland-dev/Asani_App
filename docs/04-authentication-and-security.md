@@ -104,9 +104,10 @@ service cloud.firestore {
 
       allow update: if signedIn() && uid() == userId
         && changedOnly(['name','city','updatedAt','lastLoginAt',
-                        'consentAcceptedAt','consentVersion'])
+                        'consentAcceptedAt','consentVersion','queueAlertsEnabled'])
         && request.resource.data.name.size() >= 2
-        && request.resource.data.name.size() <= 60;
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.get('queueAlertsEnabled', true) is bool;
 
       allow delete: if false;                 // deleteAccount function only
 

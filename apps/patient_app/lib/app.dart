@@ -10,6 +10,17 @@ final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 final _alertsProvider = StreamProvider<QueueAlert>((ref) => ref.watch(tokenRepositoryProvider).alerts);
 
+final _openedRouteProvider = StreamProvider<String>((ref) {
+  final push = ref.watch(pushServiceProvider);
+  if (push == null) return const Stream.empty();
+  return _startWith(push.takeInitialRoute(), push.openedRoutes);
+});
+
+Stream<String> _startWith(String? first, Stream<String> rest) async* {
+  if (first != null) yield first;
+  yield* rest;
+}
+
 class AsaniApp extends ConsumerWidget {
   const AsaniApp({super.key});
 
@@ -17,7 +28,13 @@ class AsaniApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    // Queue notifications shown in-app (FCM push replaces this later).
+    // Tapping a notification opens the token (PRD N-6) or a pre-filled booking (F-09).
+    ref.listen(_openedRouteProvider, (_, next) {
+      final route = next.value;
+      if (route != null) router.push(route);
+    });
+
+    // Queue notifications that arrive while the app is open (demo or FCM).
     ref.listen(_alertsProvider, (_, next) {
       final alert = next.value;
       if (alert == null) return;

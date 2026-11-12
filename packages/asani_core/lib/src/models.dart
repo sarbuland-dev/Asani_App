@@ -16,6 +16,7 @@ class AppUser {
     this.selfPatientId,
     this.consentAcceptedAt,
     this.consentVersion,
+    this.queueAlertsEnabled = true,
   });
 
   final String uid;
@@ -26,9 +27,20 @@ class AppUser {
   final DateTime? consentAcceptedAt;
   final String? consentVersion;
 
+  /// Account-wide "Queue alerts" switch, same on every phone (D-18).
+  /// The phone's own notification permission is separate (AppSettings).
+  final bool queueAlertsEnabled;
+
   bool get hasProfile => name.trim().isNotEmpty && consentAcceptedAt != null;
 
-  AppUser copyWith({String? name, String? city, String? selfPatientId, DateTime? consentAcceptedAt, String? consentVersion}) =>
+  AppUser copyWith({
+    String? name,
+    String? city,
+    String? selfPatientId,
+    DateTime? consentAcceptedAt,
+    String? consentVersion,
+    bool? queueAlertsEnabled,
+  }) =>
       AppUser(
         uid: uid,
         phone: phone,
@@ -37,6 +49,7 @@ class AppUser {
         selfPatientId: selfPatientId ?? this.selfPatientId,
         consentAcceptedAt: consentAcceptedAt ?? this.consentAcceptedAt,
         consentVersion: consentVersion ?? this.consentVersion,
+        queueAlertsEnabled: queueAlertsEnabled ?? this.queueAlertsEnabled,
       );
 
   Map<String, Object?> toMap() => {
@@ -48,6 +61,7 @@ class AppUser {
         'selfPatientId': selfPatientId,
         'consentAcceptedAt': _ms(consentAcceptedAt),
         'consentVersion': consentVersion,
+        'queueAlertsEnabled': queueAlertsEnabled,
       };
 
   factory AppUser.fromMap(Map<String, Object?> m) => AppUser(
@@ -58,6 +72,7 @@ class AppUser {
         selfPatientId: m['selfPatientId'] as String?,
         consentAcceptedAt: _dt(m['consentAcceptedAt']),
         consentVersion: m['consentVersion'] as String?,
+        queueAlertsEnabled: (m['queueAlertsEnabled'] as bool?) ?? true,
       );
 }
 

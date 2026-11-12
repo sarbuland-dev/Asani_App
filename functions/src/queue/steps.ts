@@ -1,0 +1,48 @@
+/**
+ * Queue notification steps (PRD F-06, N-1..N-4). Pure logic, mirrors the
+ * app's `nextQueueNotification` in packages/asani_core/lib/src/queue_math.dart.
+ */
+
+/** Keys of `token.notified` (DATABASE.md §7), in order. */
+export const STEP_KEYS = ['ahead3', 'ahead2', 'ahead1', 'yourTurn'] as const;
+export type StepKey = (typeof STEP_KEYS)[number];
+
+/** N-1: tokens with a lower number that are still waiting. */
+export function patientsAhead(activeNumbers: number[], myNumber: number): number {
+  return activeNumbers.filter((n) => n < myNumber).length;
+}
+
+/**
+ * The step to send now, or null. `mark` is every step to record as done:
+ * the sent step plus any earlier step that was skipped (N-3), so a skipped
+ * step is never sent later. Each step is sent at most once (N-2).
+ */
+export function nextStep(
+  status: string,
+  ahead: number,
+  notified: Partial<Record<StepKey, unknown>>,
+): { send: StepKey; mark: StepKey[] } | null {
+  let current: StepKey | null = null;
+  if (status === 'called') current = 'yourTurn';
+  else if ((status === 'booked' || status === 'arrived') && ahead >= 1 && ahead <= 3) {
+    current = (`ahead${ahead}` as StepKey);
+  }
+  if (!current || notified[current]) return null;
+  const upTo = STEP_KEYS.indexOf(current);
+  const mark = STEP_KEYS.slice(0, upTo + 1).filter((k) => !notified[k]);
+  return { send: current, mark };
+}
+
+/** DESIGN.md §8 copy. Token labels use the doctor's letter (D-13). */
+export function messageFor(step: StepKey, label: string, doctorName: string): { title: string; body: string } {
+  switch (step) {
+    case 'ahead3':
+      return { title: '3 patients ahead of you', body: `Token ${label} · ${doctorName}. Please start heading to the clinic.` };
+    case 'ahead2':
+      return { title: '2 patients ahead of you', body: `Token ${label} · ${doctorName}` };
+    case 'ahead1':
+      return { title: "You're next", body: `Token ${label} · Please be at the reception.` };
+    case 'yourTurn':
+      return { title: 'Your turn now', body: `Token ${label} · Please go to ${doctorName}.` };
+  }
+}

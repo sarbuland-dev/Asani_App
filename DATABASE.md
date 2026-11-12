@@ -40,6 +40,7 @@ Doc ID = Firebase Auth uid.
 | `consentAcceptedAt` | timestamp | Terms + privacy accepted |
 | `consentVersion` | string | e.g. `2026-11-v1` |
 | `selfPatientId` | string | ID of the user's "Self" profile in `patients` |
+| `queueAlertsEnabled` | bool | Account-wide "Queue alerts" switch (Account screen), same on every phone. Missing = `true`. Queue notifications are sent only when `true` (D-18). The phone's own notification permission is stored on the device, not here |
 | `createdAt`, `updatedAt`, `lastLoginAt` | timestamp | |
 
 ### `users/{uid}/devices/{deviceId}`

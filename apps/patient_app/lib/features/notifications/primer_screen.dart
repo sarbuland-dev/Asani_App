@@ -1,20 +1,38 @@
+import 'package:app_settings/app_settings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/push/push_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/common.dart';
 import '../../data/providers.dart';
 
 /// S-17 notification permission primer, shown once before the first booking.
-/// The system permission request is added with FCM (push_service).
+/// "Allow" opens the phone's own permission popup (Firebase mode, PushService);
+/// if the phone says no, we offer to open the phone's settings.
 class PrimerScreen extends ConsumerWidget {
   const PrimerScreen({super.key, this.next});
   final String? next;
 
   Future<void> _finish(BuildContext context, WidgetRef ref, bool allow) async {
     final repo = ref.read(settingsRepositoryProvider);
-    await repo.update(repo.settings.copyWith(primerShown: true, notificationsAllowed: allow ? true : null));
+    final push = ref.read(pushServiceProvider);
+    var allowed = allow;
+    if (allow && push != null) {
+      allowed = await push.requestPermission() == PushPermission.granted;
+      if (!allowed && context.mounted) await _explainDenied(context);
+    }
+    await repo.update(repo.settings.copyWith(primerShown: true, notificationsAllowed: allow ? allowed : null));
+    // "Allow" also turns the account-wide switch back on if it was off (D-18).
+    if (allow && ref.read(currentUserProvider)?.queueAlertsEnabled == false) {
+      try {
+        await ref.read(authRepositoryProvider).setQueueAlerts(true);
+      } catch (_) {
+        // Not critical: the switch can be turned on later in Account.
+      }
+    }
     if (!context.mounted) return;
     if (next != null) {
       context.go(next!);
@@ -23,6 +41,23 @@ class PrimerScreen extends ConsumerWidget {
     } else {
       context.go('/home');
     }
+  }
+
+  /// The phone blocked notifications. Android/iOS won't show the popup again,
+  /// so the only way is the phone's settings.
+  Future<void> _explainDenied(BuildContext context) async {
+    if (kIsWeb) {
+      showSnack(context, 'Notifications are blocked. Allow them for this site in your browser settings.');
+      return;
+    }
+    final open = await confirmDialog(
+      context,
+      title: 'Notifications are off',
+      message: "Asani can't alert you when your turn is near. Turn on notifications for Asani in your phone's settings.",
+      confirmLabel: 'Open settings',
+      cancelLabel: 'Not now',
+    );
+    if (open) await AppSettings.openAppSettings(type: AppSettingsType.notification);
   }
 
   @override

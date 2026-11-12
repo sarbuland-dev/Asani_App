@@ -1,6 +1,7 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/push/push_service.dart';
 import 'demo/demo_backend.dart';
 import 'repositories/repositories.dart';
 
@@ -16,6 +17,9 @@ final patientRepositoryProvider = Provider<PatientRepository>((ref) => ref.watch
 final followUpRepositoryProvider = Provider<FollowUpRepository>((ref) => ref.watch(backendProvider));
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) => ref.watch(backendProvider));
 final queueSimulatorProvider = Provider<QueueSimulator>((ref) => ref.watch(backendProvider));
+
+/// FCM push (Firebase mode only); null in demo mode.
+final pushServiceProvider = Provider<PushService?>((ref) => null);
 
 // ---- auth / user
 
@@ -52,7 +56,10 @@ final doctorsByClinicProvider = StreamProvider<Map<String, List<Doctor>>>(
 );
 
 final recentClinicsProvider = StreamProvider<List<Clinic>>(
-  (ref) => ref.watch(clinicRepositoryProvider).watchRecentClinics(),
+  (ref) {
+    ref.watch(currentUserProvider.select((u) => u?.uid)); // per signed-in user
+    return ref.watch(clinicRepositoryProvider).watchRecentClinics();
+  },
 );
 
 // ---- queue
@@ -65,7 +72,11 @@ final queueDayProvider = StreamProvider.family<QueueDay, DayKey>(
 
 // ---- tokens
 
-final myTokensProvider = StreamProvider<List<Token>>((ref) => ref.watch(tokenRepositoryProvider).watchMyTokens());
+final myTokensProvider = StreamProvider<List<Token>>((ref) {
+  // Restart on login/logout: the Firestore query is per signed-in user.
+  ref.watch(currentUserProvider.select((u) => u?.uid));
+  return ref.watch(tokenRepositoryProvider).watchMyTokens();
+});
 
 final myActiveTokensProvider = Provider<AsyncValue<List<Token>>>((ref) => ref.watch(myTokensProvider).whenData(
       (list) => list.where((t) => t.status.isActive).toList()
@@ -104,9 +115,16 @@ final tokenPositionProvider = Provider.family<AsyncValue<TokenPosition>, String>
 
 // ---- patients / follow-ups
 
-final myPatientsProvider = StreamProvider<List<Patient>>((ref) => ref.watch(patientRepositoryProvider).watchMyPatients());
+final myPatientsProvider = StreamProvider<List<Patient>>((ref) {
+  // Restart on login/logout: the Firestore query is per signed-in user.
+  ref.watch(currentUserProvider.select((u) => u?.uid));
+  return ref.watch(patientRepositoryProvider).watchMyPatients();
+});
 
-final myFollowUpsProvider = StreamProvider<List<FollowUp>>((ref) => ref.watch(followUpRepositoryProvider).watchMyFollowUps());
+final myFollowUpsProvider = StreamProvider<List<FollowUp>>((ref) {
+  ref.watch(currentUserProvider.select((u) => u?.uid)); // per signed-in user
+  return ref.watch(followUpRepositoryProvider).watchMyFollowUps();
+});
 
 final upcomingFollowUpsProvider = Provider<List<FollowUp>>((ref) {
   final today = dayKey(DateTime.now());

@@ -14,6 +14,10 @@ abstract final class Env {
 
   static const bool useEmulator = bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
 
+  /// Only Cloud Functions on the local emulator; Auth and Firestore stay on the
+  /// real dev project. Used until the project is on the Blaze plan.
+  static const bool useFunctionsEmulator = bool.fromEnvironment('USE_FUNCTIONS_EMULATOR', defaultValue: false);
+
   /// Physical phone: your PC's Wi-Fi IP, e.g. 192.168.1.5.
   /// Empty = 10.0.2.2 on the Android emulator, localhost elsewhere.
   static const String emulatorHost = String.fromEnvironment('EMULATOR_HOST', defaultValue: '');

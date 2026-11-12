@@ -7,15 +7,57 @@ Move these one by one, in this order (each step needs the ones before it):
 
 1.  Clinics list + search        - DONE 2026-11-11: Firestore clinics, seeded by tools/admin-scripts/seed-dev.js. (Free)
 2.  Clinic detail + doctors      - DONE 2026-11-12: Firestore doctors (schedule, leave), same seed script. (Free)
-3.  Family profiles              - add, edit, delete, profile detail.                              (Free)
-4.  Settings                     - notification primer, permission flags (can stay on phone).      (Free)
-5.  Token booking                - bookToken Cloud Function gives token number (A-11), BR-1..BR-7. (Emulator free / live needs Blaze)
-6.  Token cancel                 - cancelToken Cloud Function.                                      (Emulator free / live needs Blaze)
-7.  My tokens + history          - active and past tokens from Firestore.                          (Free, after 5)
-8.  Live queue screen            - now serving, patients ahead, wait time.                          (Free, after 5)
-9.  Queue simulator              - remove demo 15-sec auto-advance, use tools/queue-sim.           (Free)
-10. Queue notifications          - 3 / 2 / 1 / "Your turn" via FCM push.                            (Emulator free / live needs Blaze)
-11. Follow-ups                   - doctor follow-up reminders.                                       (Free)
-12. Delete account               - deploy deleteAccount Cloud Function.                             (Blaze)
+3.  Family profiles              - DONE 2026-11-12: Firestore patients (add, edit, soft delete).   (Free)
+4.  Settings                     - KEEP ON PHONE: no Firebase needed (per-device flags).           (Free)
+5.  Token booking                - DONE 2026-11-12: bookToken function (local emulator until Blaze, D-17).
+6.  Token cancel                 - DONE 2026-11-12: cancelToken function (local emulator until Blaze).
+7.  My tokens + history          - DONE 2026-11-12: tokens read from Firestore.                    (Free)
+8.  Live queue screen            - DONE 2026-11-12: queue day read from Firestore.                 (Free)
+9.  Queue simulator              - DONE 2026-11-12: tools/queue-sim moves the real queue; demo timer off in Firebase mode.
+10. Queue notifications          - PARTLY DONE 2026-11-12 (code done, phone test pending, see below).
+11. Follow-ups                   - DONE 2026-11-12: Firestore follow-ups, booking marks them booked, 9 AM reminders.
+12. Delete account               - DONE 2026-11-12: deleteAccount function (docs/04 §8). Works on the emulator; live needs Blaze.
+
+All 12 steps are coded. Left: step 10 phone test (below), and Blaze + deploy so functions
+run without this PC (bookToken, cancelToken, deleteAccount, triggers, follow-up reminders).
 
 How to use: tell Claude "do 1", then "do 2", and so on.
+
+Follow-ups (until Blaze): create one with tools/admin-scripts/create-followup.js and send the
+  daily reminders by hand with run-followup-reminders.js (needs `npm run build` in functions/).
+
+Step 10 status (paused 2026-11-12, come back to it)
+---------------------------------------------------
+DONE and checked:
+  - Server: functions/src/queue/notify.ts sends 3 / 2 / 1 / "Your turn" (PRD F-06, D-19).
+    Each step once, jumps skip steps, booked-late tokens start at the right step,
+    no alerts when the account turned them off (D-18). 12/12 function tests pass.
+  - Called from bookToken, cancelToken and tools/queue-sim. Checked live on dev data
+    (Dr. Sana, 13 Nov: C-2 got "You're next", then both got "Your turn", nothing twice).
+  - Triggers onTokenWrite / onQueueDayWrite written (run only after Blaze + deploy).
+  - App: PushService (lib/core/push/push_service.dart). Primer "Allow" opens the phone's
+    own popup; "Don't allow" shows "Open settings" dialog; phone FCM token saved in
+    users/{uid}/devices and removed on logout; foreground alert SnackBar; tap opens token.
+  - Android: POST_NOTIFICATIONS permission, queue_alerts channel, desugaring added.
+  - Web: browser "denied" path checked (shows the blocked message).
+  - flutter analyze clean, flutter test 12/12.
+NOT done yet:
+  - Android APK build with the new packages never finished (Gradle hung / very slow on
+    first build). Run: flutter build apk --debug --flavor dev --dart-define=BACKEND=firebase
+  - Real phone test (Redmi): permission popup "Allow" path, push arrives with app closed,
+    tap opens the token. Not possible here (no phone connected, web gets no pushes).
+  - firebase_messaging 17 marks getToken/onTokenRefresh deprecated; still used on purpose
+    (Admin SDK sends to FCM tokens). Revisit when moving to register()/onRegistered.
+  - Triggers need Blaze + deploy; until then queue-sim must be used to move queues.
+
+Booking needs the Functions emulator running on this PC (until Blaze):
+  1. cd functions && npm install            (once)
+  2. set GOOGLE_APPLICATION_CREDENTIALS to tools/admin-scripts/serviceAccount.dev.json
+  3. npm run serve:dev                      (from functions/)
+  4. flutter run --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+     (real phone: also --dart-define=EMULATOR_HOST=<PC Wi-Fi IP>, and add "host": "0.0.0.0"
+      under emulators.functions in firebase.json so the phone can reach the PC)
+Move the queue: see tools/queue-sim/README.md (e.g. node queue-sim.js next --doctor d_ayesha --project dev).
+Push alerts: sent by bookToken/cancelToken and by queue-sim (needs `npm run build` in functions/).
+  The phone must allow notifications and be signed in; the web preview never gets pushes.
+  Real-phone test (Redmi): book a token, then run queue-sim next until it is your turn.

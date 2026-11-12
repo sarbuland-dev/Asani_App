@@ -104,6 +104,25 @@ class DemoBackend
     if (changed) _changed();
   }
 
+  /// Firebase mode: family profiles read from Firestore, so booking (still
+  /// demo) can book for them.
+  void usePatients(Iterable<Patient> patients) {
+    var changed = false;
+    for (final p in patients) {
+      final old = _patients[p.id];
+      if (old != null && old.toMap().toString() == p.toMap().toString()) continue;
+      _patients[p.id] = p;
+      changed = true;
+    }
+    if (changed) _changed();
+  }
+
+  /// Firebase mode: the real queue is moved by tools/queue-sim, not this timer.
+  void stopSimulator() {
+    _simulator?.cancel();
+    _simulator = null;
+  }
+
   void dispose() {
     _simulator?.cancel();
     _changes.close();
@@ -292,6 +311,14 @@ class DemoBackend
     final me = _me;
     if (me == null) return;
     _users[me.uid] = me.copyWith(city: city);
+    _changed();
+  }
+
+  @override
+  Future<void> setQueueAlerts(bool enabled) async {
+    final me = _me;
+    if (me == null) return;
+    _users[me.uid] = me.copyWith(queueAlertsEnabled: enabled);
     _changed();
   }
 
@@ -498,7 +525,7 @@ class DemoBackend
       final r = nextQueueNotification(status: t.status, ahead: ahead, alreadyNotified: t.notified);
       if (r.send == null) continue;
       _tokens[t.id] = t.copyWith(notified: r.notified);
-      if (!_settings.notificationsAllowed) continue;
+      if (!_settings.notificationsAllowed || _me?.queueAlertsEnabled == false) continue;
       final step = r.send!;
       final (title, body) = switch (step) {
         QueueStep.threeAhead => ('3 patients ahead of you', 'Token ${t.label} · ${doctor.name}. Please start heading to the clinic.'),
