@@ -1,6 +1,6 @@
 # Remaining work
 
-Last updated: 2026-11-12. Status of the patient app: all 12 demo→Firebase steps are coded
+Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase steps are coded
 (see `apps/patient_app/DEMO_TO_FIREBASE.txt`). This file lists what is still open.
 
 ## 1. Step 10 – push notifications (paused)
@@ -51,13 +51,18 @@ Last updated: 2026-11-12. Status of the patient app: all 12 demo→Firebase step
 - [ ] Names shown as typed ("ali"); "Book a token for Test" uses the first word of the name.
 - [ ] Functions: engines Node 22 vs local Node 26 warning; update firebase-functions.
 
-## 7. Clinic app (Flutter for web) – waiting for Sarbuland's confirmation
-Proposed: build it in this repo as `apps/clinic_web`, sharing `asani_core`, rules and functions.
-Before any code:
-- [ ] Confirm, then update AGENTS.md (§2 says clinic app "not started"), PRD and ARCHITECTURE.
-- [ ] Staff login: phone/username + password; accounts created by an admin script.
-- [ ] Roles: receptionist only in v1, or also a doctor view?
-- [ ] V1 features: today's queue, start/pause/end session, next patient, arrived/skip/hold,
-      walk-in tokens (ARCHITECTURE §10 contract — what queue-sim does today).
-- [ ] Staff custom claims (`role`, `clinicId`) + Firestore rules + rules tests.
-- [ ] Needs Blaze to give it to a real clinic.
+## 7. Clinic web (`apps/clinic_web`, PRD-CLINIC-WEB.md)
+Done (2026-11-13): all clinic screens W-01..W-22 and super admin A-10..A-17 in Flutter Web,
+same brand as the patient app, on an in-memory demo backend (see `apps/clinic_web/README.md`).
+Still open:
+- [ ] Firebase repository: email/password login, set-password invite emails, `role`/`clinicId`/`doctorId`
+      custom claims, Firestore streams instead of the demo store.
+- [ ] Cloud Functions (PRD-CLINIC-WEB §11): `queueAction`, `staffCreateWalkIn`, `staffSearchPatients`,
+      `setFollowUp`, `inviteStaff`, `updateStaff`, `adminCreateClinic`, `adminUpdateClinic`,
+      `recordPayment`, `waiveInvoice`, scheduled `generateInvoices` + `defaulterCheck`, activity-log triggers.
+- [ ] Firestore rules for staff/clinic isolation + rules tests; DATABASE.md / ARCHITECTURE.md additions (§11).
+- [ ] Payment proof upload (Storage), "Send payment proof" for clinics (P2).
+- [ ] Real print test on a thermal 80 mm printer and A5 with `--kiosk-printing`.
+- [ ] Open questions Q-W02..Q-W09 (demo uses the PRD draft answers; listed in the clinic_web README).
+- [ ] Optional: switch to a Dart pub workspace (PRD §2.1) and CI path filters.
+- [ ] Firebase Hosting site for dev/prod (needs a domain, Q-W09).
