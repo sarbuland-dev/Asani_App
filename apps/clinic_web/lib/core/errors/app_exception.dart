@@ -8,7 +8,7 @@ class AppException implements Exception {
   static const wrongLogin = AppException('wrong-login', 'Email or password is incorrect.');
   static const tooManyAttempts =
       AppException('too-many-attempts', 'Too many attempts. Try again later or reset your password.');
-  static const disabled = AppException('disabled', 'This account has been disabled. Please contact your clinic admin.');
+  static const disabled = AppException('disabled', 'This clinic login has been disabled. Please contact Asani support.');
   static const offline = AppException('offline', 'You are offline. Actions are disabled until the internet is back.');
   static const suspended =
       AppException('suspended', 'This clinic is suspended. The queue is read-only until the payment is recorded.');

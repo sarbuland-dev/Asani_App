@@ -420,6 +420,7 @@ class Token {
     this.completedAt,
     this.cancelledAt,
     this.cancelledBy,
+    this.cancelReason,
   });
 
   final String id;
@@ -438,8 +439,12 @@ class Token {
   final DateTime? completedAt;
   final DateTime? cancelledAt;
   final String? cancelledBy;
+  /// Reason the clinic picked when it cancelled (C-04, D-23).
+  final String? cancelReason;
 
   String get label => '$tokenPrefix-$number';
+
+  bool get cancelledByClinic => status == TokenStatus.cancelled && cancelledBy == 'clinic';
 
   /// Minutes from booking to being called, when known.
   int? get waitedMinutes => calledAt?.difference(createdAt).inMinutes;
@@ -469,6 +474,7 @@ class Token {
         completedAt: completedAt ?? this.completedAt,
         cancelledAt: cancelledAt ?? this.cancelledAt,
         cancelledBy: cancelledBy ?? this.cancelledBy,
+        cancelReason: cancelReason,
       );
 
   Map<String, Object?> toMap() => {
@@ -489,6 +495,7 @@ class Token {
         'completedAt': _ms(completedAt),
         'cancelledAt': _ms(cancelledAt),
         'cancelledBy': cancelledBy,
+        'cancelReason': cancelReason,
       };
 
   factory Token.fromMap(Map<String, Object?> m) => Token(
@@ -508,6 +515,7 @@ class Token {
         completedAt: _dt(m['completedAt']),
         cancelledAt: _dt(m['cancelledAt']),
         cancelledBy: m['cancelledBy'] as String?,
+        cancelReason: m['cancelReason'] as String?,
       );
 }
 

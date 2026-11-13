@@ -24,7 +24,7 @@ class ActivityFeed extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: Gap.sm),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            InitialsAvatar(name: a.actorName, size: 32, bg: a.actorRole == StaffRole.superAdmin ? AppColors.avatarCool : AppColors.primaryContainer, fg: a.actorRole == StaffRole.superAdmin ? AppColors.secondary : AppColors.primary),
+            InitialsAvatar(name: a.actorName, size: 32, bg: a.actorRole == UserRole.superAdmin ? AppColors.avatarCool : AppColors.primaryContainer, fg: a.actorRole == UserRole.superAdmin ? AppColors.secondary : AppColors.primary),
             const SizedBox(width: Gap.md),
             Expanded(
               child: Text.rich(
@@ -61,7 +61,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     'clinic': 'Clinic',
     'doctor': 'Doctors',
     'leave': 'Leave',
-    'staff': 'Staff',
+    'login': 'Clinic login',
     'payment': 'Payments',
     'invoice': 'Invoices',
     'export': 'Exports',
@@ -72,7 +72,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     final s = a.action.toLowerCase();
     return switch (_type) {
       null => true,
-      'staff' => s.contains('invite') || s.contains('staff') || s.contains('role'),
+      'login' => s.contains('login') || s.contains('password'),
       'payment' => s.contains('payment') || s.contains('extension'),
       'invoice' => s.contains('invoice') || s.contains('grace'),
       'export' => s.contains('export'),

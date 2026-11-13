@@ -1,22 +1,17 @@
 import 'package:asani_core/asani_core.dart';
 
-/// Clinic-web roles (PRD-CLINIC-WEB §4). Stored as Firebase Auth custom
-/// claims (`role`, `clinicId`, `doctorId`), set only by Cloud Functions.
-enum StaffRole {
+/// Clinic-web roles (PRD-CLINIC-WEB §4, D-18). Stored as Firebase Auth custom
+/// claims (`role: "clinic"` + `clinicId`, or `role: "superAdmin"`), set only
+/// by Cloud Functions. There are no receptionist or doctor accounts: the whole
+/// clinic shares one clinic login, and doctors are records, not users.
+enum UserRole {
   superAdmin,
-  clinicAdmin,
-  receptionist,
-  doctor;
+  clinic;
 
-  String get label => switch (this) {
-        superAdmin => 'Super Admin',
-        clinicAdmin => 'Clinic Admin',
-        receptionist => 'Receptionist',
-        doctor => 'Doctor',
-      };
+  String get label => switch (this) { superAdmin => 'Super Admin', clinic => 'Clinic login' };
 }
 
-enum StaffStatus {
+enum LoginStatus {
   invited,
   active,
   disabled;
@@ -24,63 +19,58 @@ enum StaffStatus {
   String get label => switch (this) { invited => 'Invited', active => 'Active', disabled => 'Disabled' };
 }
 
-class StaffAccount {
-  const StaffAccount({
+/// A login: the Super Admin, or a clinic's single login (clinicAccounts/{uid}).
+class UserAccount {
+  const UserAccount({
     required this.uid,
     required this.name,
     required this.email,
     required this.role,
     this.clinicId,
-    this.doctorId,
-    this.status = StaffStatus.active,
-    this.invitedBy,
+    this.status = LoginStatus.active,
     required this.createdAt,
+    this.invitedAt,
     this.lastLoginAt,
-    this.isMainAccount = false,
+    this.passwordChangedAt,
   });
 
   final String uid;
+
+  /// Super Admin: person's name. Clinic login: the manager / senior doctor.
   final String name;
   final String email;
-  final StaffRole role;
+  final UserRole role;
   final String? clinicId;
-  final String? doctorId;
-  final StaffStatus status;
-  final String? invitedBy;
+  final LoginStatus status;
   final DateTime createdAt;
+  final DateTime? invitedAt;
   final DateTime? lastLoginAt;
+  final DateTime? passwordChangedAt;
 
-  /// The clinic's own email account (cannot be removed by the clinic).
-  final bool isMainAccount;
+  bool get isClinic => role == UserRole.clinic;
 
-  StaffAccount copyWith({String? name, StaffRole? role, String? doctorId, StaffStatus? status, DateTime? lastLoginAt}) =>
-      StaffAccount(
+  UserAccount copyWith({String? name, LoginStatus? status, DateTime? invitedAt, DateTime? lastLoginAt, DateTime? passwordChangedAt}) => UserAccount(
         uid: uid,
         name: name ?? this.name,
         email: email,
-        role: role ?? this.role,
+        role: role,
         clinicId: clinicId,
-        doctorId: role == null || role == StaffRole.doctor ? (doctorId ?? this.doctorId) : null,
         status: status ?? this.status,
-        invitedBy: invitedBy,
         createdAt: createdAt,
+        invitedAt: invitedAt ?? this.invitedAt,
         lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-        isMainAccount: isMainAccount,
+        passwordChangedAt: passwordChangedAt ?? this.passwordChangedAt,
       );
 }
 
 /// What a role may do (PRD-CLINIC-WEB §4.2 permission matrix).
-extension Perms on StaffRole {
-  bool get isStaff => this != StaffRole.superAdmin;
-  bool get canCheckIn => this == StaffRole.receptionist || this == StaffRole.clinicAdmin;
-  bool get canAllTokenActions => canCheckIn;
-  bool get canNext => this != StaffRole.superAdmin;
-  bool get canSession => this != StaffRole.superAdmin;
-  bool get canWalkIn => canCheckIn;
-  bool get canSearchPatients => this != StaffRole.superAdmin;
-  bool get canFollowUp => this != StaffRole.superAdmin;
-  bool get canManageClinic => this == StaffRole.clinicAdmin || this == StaffRole.superAdmin;
-  bool get canSeeBilling => canManageClinic;
+extension Perms on UserRole {
+  /// Queue work: check-in, Next, token actions, sessions, walk-ins, patients, follow-ups.
+  bool get canRunQueue => this == UserRole.clinic;
+
+  /// D-19: the clinic adds, edits, deactivates its doctors and sets leave.
+  /// The Super Admin only views them (and gets a new-doctor alert).
+  bool get canManageDoctors => this == UserRole.clinic;
 }
 
 enum TokenSource {
@@ -94,7 +84,7 @@ enum TokenSource {
 class TokenEvent {
   const TokenEvent(this.action, this.by, this.at, {this.note});
   final String action;
-  final String by; // "Asma (Receptionist)"
+  final String by; // "Al-Shifa Clinic (clinic login)"
   final DateTime at;
   final String? note;
 }
@@ -312,7 +302,7 @@ class ActivityLog {
   final String id;
   final String? clinicId;
   final String actorName;
-  final StaffRole actorRole;
+  final UserRole actorRole;
   final String action; // e.g. "added doctor"
   final String target; // e.g. "Dr. Ayesha Malik"
   final DateTime at;

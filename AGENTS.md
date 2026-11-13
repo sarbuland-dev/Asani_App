@@ -15,10 +15,10 @@ Asani is a clinic token and live-queue system for small and medium private clini
 | Part | Status | Agent rule |
 |---|---|---|
 | `apps/patient_app` | ✅ Active | Build here |
-| `functions/` | ✅ Active | Only functions the patient app needs (see ARCHITECTURE.md §5) |
+| `functions/` | ✅ Active | Functions for the patient app and the clinic web (see ARCHITECTURE.md §5) |
 | `packages/asani_core` | ✅ Active | Shared models only |
 | `tools/queue-sim`, `tools/admin-scripts` | ✅ Active | Dev tooling |
-| `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md). UI runs on an in-memory demo backend; Firebase wiring not started |
+| `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md v0.4). One login per clinic, no staff/doctor accounts; the clinic manages its own doctors. Two backends: in-memory demo (default) and Firebase (`--dart-define=BACKEND=firebase`, clinic/admin functions in `functions/src/clinic` + `functions/src/admin`) |
 | Clinic desktop (.exe) | ⛔ Dropped | Replaced by Flutter Web (D-06 updated). **Do not create** `apps/clinic_desktop` |
 
 The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
@@ -56,7 +56,7 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 4. **Language:** English UI only.
 5. **Patient identity:** the phone number identifies the *family account*; each patient is a *profile* (`patients` collection). Tokens point to `patientId`.
 6. **Token numbers** are assigned only by the `bookToken` Cloud Function inside a transaction. The client never writes a token number.
-7. **Clinic staff** log in to the clinic web with **email + password** and set their own password from an invite email (PRD-CLINIC-WEB.md D-07 updated). Roles come from custom claims set only by Cloud Functions.
+7. **One login per clinic** (PRD-CLINIC-WEB.md D-07, D-18): the clinic's email + password, set by the manager from an invite email; the receptionist uses the same login. No receptionist or doctor accounts; doctors are records the clinic adds itself (D-19). Roles (`clinic` + `clinicId`, or `superAdmin`) are custom claims set only by Cloud Functions.
 
 ---
 

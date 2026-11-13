@@ -36,7 +36,7 @@ final todayProvider = StreamProvider<String>((ref) async* {
 
 String _today(Ref ref) => ref.watch(todayProvider).value ?? dayKey(pktNow());
 
-final currentUserProvider = Provider<StaffAccount?>((ref) => _live(ref, (r) => r.currentUser));
+final currentUserProvider = Provider<UserAccount?>((ref) => _live(ref, (r) => r.currentUser));
 
 final clinicProvider = Provider.family<ClinicAccount?, String>((ref, id) => _live(ref, (r) => r.clinic(id)));
 final clinicsProvider = Provider<List<ClinicAccount>>((ref) => _live(ref, (r) => r.clinics()));
@@ -61,7 +61,7 @@ final clinicPatientProvider =
 
 final followUpsProvider = Provider.family<List<FollowUp>, String>((ref, clinicId) => _live(ref, (r) => r.followUps(clinicId)));
 
-final staffProvider = Provider.family<List<StaffAccount>, String>((ref, clinicId) => _live(ref, (r) => r.staff(clinicId)));
+final clinicLoginProvider = Provider.family<UserAccount?, String>((ref, clinicId) => _live(ref, (r) => r.clinicLogin(clinicId)));
 
 final invoicesProvider = Provider.family<List<Invoice>, String?>((ref, clinicId) => _live(ref, (r) => r.invoices(clinicId: clinicId)));
 
@@ -84,3 +84,9 @@ bool isNewBooking(QueueToken t) =>
 
 /// Small helper for fire-and-forget futures in callbacks.
 void unawaitedSafe(Future<void> f) => unawaited(f.catchError((_) {}));
+
+/// When each doctor was added (D-19): the Super Admin's New doctors card / marks.
+final doctorAddedAtProvider = Provider<Map<String, DateTime>>((ref) => _live(ref, (r) => r.doctorAddedAt()));
+
+/// A doctor counts as "new" for 7 days after the clinic adds it (A-01).
+bool isNewDoctor(DateTime? addedAt) => addedAt != null && pktNow().difference(addedAt).inDays < 7;

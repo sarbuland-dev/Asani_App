@@ -9,7 +9,6 @@ import '../../core/widgets/desktop.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
-import '../doctors/doctor_form_dialog.dart';
 
 /// A-13 / A-04: New clinic wizard (clinic → doctors → admin → plan → review).
 class NewClinicScreen extends ConsumerStatefulWidget {
@@ -34,21 +33,16 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
     super.dispose();
   }
 
-  static const _titles = ['Clinic', 'Doctors', 'Clinic admin', 'Plan', 'Review'];
+  /// A-04 (v0.4): doctors are not added here; the clinic adds them after its first login (D-19).
+  static const _titles = ['Clinic', 'Clinic login', 'Plan', 'Review'];
 
   bool _validate() {
     switch (_step) {
       case 0:
         return _forms[0].currentState?.validate() ?? false;
       case 1:
-        if (_d.doctors.isEmpty) {
-          showSnack(context, 'Add at least one doctor.');
-          return false;
-        }
-        return true;
-      case 2:
         return _forms[1].currentState?.validate() ?? false;
-      case 3:
+      case 2:
         if (!(_forms[2].currentState?.validate() ?? false)) return false;
         _d.monthlyFee = int.parse(_fee.text);
         _d.pilotDays = int.parse(_pilot.text);
@@ -75,7 +69,7 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
   Widget build(BuildContext context) {
     return PageScaffold(
       title: 'New clinic',
-      subtitle: 'Step ${_step + 1} of 5 · ${_titles[_step]}',
+      subtitle: 'Step ${_step + 1} of ${_titles.length} · ${_titles[_step]}',
       leading: HeaderBackButton(dark: true, onPressed: () => context.go('/admin/clinics')),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SizedBox(
@@ -108,12 +102,12 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
           child: AppCard(
             padding: const EdgeInsets.all(Gap.xl),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              IndexedStack(index: _step, children: [_clinicStep(), _doctorsStep(), _adminStep(), _planStep(), _review()]),
+              IndexedStack(index: _step, children: [_clinicStep(), _adminStep(), _planStep(), _review()]),
               const SizedBox(height: Gap.xl),
               Row(children: [
                 if (_step > 0) TextButton.icon(onPressed: () => setState(() => _step--), icon: const Icon(Icons.arrow_back_rounded), label: const Text('Back')),
                 const Spacer(),
-                if (_step < 4)
+                if (_step < _titles.length - 1)
                   FilledButton.icon(
                     onPressed: () {
                       if (_validate()) setState(() => _step++);
@@ -157,51 +151,14 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
         ]),
       );
 
-  Widget _doctorsStep() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Letters A, B, C… are assigned in this order when the clinic is created.', style: AppText.bodyMedium),
-        const SizedBox(height: Gap.lg),
-        for (var i = 0; i < _d.doctors.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Gap.sm),
-            child: AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-              child: Row(children: [
-                LetterBadge(String.fromCharCode(65 + i)),
-                const SizedBox(width: Gap.md),
-                Expanded(child: TwoLine(_d.doctors[i].name, '${_d.doctors[i].speciality} · ${_d.doctors[i].avgConsultMinutes} min · max ${_d.doctors[i].maxTokensPerDay}')),
-                IconButton(
-                  tooltip: 'Edit',
-                  onPressed: () async {
-                    final d = await showDoctorForm(context, initial: _d.doctors[i], clinicId: 'new');
-                    if (d != null) setState(() => _d.doctors[i] = d);
-                  },
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(tooltip: 'Remove', onPressed: () => setState(() => _d.doctors.removeAt(i)), icon: const Icon(Icons.delete_outline_rounded)),
-              ]),
-            ),
-          ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: () async {
-              final d = await showDoctorForm(context, clinicId: 'new');
-              if (d != null) setState(() => _d.doctors.add(d));
-            },
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Add doctor'),
-          ),
-        ),
-      ]);
-
   Widget _adminStep() => Form(
         key: _forms[1],
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text("The clinic's email becomes the Clinic Admin login. They get an email to set their own password.", style: AppText.bodyMedium),
+          Text("The clinic's email becomes the clinic's only login; the receptionist uses it too. The manager or senior doctor gets an email to set the password.", style: AppText.bodyMedium),
           const SizedBox(height: Gap.lg),
-          FieldLabel('Owner name', child: TextFormField(onChanged: (v) => _d.ownerName = v, validator: _req, textCapitalization: TextCapitalization.words)),
+          FieldLabel('Manager / senior doctor name', child: TextFormField(onChanged: (v) => _d.ownerName = v, validator: _req, textCapitalization: TextCapitalization.words)),
           FieldLabel(
-            'Owner mobile',
+            'Manager mobile',
             child: TextFormField(
               onChanged: (v) => _d.ownerPhone = PhoneUtils.isValidLocal(v) ? PhoneUtils.toE164(v) : v,
               decoration: const InputDecoration(prefixText: '+92  ', hintText: '300 1234567'),
@@ -286,12 +243,11 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
       row('Address', _d.address),
       row('Phone', _d.phone),
       row('Print format', _d.printFormat.label),
-      row('Doctors', [for (var i = 0; i < _d.doctors.length; i++) '${String.fromCharCode(65 + i)}: ${_d.doctors[i].name}'].join('\n')),
-      row('Clinic admin', '${_d.ownerName} · ${_d.email}'),
-      row('Owner mobile', Fmt.phone(_d.ownerPhone)),
+      row('Clinic login', '${_d.email} (manager: ${_d.ownerName})'),
+      row('Manager mobile', Fmt.phone(_d.ownerPhone)),
       row('Plan', 'Pilot ${_d.pilotDays} days, then ${_d.planAfterPilot.label} at ${WebFmt.money(_d.monthlyFee)}/month (billing day ${_d.billingDay})'),
       const SizedBox(height: Gap.md),
-      const Banner2(text: 'On Create, the clinic starts in Pilot and the invite email goes to the clinic email.', icon: Icons.mail_outline_rounded, fg: AppColors.info, bg: AppColors.infoContainer),
+      const Banner2(text: 'On Create, the clinic starts in Pilot and the invite goes to the clinic email. After the first login, the clinic adds its own doctors.', icon: Icons.mail_outline_rounded, fg: AppColors.info, bg: AppColors.infoContainer),
     ]);
   }
 }

@@ -15,8 +15,8 @@ import '../print/clinic_form.dart';
 /// patient pages (C-04). The backend validates everything again (BW-1).
 abstract final class QueueActions {
   /// Actions a role may take on a token in its current status.
-  static List<TokenAction> available(QueueToken t, StaffRole role) {
-    if (!role.canAllTokenActions) return const [];
+  static List<TokenAction> available(QueueToken t, UserRole role) {
+    if (!role.canRunQueue) return const [];
     return switch (t.status) {
       TokenStatus.booked => const [TokenAction.arrive, TokenAction.callNow, TokenAction.hold, TokenAction.cancel, TokenAction.noShow],
       TokenStatus.arrived => const [TokenAction.callNow, TokenAction.hold, TokenAction.reprint, TokenAction.cancel, TokenAction.noShow],
@@ -33,7 +33,8 @@ abstract final class QueueActions {
         TokenAction.callNow => t.status == TokenStatus.skipped ? 'Recall' : 'Call now',
         TokenAction.skip => 'Skip',
         TokenAction.hold => 'Hold',
-        TokenAction.backToQueue => 'Back to queue',
+        // D-24: from Skipped this means "came back": called right after the current patient.
+        TokenAction.backToQueue => t.status == TokenStatus.skipped ? 'Arrived · call next' : 'Back to queue',
         TokenAction.cancel => 'Cancel token',
         TokenAction.noShow => 'Mark No-show',
         TokenAction.reprint => 'Reprint',
@@ -62,7 +63,13 @@ abstract final class QueueActions {
     String? reason;
     switch (a) {
       case TokenAction.cancel:
-        reason = await askReason(context, title: 'Cancel token ${t.label}?', options: const ['Patient request', 'Duplicate', 'Other'], confirmLabel: 'Cancel token');
+        reason = await askReason(
+          context,
+          title: 'Cancel token ${t.label}?',
+          options: const ['Patient request', 'Duplicate', 'Other'],
+          confirmLabel: 'Cancel token',
+          note: 'If the patient uses the Asani app, they get a notification with this reason.', // D-23
+        );
         if (reason == null) return false;
       case TokenAction.noShow:
         if (!context.mounted) return false;
@@ -98,13 +105,15 @@ abstract final class QueueActions {
   }
 
   /// Prints the clinic form in the clinic's chosen format (C-07).
-  static void printForm(WidgetRef ref, QueueToken t) {
+  static Future<void> printForm(WidgetRef ref, QueueToken t) async {
     final repo = ref.read(repositoryProvider);
+    // The visit number needs this patient's history at the clinic.
+    final history = await repo.loadClinicPatient(t.token.clinicId, t.token.patientId);
     final clinic = repo.clinic(t.token.clinicId);
     if (clinic == null || clinic.printFormat == PrintFormat.none) return;
     final doctor = repo.doctors(t.token.clinicId, includeInactive: true).where((d) => d.id == t.token.doctorId).firstOrNull;
     if (doctor == null) return;
-    final earlier = (repo.clinicPatient(t.token.clinicId, t.token.patientId)?.visits ?? const <QueueToken>[])
+    final earlier = (history?.visits ?? const <QueueToken>[])
         .where((v) => v.status == TokenStatus.completed && v.token.date.compareTo(t.token.date) < 0)
         .toList();
     ClinicFormTemplate.print(

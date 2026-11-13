@@ -55,7 +55,9 @@ export async function evaluateQueue(db: Firestore, messaging: Messaging, doctorI
     if (!claimed) continue;
 
     const { title, body } = messageFor(claimed.step, `${claimed.token.tokenPrefix ?? 'A'}-${claimed.token.number}`, doctorName);
-    log.push(await sendToOwner(db, messaging, doc.id, claimed.step, claimed.token.bookedByUserId, title, body));
+    // Walk-ins have no booker; the profile's app account gets the alerts (D-22).
+    const uid = claimed.token.bookedByUserId ?? claimed.token.patientOwnerUid;
+    log.push(await sendToOwner(db, messaging, doc.id, claimed.step, uid, title, body));
   }
   return log;
 }

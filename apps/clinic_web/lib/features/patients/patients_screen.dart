@@ -32,9 +32,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
     ref.watch(repoTickProvider);
     final query = _q.text.trim();
     final results = query.length < 2 ? const <ClinicPatient>[] : ref.read(repositoryProvider).searchPatients(widget.clinicId, query);
-    final user = ref.watch(currentUserProvider)!;
-    final doctorId = user.role == StaffRole.doctor ? user.doctorId : null;
-    final shown = doctorId == null ? results : results.where((p) => p.visits.any((v) => v.token.doctorId == doctorId)).toList();
+    final shown = results;
 
     return PageScaffold(
       title: 'Patients',

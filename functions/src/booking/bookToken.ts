@@ -163,6 +163,11 @@ export const bookToken = onCall(callableOptions, async (request) => {
 
     if (followUpRef) tx.update(followUpRef, { status: 'booked', bookedTokenId: tokenRef.id, updatedAt: ts });
 
+    // PRD-CLINIC-WEB §11: the clinic can now find this patient (BW-6), and the
+    // Super Admin dashboard counts the booking (clinics/{id}/stats/{yyyy-MM}).
+    tx.update(patientRef, { clinicIds: FieldValue.arrayUnion(input.clinicId) });
+    tx.set(clinicRef.collection('stats').doc(input.date.slice(0, 7)), { app: FieldValue.increment(1), tokens: FieldValue.increment(1) }, { merge: true });
+
     return { tokenId: tokenRef.id, number };
   });
 

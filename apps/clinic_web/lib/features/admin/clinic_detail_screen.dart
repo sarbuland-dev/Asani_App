@@ -9,7 +9,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
-import '../staff/staff_screen.dart';
+import '../doctors/doctors_screen.dart';
 import 'activity_screen.dart';
 import 'payment_dialogs.dart';
 
@@ -63,21 +63,20 @@ class ClinicDetailScreen extends ConsumerWidget {
                 case 'pilot':
                   await _extendPilot(context, ref, c);
                 case 'invite':
-                  final main = repo.staff(clinicId).where((s) => s.isMainAccount).firstOrNull;
-                  if (main != null) await runAction(context, () => repo.resendInvite(main.uid), success: 'Invite sent again to ${main.email}.');
+                  await runAction(context, () => repo.resendClinicInvite(clinicId), success: 'Invite sent again to ${c.email}.');
               }
             },
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'plan', child: Text('Change plan / fee')),
               const PopupMenuItem(value: 'pilot', child: Text('Extend pilot')),
-              const PopupMenuItem(value: 'invite', child: Text('Resend clinic admin invite')),
+              const PopupMenuItem(value: 'invite', child: Text('Resend clinic login invite')),
             ],
           ),
         ],
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [
             Tab(text: 'Info'),
-            Tab(text: 'Doctors & Staff'),
+            Tab(text: 'Doctors'),
             Tab(text: 'Payments'),
             Tab(text: 'Activity'),
             Tab(text: 'Usage'),
@@ -86,7 +85,7 @@ class ClinicDetailScreen extends ConsumerWidget {
           Expanded(
             child: TabBarView(children: [
               _scroll(_InfoTab(c)),
-              _scroll(_PeopleTab(clinicId)),
+              _scroll(DoctorList(clinicId: clinicId)),
               _scroll(_PaymentsTab(clinicId)),
               _scroll(AppCard(padding: const EdgeInsets.all(Gap.xl), child: ActivityFeed(clinicId: clinicId, limit: 200))),
               _scroll(_UsageTab(clinicId)),
@@ -168,7 +167,10 @@ class _InfoTab extends ConsumerWidget {
       );
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget build(BuildContext context, WidgetRef ref) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _ClinicLoginCard(c),
+        const SizedBox(height: Gap.xl),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           child: AppCard(
             padding: const EdgeInsets.all(Gap.xl),
@@ -179,7 +181,7 @@ class _InfoTab extends ConsumerWidget {
               _row('Address', c.clinic.address),
               _row('Area / City', '${c.clinic.area}, ${c.clinic.city}'),
               _row('Phone', c.clinic.phone),
-              _row('Clinic email', c.email),
+              _row('Clinic email (login)', c.email),
               _row('Print format', c.printFormat.label),
               _row('Onboarded', WebFmt.date(c.createdAt)),
             ]),
@@ -190,10 +192,10 @@ class _InfoTab extends ConsumerWidget {
           child: AppCard(
             padding: const EdgeInsets.all(Gap.xl),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Owner & billing', style: AppText.titleMedium),
+              Text('Manager & billing', style: AppText.titleMedium),
               const SizedBox(height: Gap.md),
-              _row('Owner', c.ownerName),
-              _row('Owner phone', Fmt.phone(c.ownerPhone)),
+              _row('Manager', c.ownerName),
+              _row('Manager phone', Fmt.phone(c.ownerPhone)),
               _row('Plan', c.plan == Plan.pilot ? 'Pilot, then ${c.planAfterPilot.label}' : c.plan.label),
               _row('Monthly fee', WebFmt.money(c.monthlyFee)),
               _row('Billing day', '${c.billingDay} of each month'),
@@ -202,47 +204,72 @@ class _InfoTab extends ConsumerWidget {
             ]),
           ),
         ),
+      ]),
       ]);
 }
 
-class _PeopleTab extends ConsumerWidget {
-  const _PeopleTab(this.clinicId);
-  final String clinicId;
+/// The clinic's single login (D-18): status, resend invite, disable / enable.
+class _ClinicLoginCard extends ConsumerWidget {
+  const _ClinicLoginCard(this.c);
+  final ClinicAccount c;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final doctors = ref.watch(allDoctorsProvider(clinicId));
-    final logs = ref.watch(activityProvider(clinicId)).where((a) => a.action == 'added doctor').toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(child: Text('Doctors', style: AppText.titleMedium)),
+    final login = ref.watch(clinicLoginProvider(c.id));
+    final repo = ref.watch(repositoryProvider);
+    final now = pktNow();
+    return AppCard(
+      padding: const EdgeInsets.all(Gap.xl),
+      child: Row(children: [
+        const IconBox(icon: Icons.key_rounded, size: 48),
+        const SizedBox(width: Gap.lg),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('Clinic login', style: AppText.titleMedium),
+              const SizedBox(width: Gap.sm),
+              if (login != null) LoginStatusPill(login.status),
+            ]),
+            Text(login?.email ?? c.email, style: AppText.labelMedium),
+            Text(
+              login == null
+                  ? 'No login yet'
+                  : [
+                      'Manager: ${login.name}',
+                      if (login.status == LoginStatus.invited && login.invitedAt != null) 'Invite sent ${WebFmt.ago(login.invitedAt!, now: now)}',
+                      if (login.lastLoginAt != null) 'Last login ${WebFmt.ago(login.lastLoginAt!, now: now)}',
+                      if (login.passwordChangedAt != null) 'Password changed ${WebFmt.ago(login.passwordChangedAt!, now: now)}',
+                    ].join(' · '),
+              style: AppText.labelSmall,
+            ),
+          ]),
+        ),
+        if (login != null && login.status == LoginStatus.invited)
+          OutlinedButton.icon(
+            onPressed: () => runAction(context, () => repo.resendClinicInvite(c.id), success: 'Invite sent again to ${login.email}.'),
+            icon: const Icon(Icons.send_rounded, size: 18),
+            label: const Text('Resend invite'),
+          ),
+        const SizedBox(width: Gap.sm),
+        if (login != null && login.status != LoginStatus.disabled)
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+            onPressed: () async {
+              final ok = await confirmDialog(context,
+                  title: 'Disable the clinic login?', message: '${c.clinic.name} is signed out on every computer within minutes and cannot log in.', confirmLabel: 'Disable login', danger: true);
+              if (ok && context.mounted) await runAction(context, () => repo.setClinicLoginStatus(c.id, LoginStatus.disabled), success: 'Clinic login disabled.');
+            },
+            icon: const Icon(Icons.block_rounded, size: 18),
+            label: const Text('Disable login'),
+          ),
+        if (login != null && login.status == LoginStatus.disabled)
+          FilledButton.icon(
+            onPressed: () => runAction(context, () => repo.setClinicLoginStatus(c.id, LoginStatus.active), success: 'Clinic login enabled.'),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Enable login'),
+          ),
       ]),
-      const SizedBox(height: Gap.md),
-      AppTable(
-        columns: const [TableColumn('Doctor', flex: 4), TableColumn('Speciality', flex: 3), TableColumn('Status', flex: 2), TableColumn('Added by', flex: 3)],
-        rows: [
-          for (final d in doctors)
-            () {
-              final log = logs.where((l) => l.target == d.name).firstOrNull;
-              return <Widget>[
-                Row(children: [LetterBadge(d.tokenPrefix, size: 30), const SizedBox(width: Gap.md), Expanded(child: Text(d.name, style: AppText.labelMedium))]),
-                Text(d.speciality, style: AppText.bodyMedium),
-                d.active
-                    ? const Pill(label: 'Active', fg: AppColors.success, bg: AppColors.successContainer, dot: true)
-                    : const Pill(label: 'Inactive', fg: AppColors.textSecondary, bg: AppColors.muted, dot: true),
-                Text(log == null ? 'At onboarding' : '${log.actorName} · ${WebFmt.date(log.at)}', style: AppText.bodyMedium),
-              ];
-            }(),
-        ],
-      ),
-      const SizedBox(height: Gap.xl),
-      Row(children: [
-        Expanded(child: Text('Staff', style: AppText.titleMedium)),
-        OutlinedButton.icon(onPressed: () => showAddStaffDialog(context, ref, clinicId), icon: const Icon(Icons.person_add_alt_1_rounded, size: 18), label: const Text('Add staff')),
-      ]),
-      const SizedBox(height: Gap.md),
-      StaffTable(clinicId: clinicId, showInvitedBy: true),
-    ]);
+    );
   }
 }
 

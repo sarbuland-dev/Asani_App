@@ -57,7 +57,8 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
     final doctors = ref.watch(allDoctorsProvider(widget.clinicId));
     Doctor? doctorOf(QueueToken t) => doctors.where((d) => d.id == t.token.doctorId).firstOrNull;
     final online = ref.watch(isOnlineProvider);
-    final canArrive = token != null && token.status == TokenStatus.booked && user.role.canCheckIn && online;
+    // D-24: a Skipped patient can check in later and is called right after the current patient.
+    final canArrive = token != null && (token.status == TokenStatus.booked || token.status == TokenStatus.skipped) && user.role.canRunQueue && online;
 
     return AppDialog(
       title: 'Check in',
@@ -65,7 +66,7 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
       width: 560,
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-        if (token != null && token.status.canCancel && user.role.canAllTokenActions)
+        if (token != null && token.status.canCancel && user.role.canRunQueue)
           OutlinedButton(
             style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
             onPressed: _busy || !online ? null : () => QueueActions.perform(context, ref, token, TokenAction.cancel),
@@ -139,6 +140,14 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
     final s = t.status;
     if (s == TokenStatus.booked) {
       return const Banner2(text: 'Booked: today, valid', icon: Icons.check_circle_rounded, fg: AppColors.success, bg: AppColors.successContainer);
+    }
+    if (s == TokenStatus.skipped) {
+      return const Banner2(
+        text: 'This patient was skipped. Check them in and they are called right after the current patient.',
+        icon: Icons.info_outline_rounded,
+        fg: AppColors.info,
+        bg: AppColors.infoContainer,
+      );
     }
     if (s == TokenStatus.cancelled) {
       return const Banner2(text: 'This token was cancelled.', icon: Icons.cancel_outlined, fg: AppColors.danger, bg: AppColors.dangerContainer);

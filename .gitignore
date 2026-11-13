@@ -28,3 +28,7 @@ functions/lib/
 
 # Dart build cache
 **/.dart_tool/
+
+# Local dev test logins (never commit)
+tools/admin-scripts/*.local.txt
+packages/asani_core/build/
