@@ -8,51 +8,44 @@ Patients book a clinic token from their phone, watch the live queue, and arrive 
 
 ---
 
-## Current phase: Patient App (Phase 1)
+## Current phase
 
 | Part | Status | Notes |
 |---|---|---|
-| **Patient App** (Flutter, Android + iOS) | 🟢 In scope now | This repo's current focus |
-| **Backend** (Firebase: Auth, Firestore, Cloud Functions, FCM) | 🟢 In scope now | Only what the patient app needs |
-| **Clinic Desktop App** (Windows .exe) | ⏸️ Next phase | Technology not confirmed yet. Do not build. |
-| **Super Admin Panel** | ⏸️ Later phase | Location/technology not confirmed yet. Do not build. |
+| **Patient App** (Flutter, Android + iOS) | 🟢 Active | `apps/patient_app`, on Firebase (dev) |
+| **Clinic Web** (Flutter Web: clinic dashboard + super admin) | 🟡 Phase 2 | `apps/clinic_web` ([PRD-CLINIC-WEB.md](PRD-CLINIC-WEB.md)); demo or Firebase backend |
+| **Backend** (Firebase: Auth, Firestore, Cloud Functions, FCM) | 🟢 Active | `functions/`, dev project `asani-b2b17` |
+| Clinic Desktop App (Windows .exe) | ⛔ Dropped | Replaced by the clinic web (D-06) |
 
-Until the desktop app exists, the queue is driven by a developer script (`tools/queue-sim`), so the patient app can be built and tested end to end.
+`tools/queue-sim` can still drive a doctor's queue from the command line for testing.
 
 ---
 
 ## Repository structure
 
 ```
-asani/
-├── README.md                 ← you are here
-├── AGENTS.md                 ← rules for AI coding agents (Codex, Claude Code)
-├── CLAUDE.md                 ← points Claude Code to AGENTS.md
-├── PRD.md                    ← what we are building and why
-├── DESIGN.md                 ← UI/UX: screens, components, colors, copy
-├── ARCHITECTURE.md           ← system design, data flow, Cloud Functions
-├── DATABASE.md               ← Firestore collections, fields, indexes
-├── docs/
-│   ├── 01-project-implementation.md
-│   ├── 02-setup.md
-│   ├── 03-feature-development.md
-│   ├── 04-authentication-and-security.md
-│   ├── 05-mcp-connection.md
-│   ├── 06-integration.md
-│   ├── 07-testing-and-qa.md
-│   └── 08-debugging.md
+Asani_App/
+├── pubspec.yaml              ← Dart pub workspace root (one `flutter pub get` for everything)
+├── README.md · AGENTS.md · CLAUDE.md · PRD.md · PRD-CLINIC-WEB.md · DESIGN.md
+├── ARCHITECTURE.md · DATABASE.md · REMAINING_WORK.md
+├── docs/                     ← 01…08 guides (setup, features, security, testing, debugging)
 ├── apps/
-│   └── patient_app/          ← Flutter app (Android + iOS)
+│   ├── patient_app/          ← Flutter app (Android + iOS)
+│   └── clinic_web/           ← Flutter Web: clinic dashboard + super admin
 ├── packages/
-│   └── asani_core/           ← shared Dart models & constants (reused by desktop later)
+│   ├── asani_core/           ← pure Dart: models, enums, PKT dates, phone utils, token code, Fmt, AppLogger
+│   └── asani_ui/             ← Flutter: theme (colors, fonts, spacing) + shared widgets
 ├── functions/                ← Cloud Functions (TypeScript)
 ├── tools/
-│   ├── queue-sim/            ← dev script: advance the queue without the desktop app
-│   └── admin-scripts/        ← onboard clinics, seed data
+│   ├── queue-sim/            ← dev script: move a doctor's queue from the command line
+│   └── admin-scripts/        ← seed data, logins, follow-up reminders, auto-close
+├── .github/workflows/        ← CI per part, with path filters
 ├── firebase.json
 ├── firestore.rules
 └── firestore.indexes.json
 ```
+
+Never nest one app inside another; shared non-UI code goes to `asani_core`, shared UI to `asani_ui`.
 
 ---
 
@@ -61,22 +54,20 @@ asani/
 Full guide: [`docs/02-setup.md`](docs/02-setup.md)
 
 ```bash
-# 1. Install dependencies
-cd apps/patient_app && flutter pub get
-cd ../../functions && npm install
+# 1. Install dependencies (from the repo root)
+flutter pub get                       # all Flutter/Dart members of the workspace
+cd functions && npm install && cd ..
 
-# 2. Start Firebase emulators (Auth, Firestore, Functions)
-cd .. && firebase emulators:start --import=./emulator-data --export-on-exit
+# 2. Patient app (demo data, no Firebase needed)
+cd apps/patient_app && flutter run --flavor dev
 
-# 3. Seed a demo clinic + doctors
-cd tools/admin-scripts && node seed-dev.js
+# 3. Clinic web (demo data) in Chrome
+cd apps/clinic_web && flutter run -d chrome
 
-# 4. Run the app against the emulators
-cd ../../apps/patient_app
-flutter run --dart-define=ENV=dev --dart-define=USE_EMULATOR=true
-
-# 5. Move the queue forward (simulates the receptionist)
-cd ../../tools/queue-sim && node queue-sim.js next --doctor <doctorId>
+# 4. Both on the dev Firebase project, functions on the local emulator
+cd functions && npm run serve:dev                # terminal 1
+cd apps/patient_app && flutter run --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true   # terminal 2
+cd apps/clinic_web && flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true      # terminal 3
 ```
 
 ---
@@ -100,9 +91,9 @@ cd ../../tools/queue-sim && node queue-sim.js next --doctor <doctorId>
 
 ---
 
-## Tech stack (Phase 1)
+## Tech stack
 
-- **App:** Flutter (stable, Dart 3.9+), Android + iOS
+- **Apps:** Flutter (stable, Dart 3.9+): patient app on Android + iOS, clinic web on Flutter Web
 - **State management:** Riverpod · **Navigation:** go_router
 - **Backend:** Firebase Auth (phone OTP), Cloud Firestore, Cloud Functions (TypeScript, Node 20+), Firebase Cloud Messaging, Crashlytics, App Check
 - **Region:** `asia-south1` (Mumbai), the closest Firebase region to Pakistan

@@ -16,12 +16,16 @@ Asani is a clinic token and live-queue system for small and medium private clini
 |---|---|---|
 | `apps/patient_app` | ✅ Active | Build here |
 | `functions/` | ✅ Active | Functions for the patient app and the clinic web (see ARCHITECTURE.md §5) |
-| `packages/asani_core` | ✅ Active | Shared models only |
+| `packages/asani_core` | ✅ Active | **Pure Dart** shared code: models, enums, PKT dates, phone utils, token code, `Fmt`, `AppLogger`. No Flutter imports |
+| `packages/asani_ui` | ✅ Active | **Flutter** shared look: theme tokens, `buildAppTheme` (phone) / `buildDesktopAppTheme` (web), common widgets |
 | `tools/queue-sim`, `tools/admin-scripts` | ✅ Active | Dev tooling |
+| root `pubspec.yaml` | ✅ Active | Dart pub workspace; run `flutter pub get` **at the root**; one `pubspec.lock` at the root |
 | `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md v0.4). One login per clinic, no staff/doctor accounts; the clinic manages its own doctors. Two backends: in-memory demo (default) and Firebase (`--dart-define=BACKEND=firebase`, clinic/admin functions in `functions/src/clinic` + `functions/src/admin`) |
 | Clinic desktop (.exe) | ⛔ Dropped | Replaced by Flutter Web (D-06 updated). **Do not create** `apps/clinic_desktop` |
 
 The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
+
+**Monorepo rules** (PRD-CLINIC-WEB §2.1): never nest one app inside another; move files with `git mv`; shared non-UI code → `asani_core`, shared UI → `asani_ui`; auth and Cloud Functions callables stay inside each app (phone OTP vs email + password). Clinic web work is committed on the `feature/clinic-web` branch unless Sarbuland says otherwise.
 
 ---
 
@@ -76,9 +80,9 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 - **Navigation:** `go_router`. All routes are declared in `lib/core/router/app_router.dart`.
 - **Structure:** feature-first (see ARCHITECTURE.md §4). UI never calls Firebase directly; it goes **UI → provider → repository → Firebase**.
 - Models live in `packages/asani_core`, with `fromMap`/`toMap`. Dates are stored as Firestore `Timestamp`; queue day IDs are `yyyy-MM-dd` in **Asia/Karachi** time.
-- Use theme tokens from `lib/core/theme/` only. No hard-coded colors or font sizes in widgets.
-- Every async screen handles **loading, empty, error and offline** states (DESIGN.md §6).
-- No `print`. Use the `AppLogger` in `lib/core/utils/logger.dart`.
+- Use theme tokens from `package:asani_ui/asani_ui.dart` only (`AppColors`, `AppText`, `Gap`, `Radii`). No hard-coded colors or font sizes in widgets.
+- Every async screen handles **loading, empty, error and offline** states (DESIGN.md §6). `ErrorState` lives in each app (`lib/core/widgets/error_state.dart`) because error messages differ.
+- No `print`. Use `AppLogger` from `package:asani_core/asani_core.dart`.
 
 ### Cloud Functions
 - TypeScript, Node 20+, Firebase Functions v2, region `asia-south1`.
@@ -107,12 +111,25 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 ## 8. Commands
 
 ```bash
-# App
-cd apps/patient_app
+# Install (pub workspace, from the repo root)
 flutter pub get
+
+# Patient app
+cd apps/patient_app
 flutter analyze
 flutter test
-flutter run --dart-define=ENV=dev --dart-define=USE_EMULATOR=true
+flutter run --flavor dev                                            # demo data
+flutter run --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+
+# Clinic web
+cd apps/clinic_web
+flutter analyze
+flutter run -d chrome                                               # demo data
+flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+
+# Shared packages
+cd packages/asani_core && dart test
+cd packages/asani_ui && flutter analyze
 
 # Functions
 cd functions

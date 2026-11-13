@@ -1,6 +1,6 @@
 # 02 — Setup
 
-Developer machine and Firebase setup for the patient app. Primary dev machine: **Windows + Android Studio**.
+Developer machine and Firebase setup for the monorepo: patient app, clinic web, shared packages and functions. Primary dev machine: **Windows + Android Studio**.
 
 ---
 
@@ -12,10 +12,10 @@ Developer machine and Firebase setup for the patient app. Primary dev machine: *
 | Android Studio | latest stable + Flutter & Dart plugins | |
 | Android SDK | API 35+, build-tools, platform-tools | `flutter doctor` |
 | Java (bundled JDK 17 with Android Studio) | 17 | |
-| Node.js | 20 LTS or newer | `node -v` |
+| Node.js | 22 (functions `engines`) | `node -v` |
 | Firebase CLI | latest | `npm i -g firebase-tools` → `firebase --version` |
 | FlutterFire CLI | latest | `dart pub global activate flutterfire_cli` |
-| Java for emulators | 11+ (Firestore emulator needs it) | `java -version` |
+| Java for emulators | **21** (the Firebase CLI 15 emulators need it; rules tests too) | `java -version` · `winget install EclipseAdoptium.Temurin.21.JDK` |
 | Git + GitHub Desktop | | |
 | VS Code (optional) | For TypeScript functions | |
 
@@ -28,15 +28,25 @@ Run `flutter doctor` and fix everything except iOS items (iOS needs a Mac, see �
 ## 2. Clone and install
 
 ```bash
-git clone https://github.com/sarbuland-dev/asani.git
-cd asani
+git clone https://github.com/sarbuland-dev/Asani_App.git
+cd Asani_App
 
-cd apps/patient_app && flutter pub get && cd ../..
-cd packages/asani_core && dart pub get && cd ../..
+flutter pub get                 # Dart pub workspace: patient_app, clinic_web, asani_core, asani_ui
 cd functions && npm install && cd ..
 cd tools/admin-scripts && npm install && cd ../..
 cd tools/queue-sim && npm install && cd ../..
 ```
+
+Run `flutter pub get` **at the repo root**, not inside an app: all members share one `pubspec.lock` at the root.
+Layout (PRD-CLINIC-WEB §2.1):
+
+| Folder | What |
+|---|---|
+| `apps/patient_app` | Patient app, Android + iOS |
+| `apps/clinic_web` | Clinic dashboard + super admin, Flutter Web |
+| `packages/asani_core` | Pure Dart: models, enums, PKT dates, phone utils, token code, `Fmt`, `AppLogger` |
+| `packages/asani_ui` | Flutter: theme (colors, fonts, spacing, ThemeData) + shared widgets |
+| `functions/` | Cloud Functions (TypeScript) |
 
 ---
 
@@ -46,7 +56,7 @@ Create **two** projects in the Firebase console:
 
 | Project ID | Use |
 |---|---|
-| `asani-dev` | Development, testing, MCP tools |
+| `asani-dev` (actual ID **`asani-b2b17`**, alias `dev` in `.firebaserc`) | Development, testing, MCP tools |
 | `asani-prod` | Real clinics |
 
 For **each** project:
@@ -138,6 +148,20 @@ OTP in the Auth emulator: the code appears in the emulator terminal and the Emul
 
 ---
 
+## 5b. Clinic web
+
+```bash
+cd apps/clinic_web
+flutter run -d chrome                                                         # demo backend, one-click logins
+flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+flutter build web --release --dart-define=BACKEND=firebase                    # → build/web
+```
+Firebase mode needs Email/Password sign-in enabled on the dev project and a clinic or super admin login
+(`tools/admin-scripts/create-clinic-login.js`, `create-super-admin.js`). Until Blaze, run the functions with
+`cd functions && npm run serve:dev`. More in `apps/clinic_web/README.md`.
+
+---
+
 ## 6. Queue simulator
 
 Acts as the receptionist until the desktop app exists.
@@ -179,6 +203,20 @@ npm test                       # uses emulators
 firebase deploy --only functions --project dev     # only when asked
 ```
 Set secrets with `firebase functions:secrets:set NAME` (none needed in Phase 1).
+
+Rules tests (Firestore emulator, Java 21): `cd functions && npm run test:rules`.
+
+---
+
+## 8b. CI (GitHub Actions)
+
+`.github/workflows/` has one workflow per part; each runs only when its paths change:
+
+| Workflow | Runs on changes in | Does |
+|---|---|---|
+| `patient_app.yml` | `apps/patient_app/**`, `packages/**`, root pubspec | analyze, test, dev debug APK |
+| `clinic_web.yml` | `apps/clinic_web/**`, `packages/**`, root pubspec | analyze, test, web build; Hosting deploy **disabled** until the `FIREBASE_SERVICE_ACCOUNT_ASANI_DEV` secret and a `hosting` block exist |
+| `functions.yml` | `functions/**`, `firestore.rules`, indexes, `firebase.json` | lint, build, unit tests, rules tests on the emulator; never deploys |
 
 ---
 
