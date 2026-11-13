@@ -1,0 +1,13 @@
+# Dart pub workspace (PRD-CLINIC-WEB §2.1). Run `flutter pub get` here once;
+# all members share one pubspec.lock at the repo root.
+name: asani_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+workspace:
+  - apps/patient_app
+  - apps/clinic_web
+  - packages/asani_core
+  - packages/asani_ui

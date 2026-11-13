@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/config/firebase_setup.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/utils/logger.dart';
 import '../repositories/repositories.dart';
 
 /// Converts Firestore values to the shapes the shared models read:

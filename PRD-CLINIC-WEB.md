@@ -48,7 +48,8 @@ Asani_app/
 │   ├── patient_app/          ← Flutter, Android + iOS (moved here from repo root)
 │   └── clinic_web/           ← Flutter Web: clinic dashboard + super admin
 ├── packages/
-│   └── asani_core/           ← shared: models, API client, auth
+│   ├── asani_core/           ← pure Dart: models, enums, PKT dates, phone utils, token code, formatting, logger
+│   └── asani_ui/             ← Flutter: theme (colors, fonts, spacing, ThemeData) + shared widgets
 ├── functions/                ← Cloud Functions (shared backend)
 ├── firebase.json
 ├── firestore.rules
@@ -59,13 +60,13 @@ Rules:
 1. **One-time move first:** before creating `clinic_web`, move the current patient app (lib, android, ios, pubspec.yaml…) from the repo root into `apps/patient_app`. Commit everything before the move so it can be undone.
 2. **Never nest** `clinic_web` inside the patient app folder.
 3. **Dart pub workspace:** root `pubspec.yaml` lists the workspace members; each member uses `resolution: workspace`. One `flutter pub get` at the root resolves all; both apps use `asani_core` locally.
-4. **`asani_core`** holds code both apps need: models (Clinic, Doctor, Token, Patient, QueueDay…), enums, shared logic (token code, PKT dates, phone utils), the **API client** (callable Cloud Functions wrappers) and the **auth** layer. No app-specific UI.
+4. **Shared packages (updated 2026-11-14, Sarbuland):** `asani_core` is **pure Dart** (no Flutter): models (Clinic, Doctor, Token, Patient, QueueDay…), enums, shared logic (token code, PKT dates, phone utils), formatting (`Fmt`) and `AppLogger`. `asani_ui` is a **Flutter** package with the theme tokens, both ThemeData (`buildAppTheme` for the phone, `buildDesktopAppTheme` for the web) and the common widgets, so both apps look the same. **Auth and the Cloud Functions callables stay inside each app** (patient app = phone OTP, clinic web = email + password); `ErrorState` stays per app because each app has its own error messages.
 5. **CI path filters:** each app builds and deploys on its own:
    - changes in `apps/patient_app/**` → patient app build only
    - changes in `apps/clinic_web/**` → clinic web build + deploy to Firebase Hosting only
-   - changes in `packages/asani_core/**` → both apps build and test
+   - changes in `packages/asani_core/**` or `packages/asani_ui/**` → both apps build and test
    - changes in `functions/**` or `firestore.rules` → backend tests (+ deploy when approved)
-6. Both apps use the **same Firebase project** per environment (`asani-dev`, `asani-prod`).
+6. Both apps use the **same Firebase project** per environment (dev = `asani-b2b17`, prod = `asani-prod`).
 
 ---
 

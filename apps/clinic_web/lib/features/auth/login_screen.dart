@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/firebase_setup.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/demo_clinic_repository.dart';
 import '../../data/providers.dart';

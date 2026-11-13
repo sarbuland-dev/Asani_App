@@ -10,7 +10,7 @@ export 'typography.dart';
 
 /// Same brand as the patient app (DESIGN.md §3), adapted for desktop:
 /// buttons size to their content instead of filling the width.
-ThemeData buildAppTheme() {
+ThemeData buildDesktopAppTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.primary,
     primary: AppColors.primary,

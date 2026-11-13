@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../data/models.dart';
 import '../errors/app_exception.dart';
-import '../theme/app_theme.dart';
-import 'common.dart';
+import 'package:asani_ui/asani_ui.dart';
 
-export 'common.dart';
+export 'package:asani_ui/asani_ui.dart';
+export 'error_state.dart';
 
 /// Standard page: title row with actions, then content.
 class PageScaffold extends StatelessWidget {

@@ -1,9 +1,7 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
-import '../../core/widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 /// Ticket-style token slip (UI design "Token slip").
 class TokenSlip extends StatelessWidget {

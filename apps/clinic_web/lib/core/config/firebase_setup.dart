@@ -3,7 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import '../utils/logger.dart';
+import 'package:asani_core/asani_core.dart';
 
 /// Build-time settings (`--dart-define`), same names as the patient app:
 ///

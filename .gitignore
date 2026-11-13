@@ -35,3 +35,6 @@ packages/asani_core/build/
 
 # Local Claude Code settings (per machine)
 .claude/
+
+# Flutter generated (workspace members)
+**/.flutter-plugins-dependencies

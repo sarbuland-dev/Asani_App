@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/links.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/web/print.dart';
 import '../../core/widgets/desktop.dart';
 import '../../core/widgets/qr_view.dart';

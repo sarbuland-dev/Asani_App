@@ -1,9 +1,7 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 
-import '../errors/app_exception.dart';
 import '../theme/app_theme.dart';
-import '../utils/formatters.dart';
 
 /// The "a" monogram mark (logo 06): ring + stem + small plus in the counter.
 class AsaniMark extends StatelessWidget {
@@ -352,21 +350,6 @@ class EmptyState extends StatelessWidget {
       ),
     );
   }
-}
-
-class ErrorState extends StatelessWidget {
-  const ErrorState({super.key, this.error, this.onRetry});
-  final Object? error;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) => EmptyState(
-        icon: Icons.error_outline_rounded,
-        title: 'Something went wrong',
-        message: error == null ? 'Please try again.' : AppException.messageOf(error!),
-        actionLabel: onRetry == null ? null : 'Retry',
-        onAction: onRetry,
-      );
 }
 
 /// Skeleton cards for loading lists (DESIGN.md §6: skeletons, not spinners).

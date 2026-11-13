@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
+import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/launch.dart';
-import '../../core/widgets/common.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/error_state.dart';
 
 /// S-07 Clinic page: choose a doctor (PRD F-03).
 class ClinicScreen extends ConsumerStatefulWidget {

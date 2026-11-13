@@ -6,11 +6,15 @@ version: 0.1.0+1
 environment:
   sdk: ^3.9.0
 
+resolution: workspace
+
 dependencies:
   flutter:
     sdk: flutter
   asani_core:
     path: ../../packages/asani_core
+  asani_ui:
+    path: ../../packages/asani_ui
   flutter_riverpod: ^3.5.0
   go_router: ^18.1.3
   google_fonts: ^8.2.1

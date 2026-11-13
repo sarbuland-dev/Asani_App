@@ -6,7 +6,7 @@ import 'app.dart';
 import 'core/config/env.dart';
 import 'core/config/firebase_setup.dart';
 import 'core/push/push_service.dart';
-import 'core/utils/logger.dart';
+import 'package:asani_core/asani_core.dart';
 import 'data/demo/demo_backend.dart';
 import 'data/firebase/firebase_auth_repository.dart';
 import 'data/firebase/firestore_clinic_repository.dart';

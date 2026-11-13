@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repositories/repositories.dart';
 import '../config/app_info.dart';
-import '../utils/logger.dart';
 
 /// The phone's notification permission, as the OS reports it.
 enum PushPermission { granted, denied, notAsked }

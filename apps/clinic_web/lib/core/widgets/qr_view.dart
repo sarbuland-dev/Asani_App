@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr/qr.dart';
 
-import '../theme/app_theme.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 /// Draws a QR code (clinic standee preview, slip QR).
 class QrView extends StatelessWidget {

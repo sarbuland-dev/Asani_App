@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/config/firebase_setup.dart';
 import '../core/errors/app_exception.dart';
-import '../core/utils/logger.dart';
 import 'clinic_repository.dart';
 import 'models.dart';
 
@@ -621,11 +620,9 @@ class FirebaseClinicRepository implements ClinicRepository {
 
   @override
   CodeLookup findByCode(String clinicId, String code) {
-    final clean = code.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
-    final m = RegExp(r'^([A-Z]*)(\d+)$').firstMatch(clean);
-    if (m == null) return const CodeLookup();
-    final letter = m.group(1)!;
-    final number = int.parse(m.group(2)!);
+    final parsed = TokenCode.parse(code);
+    if (parsed == null) return const CodeLookup();
+    final (:letter, :number) = parsed;
     bool matches(QueueToken t) => t.number == number && (letter.isEmpty || t.token.tokenPrefix == letter);
     // BW-5: only today's tokens of this clinic.
     final today = tokens(clinicId, dayKey(pktNow())).where(matches).toList();

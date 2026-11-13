@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:asani_core/asani_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 
-import '../../core/utils/logger.dart';
 import '../demo/demo_backend.dart';
 import '../repositories/repositories.dart';
 

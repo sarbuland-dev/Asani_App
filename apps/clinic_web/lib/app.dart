@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 class ClinicWebApp extends ConsumerWidget {
   const ClinicWebApp({super.key});
@@ -12,7 +12,7 @@ class ClinicWebApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Asani Clinic',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
+      theme: buildDesktopAppTheme(),
       routerConfig: ref.watch(routerProvider),
     );
   }

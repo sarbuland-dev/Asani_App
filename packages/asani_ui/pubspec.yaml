@@ -1,0 +1,21 @@
+name: asani_ui
+description: Shared Asani theme (colors, fonts, spacing) and common widgets for the patient app and the clinic web.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  asani_core:
+    path: ../asani_core
+  google_fonts: ^8.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

@@ -6,7 +6,6 @@ import 'package:asani_core/asani_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/errors/app_exception.dart';
-import '../../core/utils/logger.dart';
 import '../repositories/repositories.dart';
 import 'demo_seed.dart';
 

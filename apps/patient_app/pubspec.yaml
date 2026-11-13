@@ -21,6 +21,8 @@ version: 1.0.0+1
 environment:
   sdk: ^3.12.2
 
+resolution: workspace
+
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
@@ -36,6 +38,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   asani_core:
     path: ../../packages/asani_core
+  asani_ui:
+    path: ../../packages/asani_ui
   flutter_riverpod: ^3.5.0
   go_router: ^18.1.3
   google_fonts: ^8.2.1

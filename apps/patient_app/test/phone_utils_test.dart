@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patient_app/core/utils/formatters.dart';
+import 'package:asani_core/asani_core.dart';
 
 void main() {
   test('accepts common Pakistani mobile formats', () {

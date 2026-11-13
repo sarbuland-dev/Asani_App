@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/config/firebase_setup.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/utils/logger.dart';
 import '../demo/demo_backend.dart';
 import '../repositories/repositories.dart';
 
