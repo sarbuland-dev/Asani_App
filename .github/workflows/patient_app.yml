@@ -1,0 +1,90 @@
+# Patient app (Android + iOS): analyze, test, build (PRD-CLINIC-WEB §2.1 rule 5).
+# Runs only when the patient app or a shared package changes.
+name: patient_app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/patient_app/**'
+      - 'packages/asani_core/**'
+      - 'packages/asani_ui/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/patient_app.yml'
+  pull_request:
+    paths:
+      - 'apps/patient_app/**'
+      - 'packages/asani_core/**'
+      - 'packages/asani_ui/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/patient_app.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: patient-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - name: Install packages (pub workspace, run at the root)
+        run: flutter pub get
+
+      - name: Shared packages
+        run: |
+          (cd packages/asani_core && dart analyze --fatal-infos && dart test)
+          (cd packages/asani_ui && flutter analyze --fatal-infos)
+
+      - name: Analyze
+        working-directory: apps/patient_app
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        working-directory: apps/patient_app
+        run: flutter test
+
+  build-android:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - run: flutter pub get
+
+      # Debug build of the dev flavor (demo backend by default). No signing keys
+      # or prod config are used in CI (AGENTS.md §7).
+      - name: Build APK (dev flavor, debug)
+        working-directory: apps/patient_app
+        run: flutter build apk --debug --flavor dev
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patient-app-dev-debug-apk
+          path: apps/patient_app/build/app/outputs/flutter-apk/app-dev-debug.apk
+          retention-days: 7
+
+  # iOS needs a macOS runner and signing; add when the App Store work starts.
