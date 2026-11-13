@@ -25,7 +25,9 @@ Asani is a clinic token and live-queue system for small and medium private clini
 
 The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
 
-**Monorepo rules** (PRD-CLINIC-WEB §2.1): never nest one app inside another; move files with `git mv`; shared non-UI code → `asani_core`, shared UI → `asani_ui`; auth and Cloud Functions callables stay inside each app (phone OTP vs email + password). Clinic web work is committed on the `feature/clinic-web` branch unless Sarbuland says otherwise.
+**Monorepo rules** (PRD-CLINIC-WEB §2.1): never nest one app inside another; move files with `git mv`; shared non-UI code → `asani_core`, shared UI → `asani_ui`; auth and Cloud Functions callables stay inside each app (phone OTP vs email + password).
+
+**Branches** (Sarbuland, 2026-11-14): `main` is the only long-lived branch. For each task create a **short-lived branch** from `main` (e.g. `feature/queue-board`, `fix/token-slip`, `docs/setup`), commit there, merge it into `main` when the task is done, then delete the branch (local and GitHub). Never leave finished work on a side branch.
 
 ---
 
