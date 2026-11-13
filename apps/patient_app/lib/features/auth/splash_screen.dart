@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 /// S-01: logo on primary while the auth state loads. If it takes long
 /// (no internet on first launch), says so instead of spinning silently.

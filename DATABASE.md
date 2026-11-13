@@ -22,8 +22,11 @@ Source of truth for all collections. **Any schema change must update this file i
 | `doctors/{doctorId}/days/{yyyy-MM-dd}` | 1 | Functions / queue-sim (*desktop later*) | All signed-in users |
 | `tokens/{tokenId}` | 1 | Functions / queue-sim (*desktop later*) | Own tokens (+ count queries) |
 | `followUps/{followUpId}` | 1 | Admin script / Functions (*desktop later*) | Own |
-| `clinics/{clinicId}/stats/{yyyy-MM}` | 2 | Functions | ❌ |
-| `invoices/{id}`, `activityLogs/{id}` | 3 | Functions / super admin | ❌ |
+| `clinics/{clinicId}/stats/{yyyy-MM}` | 2 | Functions | ❌ (own clinic + super admin) |
+| `clinicAccounts/{uid}` | 2 | Functions / admin script | ❌ (own login + super admin) |
+| `adminUsers/{uid}` | 3 | Admin script | ❌ (super admin) |
+| `invoices/{id}`, `activityLogs/{id}` | 3 | Functions only | ❌ (own clinic + super admin) |
+| `settings/billing` | 3 | Functions (`saveAdminSettings`) | ❌ (clinic logins + super admin) |
 
 ---
 
@@ -73,6 +76,7 @@ One document per **person who sees a doctor**. Not a sub-collection of `users`, 
 | `mergedInto` | string \| null | Phase 2+ |
 | `personId` | string \| null | Phase 2+ cross-phone link |
 | `createdBy` | string | `app` / `staff` / `script` |
+| `clinicIds` | array<string> | Clinics this patient booked or visited. Set by `bookToken` and `clinicCreateWalkIn`; a clinic login can read the patient only if its clinic is in here (BW-6). Backfill: `tools/admin-scripts/backfill-clinic-ids.js` |
 | `createdAt`, `updatedAt` | timestamp | |
 
 Rules of thumb:
@@ -98,6 +102,7 @@ Rules of thumb:
 | `doctorCount` | number | Active doctors |
 | `timezone` | string | `Asia/Karachi` |
 | `printFormat` | string | `thermal80` / `a5` / `none` (Phase 2) |
+| `nextDoctorLetter` | number | Index of the next doctor letter (0 = A). Letters are never reused (BW-7) |
 | `createdAt`, `updatedAt` | timestamp | |
 
 > **Billing fields (plan, monthlyFee, paidUntil, etc.) must NOT be on this document**, because every signed-in patient can read it. They go in `clinics/{clinicId}/private/billing` (Phase 3, super admin only).
@@ -124,6 +129,7 @@ Top-level (not under clinics) so queries by `clinicId` are simple. A doctor work
 | `onLeaveDates` | array<string> | `yyyy-MM-dd` |
 | `active` | bool | |
 | `sortOrder` | number | Order on clinic page |
+| `addedBy` | string \| null | `clinic` when the clinic added it from the web (D-19) |
 | `createdAt`, `updatedAt` | timestamp | |
 
 ---
@@ -143,6 +149,7 @@ One per doctor per date. Created by `bookToken` on the first booking of that day
 | `activeNumbers` | array<number> | Sorted token numbers in `booked` / `arrived` / `onHold`. **Numbers only, no personal data.** The app uses it to compute "patients ahead". Maintained by `onTokenWrite` |
 | `waitingCount` | number | `activeNumbers.length` |
 | `bookedCount` | number | All tokens issued (for "18 of 40 booked") |
+| `undo` | map \| null | Last Next, for "Undo last Next" (30 s): `{at, completedId, calledId, calledPrevStatus, prevCurrent}` |
 | `updatedAt` | timestamp | |
 
 ---
@@ -166,8 +173,13 @@ One per doctor per date. Created by `bookToken` on the first booking of that day
 | `followUpId` | string \| null | If booked from a follow-up |
 | `createdAt` | timestamp | |
 | `arrivedAt`, `calledAt`, `completedAt`, `cancelledAt` | timestamp \| null | |
-| `cancelledBy` | string \| null | `patient` / `staff` |
+| `cancelledBy` | string \| null | `patient` / `clinic` |
+| `cancelReason` | string \| null | Reason picked by the clinic (C-04); shown in the app and the cancel push (D-23) |
+| `priorityAt` | timestamp (optional) | D-24: set when a Skipped patient checks in again (`arrive` / `backToQueue`); Next calls these first, oldest first. Removed on skip / hold |
+| `cancelNotifiedAt` | timestamp (optional) | Set (claimed) just before the D-23 "cancelled by clinic" push, so it is sent once |
+| `history` | array<map> | `{action, by, at, note?}` for every clinic action (C-04), e.g. `by: "Al-Shifa Clinic (clinic login)"` |
 | `waitMinutes` | number \| null | Set on `called`: `calledAt − (arrivedAt ?? createdAt)` |
+| `autoClosed` | bool (optional) | `true` when the 03:00 PKT job closed a past-day token (PRD D-21): Booked → `noShow`, Arrived/On hold/Called → `completed`. Missing on all other tokens |
 | `updatedAt` | timestamp | |
 
 ### Token status flow
@@ -212,6 +224,45 @@ stateDiagram-v2
 
 ---
 
+## 8b. Clinic web collections (PRD-CLINIC-WEB §11)
+
+### `clinicAccounts/{uid}` (one login per clinic, D-18)
+| Field | Type | Notes |
+|---|---|---|
+| `email`, `clinicId`, `name` | string | `name` = manager / senior doctor |
+| `status` | string | `invited` / `active` / `disabled` |
+| `invitedAt`, `lastLoginAt`, `passwordChangedAt`, `createdAt` | timestamp | |
+
+The role itself is the Auth custom claim, never this document.
+
+### `clinics/{clinicId}/private/billing`
+`plan` (`pilot`/`basic`/`premium`), `planAfterPilot`, `monthlyFee`, `billingDay` (1–28), `pilotEndsAt`, `paidUntil`, `ownerName`, `ownerPhone`, `email`.
+
+### `clinics/{clinicId}/stats/{yyyy-MM}`
+`app`, `walkIn`, `tokens` counters (incremented by `bookToken` / `clinicCreateWalkIn`).
+
+### `invoices/{id}` (ID `inv_{clinicId}_{yyyy-MM}`)
+`clinicId`, `month`, `amount`, `dueDate`, `status` (`unpaid`/`overdue`/`paid`/`waived`), `payment {amount, method, reference, date, recordedBy}`, `waiveReason`, `reminderSentAt`.
+
+### `activityLogs/{id}`
+`clinicId` (null = global), `actor {uid, name, role}`, `action`, `target`, `at`. Written by functions only.
+
+### `settings/billing`
+`prices {pilot, basic, premium}`, `pilotDays`, `billingDay`, `dueDays`, `graceDays`, `suspendDays`, `paymentInstructions`.
+
+### `adminUsers/{uid}`
+`email`, `name`, `role: superAdmin` (display only; the claim is the truth).
+
+---
+
+### `rateLimits/{id}` (backend only)
+`phoneLookup_{clinicId}`: `{windowStart: ms, count, clinicId, updatedAt}` for the D-22 full-phone lookup
+(30 per 10 minutes per clinic). No rules match, so clients can never read or write it.
+
+Walk-ins (D-22): a walk-in on an app user's profile has `bookedByUserId: null` and `patientOwnerUid` = the
+account. The app lists those with `patientOwnerUid == uid && source == "walkIn"` (equality only, no composite
+index) and queue alerts go to `bookedByUserId ?? patientOwnerUid`.
+
 ## 9. Composite indexes (`firestore.indexes.json`)
 
 | Collection | Fields | Used by |
@@ -228,6 +279,15 @@ stateDiagram-v2
 | `patients` | `phone` ASC, `ownerUid` ASC | Linking on login |
 | `followUps` | `ownerUid` ASC, `status` ASC, `dueDate` ASC | Upcoming follow-ups |
 | `followUps` | `status` ASC, `dueDate` ASC | Scheduled reminders |
+| `tokens` | `clinicId` ASC, `date` ASC | Clinic web: today's queue, summary, export |
+| `tokens` | `clinicId` ASC, `patientId` ASC, `date` DESC | Clinic web: patient history |
+| `patients` | `clinicIds` CONTAINS, `phone` ASC | Clinic web: search by phone |
+| `patients` | `clinicIds` CONTAINS, `nameLower` ASC | Clinic web: search by name |
+| `followUps` | `clinicId` ASC, `dueDate` ASC | Clinic web: follow-ups |
+| `followUps` | `patientId` ASC, `doctorId` ASC, `status` ASC | `setFollowUp`, `bookToken` |
+| `invoices` | `clinicId` ASC, `status` ASC / `month` DESC | Billing, payments |
+| `activityLogs` | `clinicId` ASC, `at` DESC | Clinic activity |
+| `doctors` | `clinicId` ASC, `active` ASC | Doctor count |
 
 If Firestore throws "The query requires an index", it prints a link; add the index to `firestore.indexes.json` (not only in the console) so it is versioned.
 

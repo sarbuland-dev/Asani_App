@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/net/connectivity.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
@@ -18,8 +17,8 @@ class _NavItem {
   final bool exact;
 }
 
-List<_NavItem> _itemsFor(StaffRole role) => switch (role) {
-      StaffRole.superAdmin => const [
+List<_NavItem> _itemsFor(UserRole role) => switch (role) {
+      UserRole.superAdmin => const [
           _NavItem('Dashboard', Icons.space_dashboard_outlined, '/admin', exact: true),
           _NavItem('Clinics', Icons.local_hospital_outlined, '/admin/clinics'),
           _NavItem('Payments', Icons.receipt_long_outlined, '/admin/payments'),
@@ -27,29 +26,15 @@ List<_NavItem> _itemsFor(StaffRole role) => switch (role) {
           _NavItem('Activity', Icons.history_rounded, '/admin/activity'),
           _NavItem('Settings', Icons.tune_rounded, '/admin/settings'),
         ],
-      StaffRole.doctor => const [
-          _NavItem('My Queue', Icons.format_list_numbered_rounded, '/queue'),
-          _NavItem('Patients', Icons.people_alt_outlined, '/patients'),
-          _NavItem('Follow-ups', Icons.event_repeat_rounded, '/follow-ups'),
-          _NavItem('Daily summary', Icons.insights_rounded, '/summary'),
-          _NavItem('Help', Icons.help_outline_rounded, '/help'),
-        ],
-      StaffRole.receptionist => const [
-          _NavItem('Queue Board', Icons.format_list_numbered_rounded, '/queue'),
-          _NavItem('Patients', Icons.people_alt_outlined, '/patients'),
-          _NavItem('Follow-ups', Icons.event_repeat_rounded, '/follow-ups'),
-          _NavItem('Daily summary', Icons.insights_rounded, '/summary'),
-          _NavItem('Help', Icons.help_outline_rounded, '/help'),
-        ],
-      StaffRole.clinicAdmin => const [
+      UserRole.clinic => const [
           _NavItem('Queue Board', Icons.format_list_numbered_rounded, '/queue'),
           _NavItem('Patients', Icons.people_alt_outlined, '/patients'),
           _NavItem('Follow-ups', Icons.event_repeat_rounded, '/follow-ups'),
           _NavItem('Daily summary', Icons.insights_rounded, '/summary'),
           _NavItem('Doctors', Icons.medical_services_outlined, '/doctors'),
-          _NavItem('Staff', Icons.badge_outlined, '/staff'),
           _NavItem('Clinic settings', Icons.settings_outlined, '/settings'),
           _NavItem('Billing', Icons.receipt_long_outlined, '/billing'),
+          _NavItem('Change password', Icons.key_rounded, '/password'),
           _NavItem('Help', Icons.help_outline_rounded, '/help'),
         ],
     };
@@ -75,7 +60,7 @@ class AppShell extends ConsumerWidget {
         child: Column(children: [
           _TopBar(user: user, clinic: clinic),
           const OfflineBanner(),
-          if (clinic != null) _ClinicBanner(clinic: clinic, isAdmin: user.role == StaffRole.clinicAdmin),
+          if (clinic != null) _ClinicBanner(clinic: clinic, isAdmin: user.role == UserRole.clinic),
           Expanded(child: child),
         ]),
       ),
@@ -92,7 +77,7 @@ class AppShell extends ConsumerWidget {
 
 class _Sidebar extends StatelessWidget {
   const _Sidebar({required this.user, required this.location});
-  final StaffAccount user;
+  final UserAccount user;
   final String location;
 
   bool _selected(_NavItem i) {
@@ -115,9 +100,9 @@ class _Sidebar extends StatelessWidget {
             Text('asani', style: AppText.titleLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
             const SizedBox(width: Gap.sm),
             Pill(
-              label: user.role == StaffRole.superAdmin ? 'Admin' : 'Clinic',
-              fg: user.role == StaffRole.superAdmin ? AppColors.secondary : AppColors.primary,
-              bg: user.role == StaffRole.superAdmin ? AppColors.avatarCool : AppColors.primaryContainer,
+              label: user.role == UserRole.superAdmin ? 'Admin' : 'Clinic',
+              fg: user.role == UserRole.superAdmin ? AppColors.secondary : AppColors.primary,
+              bg: user.role == UserRole.superAdmin ? AppColors.avatarCool : AppColors.primaryContainer,
             ),
           ]),
         ),
@@ -169,7 +154,7 @@ class _NavTile extends StatelessWidget {
 /// W-03: clinic name, who is logged in, Log out (shared reception PCs).
 class _TopBar extends ConsumerWidget {
   const _TopBar({required this.user, required this.clinic});
-  final StaffAccount user;
+  final UserAccount user;
   final ClinicAccount? clinic;
 
   @override
@@ -192,11 +177,12 @@ class _TopBar extends ConsumerWidget {
         const SizedBox(width: Gap.lg),
         Pill(label: Fmt.longDay(today), fg: AppColors.textSecondary, bg: AppColors.muted, icon: Icons.calendar_today_rounded),
         const Spacer(),
-        InitialsAvatar(name: user.name, size: 38),
+        // Shared clinic login: show the login, not one person's name (§5.4).
+        InitialsAvatar(name: user.isClinic ? (clinic?.clinic.name ?? user.name) : user.name, size: 38),
         const SizedBox(width: Gap.md),
         Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(user.name, style: AppText.labelMedium),
-          Text(user.role.label, style: AppText.labelSmall),
+          Text(user.isClinic ? 'Clinic login' : user.name, style: AppText.labelMedium),
+          Text(user.isClinic ? user.email : user.role.label, style: AppText.labelSmall),
         ]),
         const SizedBox(width: Gap.lg),
         OutlinedButton.icon(

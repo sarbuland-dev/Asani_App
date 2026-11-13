@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
-import '../../core/widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 
 /// Open today / Closed today, plus next opening info for closed clinics.

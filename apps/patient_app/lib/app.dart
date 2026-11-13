@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/net/connectivity.dart';
 import 'core/router/app_router.dart';
-import 'core/theme/app_theme.dart';
+import 'package:asani_ui/asani_ui.dart';
 import 'data/providers.dart';
 import 'data/repositories/repositories.dart';
 

@@ -1,0 +1,89 @@
+# Clinic web (Flutter Web: clinic + super admin): analyze, test, build web.
+# Runs only when the clinic web or a shared package changes (PRD-CLINIC-WEB §2.1 rule 5).
+name: clinic_web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/clinic_web/**'
+      - 'packages/asani_core/**'
+      - 'packages/asani_ui/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/clinic_web.yml'
+  pull_request:
+    paths:
+      - 'apps/clinic_web/**'
+      - 'packages/asani_core/**'
+      - 'packages/asani_ui/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/clinic_web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: clinic-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - name: Install packages (pub workspace, run at the root)
+        run: flutter pub get
+
+      - name: Shared packages
+        run: |
+          (cd packages/asani_core && dart analyze --fatal-infos && dart test)
+          (cd packages/asani_ui && flutter analyze --fatal-infos)
+
+      - name: Analyze
+        working-directory: apps/clinic_web
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        working-directory: apps/clinic_web
+        run: |
+          if [ -d test ]; then flutter test; else echo "No clinic_web tests yet."; fi
+
+      # Firebase backend build against the dev project (functions run on the
+      # emulator until Blaze, PRD D-17, so this build is for checking only).
+      - name: Build web
+        working-directory: apps/clinic_web
+        run: flutter build web --release --dart-define=BACKEND=firebase
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clinic-web-build
+          path: apps/clinic_web/build/web
+          retention-days: 7
+
+  # Firebase Hosting deploy: only on main, and only after Sarbuland adds the
+  # FIREBASE_SERVICE_ACCOUNT_ASANI_DEV secret and a "hosting" block in
+  # firebase.json (needs a domain, Q-W09). DISABLED until then (AGENTS.md §7).
+  deploy:
+    if: false # enable: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: clinic-web-build
+          path: apps/clinic_web/build/web
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ASANI_DEV }}
+          projectId: asani-b2b17
+          channelId: live

@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:patient_app/app.dart';
 import 'package:patient_app/core/router/app_router.dart';
-import 'package:patient_app/core/theme/typography.dart';
+import 'package:asani_ui/asani_ui.dart';
 import 'package:patient_app/data/demo/demo_backend.dart';
 import 'package:patient_app/data/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';

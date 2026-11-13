@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
@@ -33,18 +32,7 @@ final defaultersProvider = Provider<List<Defaulter>>((ref) {
 /// This month's tokens across all clinics: (app, walk-in).
 final monthTokensProvider = Provider<(int, int)>((ref) {
   ref.watch(repoTickProvider);
-  final repo = ref.watch(repositoryProvider);
-  final now = pktNow();
-  var app = 0, walk = 0;
-  for (final c in repo.clinics()) {
-    for (var d = 1; d <= now.day; d++) {
-      for (final t in repo.tokens(c.id, dayKey(DateTime(now.year, now.month, d)))) {
-        if (t.status == TokenStatus.cancelled) continue;
-        t.source == TokenSource.app ? app++ : walk++;
-      }
-    }
-  }
-  return (app, walk);
+  return ref.watch(repositoryProvider).monthTokens();
 });
 
 String _thisMonth() {
@@ -111,6 +99,8 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: Gap.xl),
+        const NewDoctorsCard(),
+        const SizedBox(height: Gap.xl),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             flex: 2,
@@ -169,4 +159,78 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(width: Gap.xs),
         Text(pct, style: AppText.labelSmall),
       ]);
+}
+
+
+/// When the Super Admin last marked new doctors as seen (unseen badge, A-01).
+/// Kept for this browser session; the Firebase version stores it per admin.
+class NewDoctorsSeen extends Notifier<DateTime?> {
+  @override
+  DateTime? build() => null;
+  void markSeen() => state = pktNow();
+}
+
+final newDoctorsSeenProvider = NotifierProvider<NewDoctorsSeen, DateTime?>(NewDoctorsSeen.new);
+
+/// A-01 (D-19): doctors added by clinics in the last 7 days.
+class NewDoctorsCard extends ConsumerWidget {
+  const NewDoctorsCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final addedAt = ref.watch(doctorAddedAtProvider);
+    final seen = ref.watch(newDoctorsSeenProvider);
+    final now = pktNow();
+    final rows = <(ClinicAccount, Doctor, DateTime)>[];
+    for (final c in ref.watch(clinicsProvider)) {
+      for (final d in ref.watch(allDoctorsProvider(c.id))) {
+        final at = addedAt[d.id];
+        // Doctors set up at onboarding are not news; only later additions.
+        if (isNewDoctor(at) && at!.isAfter(c.createdAt.add(const Duration(minutes: 1)))) rows.add((c, d, at));
+      }
+    }
+    rows.sort((a, b) => b.$3.compareTo(a.$3));
+    final unseen = rows.where((r) => seen == null || r.$3.isAfter(seen)).length;
+
+    return AppCard(
+      padding: const EdgeInsets.all(Gap.xl),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const IconBox(icon: Icons.medical_services_outlined),
+          const SizedBox(width: Gap.md),
+          Text('New doctors', style: AppText.titleMedium),
+          const SizedBox(width: Gap.sm),
+          if (unseen > 0) Pill(label: '$unseen new', fg: AppColors.onPrimary, bg: AppColors.danger),
+          const Spacer(),
+          Text('Added by clinics · last 7 days', style: AppText.labelSmall),
+          if (unseen > 0) ...[
+            const SizedBox(width: Gap.md),
+            TextButton(onPressed: () => ref.read(newDoctorsSeenProvider.notifier).markSeen(), child: const Text('Mark as seen')),
+          ],
+        ]),
+        const SizedBox(height: Gap.md),
+        if (rows.isEmpty)
+          Text('No new doctors this week.', style: AppText.bodyMedium)
+        else
+          for (final (c, d, at) in rows)
+            InkWell(
+              borderRadius: BorderRadius.circular(Radii.button),
+              onTap: () => context.go('/admin/clinics/${c.id}'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Gap.sm, horizontal: Gap.xs),
+                child: Row(children: [
+                  LetterBadge(d.tokenPrefix, size: 32),
+                  const SizedBox(width: Gap.md),
+                  Expanded(child: TwoLine('${d.name} · ${d.speciality}', c.clinic.name)),
+                  if (seen == null || at.isAfter(seen)) ...[
+                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
+                    const SizedBox(width: Gap.sm),
+                  ],
+                  Text(WebFmt.ago(at, now: now), style: AppText.labelSmall),
+                ]),
+              ),
+            ),
+      ]),
+    );
+  }
 }

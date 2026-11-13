@@ -1,10 +1,15 @@
 name: asani_core
-description: Shared Asani models, enums and business rules (patient app now, clinic desktop later).
+description: Shared Asani models, enums, business rules and formatting (pure Dart) for the patient app and the clinic web.
 version: 0.1.0
 publish_to: none
 
 environment:
   sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  intl: ^0.20.2
 
 dev_dependencies:
   test: ^1.25.0

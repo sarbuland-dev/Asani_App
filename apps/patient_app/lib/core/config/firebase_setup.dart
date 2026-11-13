@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../firebase_options_dev.dart' as dev;
 import '../../firebase_options_prod.dart' as prod;
-import '../utils/logger.dart';
+import 'package:asani_core/asani_core.dart';
 import 'env.dart';
 
 /// Firebase region for Functions (docs: asia-south1, Mumbai).

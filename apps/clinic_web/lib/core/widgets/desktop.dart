@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../data/models.dart';
 import '../errors/app_exception.dart';
-import '../theme/app_theme.dart';
-import 'common.dart';
+import 'package:asani_ui/asani_ui.dart';
 
-export 'common.dart';
+export 'package:asani_ui/asani_ui.dart';
+export 'error_state.dart';
 
 /// Standard page: title row with actions, then content.
 class PageScaffold extends StatelessWidget {
@@ -235,16 +235,16 @@ class InvoicePill extends StatelessWidget {
   }
 }
 
-class StaffStatusPill extends StatelessWidget {
-  const StaffStatusPill(this.status, {super.key});
-  final StaffStatus status;
+class LoginStatusPill extends StatelessWidget {
+  const LoginStatusPill(this.status, {super.key});
+  final LoginStatus status;
 
   @override
   Widget build(BuildContext context) {
     final (fg, bg) = switch (status) {
-      StaffStatus.invited => (AppColors.info, AppColors.infoContainer),
-      StaffStatus.active => (AppColors.success, AppColors.successContainer),
-      StaffStatus.disabled => (AppColors.textSecondary, AppColors.muted),
+      LoginStatus.invited => (AppColors.info, AppColors.infoContainer),
+      LoginStatus.active => (AppColors.success, AppColors.successContainer),
+      LoginStatus.disabled => (AppColors.textSecondary, AppColors.muted),
     };
     return Pill(label: status.label, fg: fg, bg: bg, dot: true);
   }
@@ -361,19 +361,20 @@ Future<bool> runAction(BuildContext context, Future<void> Function() action, {St
 }
 
 /// Asks for a short reason (cancel, waive, suspend). Null = dismissed.
-Future<String?> askReason(BuildContext context, {required String title, required List<String> options, String confirmLabel = 'Confirm', bool danger = true}) {
+Future<String?> askReason(BuildContext context, {required String title, required List<String> options, String confirmLabel = 'Confirm', bool danger = true, String? note}) {
   return showDialog<String>(
     context: context,
-    builder: (ctx) => _ReasonDialog(title: title, options: options, confirmLabel: confirmLabel, danger: danger),
+    builder: (ctx) => _ReasonDialog(title: title, options: options, confirmLabel: confirmLabel, danger: danger, note: note),
   );
 }
 
 class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog({required this.title, required this.options, required this.confirmLabel, required this.danger});
+  const _ReasonDialog({required this.title, required this.options, required this.confirmLabel, required this.danger, this.note});
   final String title;
   final List<String> options;
   final String confirmLabel;
   final bool danger;
+  final String? note;
 
   @override
   State<_ReasonDialog> createState() => _ReasonDialogState();
@@ -413,6 +414,10 @@ class _ReasonDialogState extends State<_ReasonDialog> {
         if (isOther) ...[
           const SizedBox(height: Gap.md),
           TextField(controller: _other, autofocus: true, maxLength: 80, decoration: const InputDecoration(hintText: 'Short reason'), onChanged: (_) => setState(() {})),
+        ],
+        if (widget.note != null) ...[
+          const SizedBox(height: Gap.md),
+          Text(widget.note!, style: AppText.labelSmall),
         ],
       ]),
     );

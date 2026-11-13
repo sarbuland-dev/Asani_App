@@ -43,6 +43,28 @@ class NewPatient {
   final Relation relation;
 }
 
+/// One family profile on a full phone number, from any clinic (PRD D-22).
+/// Only these fields are ever shared with a clinic: no visits, no history.
+class PhoneProfile {
+  const PhoneProfile({required this.id, required this.name, required this.relation, required this.gender, this.age, this.atThisClinic = false});
+  final String id;
+  final String name;
+  final Relation relation;
+  final Gender gender;
+  final int? age;
+  final bool atThisClinic;
+}
+
+/// State of a full-phone lookup (loading → profiles or error).
+class PhoneLookup {
+  const PhoneLookup.loading() : profiles = const [], loading = true, error = null;
+  const PhoneLookup.done(this.profiles) : loading = false, error = null;
+  const PhoneLookup.failed(this.error) : profiles = const [], loading = false;
+  final List<PhoneProfile> profiles;
+  final bool loading;
+  final String? error;
+}
+
 /// Everything the "New clinic" wizard collects (A-04).
 class NewClinicDraft {
   NewClinicDraft();
@@ -52,7 +74,6 @@ class NewClinicDraft {
   String address = '';
   String phone = '';
   PrintFormat printFormat = PrintFormat.thermal80;
-  final List<Doctor> doctors = [];
   String ownerName = '';
   String ownerPhone = '';
   String email = '';
@@ -62,18 +83,37 @@ class NewClinicDraft {
   int billingDay = 1;
 }
 
+/// Who Next called (for the "Now serving A-8, Ali" snackbar).
+class CalledInfo {
+  const CalledInfo(this.label, this.name);
+  final String label;
+  final String name;
+}
+
+/// D-24: Next reached a token that has not arrived. Nothing changed; the
+/// receptionist picks Skip or Call anyway (`next(..., callNotArrived: tokenId)`).
+class NotArrived implements Exception {
+  const NotArrived(this.tokenId, this.label, this.name);
+  final String tokenId;
+  final String label;
+  final String name;
+}
+
 /// The clinic web's data layer. UI → provider → repository → backend.
 ///
-/// [DemoClinicRepository] implements it in memory today. A Firebase version
-/// will call the callable functions listed in PRD-CLINIC-WEB §11
-/// (`queueAction`, `staffCreateWalkIn`, `inviteStaff`, `recordPayment` …).
+/// Reads are synchronous from a live cache; [changes] fires when it updates.
+/// [DemoClinicRepository] keeps everything in memory; [FirebaseClinicRepository]
+/// fills the cache from Firestore listeners and writes only through the
+/// callable functions (PRD-CLINIC-WEB §11, BW-1). Data that is not in the cache
+/// yet (older days, a patient's history) is loaded on first read and appears
+/// with the next [changes] event; the `load…` methods wait for it.
 abstract interface class ClinicRepository {
   /// Fires after every change, so providers can rebuild (live queue).
   Stream<void> get changes;
 
   // ---- Auth (§5) ----
-  StaffAccount? get currentUser;
-  Future<StaffAccount> signIn(String email, String password);
+  UserAccount? get currentUser;
+  Future<UserAccount> signIn(String email, String password);
   Future<void> signOut();
   Future<void> sendPasswordReset(String email);
 
@@ -85,22 +125,44 @@ abstract interface class ClinicRepository {
   QueueToken? tokenById(String id);
   CodeLookup findByCode(String clinicId, String code);
   List<ClinicPatient> searchPatients(String clinicId, String query);
+  /// D-22: profiles on a full E.164 number from any clinic (rate limited server-side).
+  PhoneLookup lookupPhone(String clinicId, String phone);
   ClinicPatient? clinicPatient(String clinicId, String patientId);
   List<FollowUp> followUps(String clinicId);
   Patient? patient(String id);
-  List<StaffAccount> staff(String clinicId);
+  /// The clinic's single login (D-18).
+  UserAccount? clinicLogin(String clinicId);
   List<Invoice> invoices({String? clinicId});
   List<ActivityLog> activity({String? clinicId});
   AdminSettings get settings;
   List<ClinicAccount> clinics();
+
+  /// D-19 / A-01: when each doctor was added (doctorId → time), for the
+  /// Super Admin's "New doctors" card and the New marker.
+  Map<String, DateTime> doctorAddedAt();
   bool canUndoNext(String doctorId);
+
+  /// Tokens this month (app, walk-in): one clinic, or all clinics for null (A-01).
+  (int, int) monthTokens({String? clinicId});
+
+  /// True while a patient's clinic history is still loading.
+  bool isLoadingPatient(String patientId);
+
+  /// Waits for a patient's history at this clinic (print "4th visit", profile).
+  Future<ClinicPatient?> loadClinicPatient(String clinicId, String patientId);
+
+  /// Waits for all tokens of a date range (export, C-14). Dates are yyyy-MM-dd.
+  Future<List<QueueToken>> loadTokens(String clinicId, String from, String to);
 
   // ---- Queue writes (BW-1) ----
   Future<void> session(String clinicId, String doctorId, SessionAction action);
-  Future<QueueToken?> next(String clinicId, String doctorId);
+  /// D-24: calls the lowest number; throws [NotArrived] if that token is not Arrived
+  /// and [callNotArrived] is not its id.
+  Future<CalledInfo?> next(String clinicId, String doctorId, {String? callNotArrived});
   Future<void> undoNext(String doctorId);
   Future<void> tokenAction(String tokenId, TokenAction action, {String? reason});
-  Future<QueueToken> createWalkIn(String clinicId, String doctorId, {String? patientId, NewPatient? newPatient});
+  /// [phone] is required with a [patientId] from [lookupPhone] that is not yet at this clinic (D-22).
+  Future<QueueToken> createWalkIn(String clinicId, String doctorId, {String? patientId, String? phone, NewPatient? newPatient});
   Future<void> setFollowUp(String tokenId, String dueDate, {String? note});
   Future<void> updatePatient(String clinicId, String patientId, {required String name, int? birthYear, required Gender gender});
 
@@ -110,14 +172,15 @@ abstract interface class ClinicRepository {
   Future<void> removeLeave(String doctorId, String date);
   Future<int> cancelTokensOn(String doctorId, String date, String reason);
   Future<void> setDoctorActive(String doctorId, bool active);
-  Future<void> inviteStaff(String clinicId, {required String name, required String email, required StaffRole role, String? doctorId});
-  Future<void> resendInvite(String uid);
-  Future<void> updateStaff(String uid, {StaffRole? role, String? doctorId, StaffStatus? status});
+  /// Clinic login: new password; signs out every other computer (C-12).
+  Future<void> changePassword(String current, String next);
   Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name});
   Future<void> logExport(String clinicId, String range);
 
   // ---- Super admin ----
   Future<ClinicAccount> createClinic(NewClinicDraft draft);
+  Future<void> resendClinicInvite(String clinicId);
+  Future<void> setClinicLoginStatus(String clinicId, LoginStatus status);
   Future<void> setClinicStatus(String clinicId, ClinicStatus status, {String? reason});
   Future<void> changePlan(String clinicId, {Plan? plan, int? monthlyFee});
   Future<void> extendPilot(String clinicId, int days);

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/net/connectivity.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/web/download.dart';
 import '../../core/widgets/desktop.dart';
@@ -84,7 +83,7 @@ class TokenPanel extends ConsumerWidget {
             ],
             const SizedBox(height: Gap.md),
             Wrap(spacing: Gap.sm, runSpacing: Gap.sm, children: [
-              if (!readOnly && user.role.canFollowUp && (t.status == TokenStatus.called || t.status == TokenStatus.completed))
+              if (!readOnly && user.role.canRunQueue && (t.status == TokenStatus.called || t.status == TokenStatus.completed))
                 OutlinedButton.icon(
                   onPressed: () => showFollowUpDialog(context, ref, t),
                   icon: const Icon(Icons.event_repeat_rounded, size: 18),
@@ -99,7 +98,7 @@ class TokenPanel extends ConsumerWidget {
                   icon: const Icon(Icons.copy_rounded, size: 18),
                   label: const Text('Copy patient details'),
                 ),
-              if (!readOnly && user.role.canSearchPatients)
+              if (!readOnly && user.role.canRunQueue)
                 TextButton.icon(
                   onPressed: () => context.go('/patients/${t.token.patientId}'),
                   icon: const Icon(Icons.person_search_rounded, size: 18),

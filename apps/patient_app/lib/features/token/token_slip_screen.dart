@@ -7,10 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
-import '../../core/utils/logger.dart';
-import '../../core/widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import 'token_slip.dart';
 

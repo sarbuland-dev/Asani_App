@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
@@ -32,9 +30,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
     ref.watch(repoTickProvider);
     final query = _q.text.trim();
     final results = query.length < 2 ? const <ClinicPatient>[] : ref.read(repositoryProvider).searchPatients(widget.clinicId, query);
-    final user = ref.watch(currentUserProvider)!;
-    final doctorId = user.role == StaffRole.doctor ? user.doctorId : null;
-    final shown = doctorId == null ? results : results.where((p) => p.visits.any((v) => v.token.doctorId == doctorId)).toList();
+    final shown = results;
 
     return PageScaffold(
       title: 'Patients',

@@ -19,6 +19,7 @@ function parseArgs(argv) {
 function init(project) {
   if (!project || project === 'emulator') {
     process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+    process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099'; // clinic/admin logins
     admin.initializeApp({ projectId: DEV_PROJECT_ID });
     return `emulator (${process.env.FIRESTORE_EMULATOR_HOST})`;
   }

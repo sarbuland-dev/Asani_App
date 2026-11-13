@@ -2,7 +2,7 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 /// Public links. `asani.app` is a placeholder until the domain is decided (PRD Q-06).
 abstract final class AppLinks {

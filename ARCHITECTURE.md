@@ -168,6 +168,22 @@ Scheduled function `followUpReminders` runs daily at **09:00 Asia/Karachi**:
 
 Notification data carries `{type: "followUp", followUpId}`; the app opens booking pre-filled.
 
+### 3.5b Clinic cancel notice (PRD D-23)
+
+`queueAction` (`cancel`) and `cancelDoctorTokens` call `notifyClinicCancel` (`functions/src/queue/cancelNotice.ts`)
+after the write. For each token cancelled by the clinic it claims `cancelNotifiedAt` in a transaction, then sends one
+push to `bookedByUserId ?? patientOwnerUid`: "Token A-5 cancelled by Al-Shifa Clinic" / "{reason}. Tap to book another
+day.", data `{type: "cancel", tokenId, route: "/book/{clinicId}/{doctorId}?patient={patientId}"}`. Not counted in the
+4 queue notifications, not blocked by the queue-alerts switch (like follow-up reminders). No push for No-show.
+
+### 3.6 Closing old tokens (PRD D-21)
+
+Scheduled function `autoCloseTokens` runs daily at **03:00 Asia/Karachi** (`functions/src/queue/autoClose.ts`).
+It reads the active tokens (`booked`, `arrived`, `onHold`, `called`) and closes only those whose `date` is **before
+today**: Booked → `noShow`; Arrived, On hold, Called → `completed`. Each gets `autoClosed: true` and a history line
+by "System"; the past `days/{date}` docs get `activeNumbers: []`. No notifications. Safe to run again. Until Blaze
+it is run by hand: `tools/admin-scripts/run-auto-close.js --project dev`.
+
 ---
 
 ## 4. Patient app structure
@@ -249,9 +265,34 @@ estimatedWait = ahead × doctor.avgConsultMinutes
 | `onQueueDayWrite` | Firestore trigger `doctors/{doctorId}/days/{date}` | Re-evaluate queue notifications |
 | `onTokenWrite` | Firestore trigger `tokens/{tokenId}` | "Your turn now"; recompute `day.activeNumbers` + `waitingCount`; re-evaluate notifications on cancel/skip |
 | `followUpReminders` | scheduled, daily 09:00 PKT | Follow-up reminders + mark missed |
+| `autoCloseTokens` | scheduled, daily 03:00 PKT | Close past-day open tokens (D-21, §3.6) |
 | `cleanupStaleDevices` | scheduled, weekly | Remove FCM tokens that FCM reports as unregistered |
 
-Shared modules: `queue/notify.ts`, `queue/position.ts`, `lib/dates.ts` (Asia/Karachi), `lib/fcm.ts`, `lib/errors.ts`, `lib/validators.ts`.
+### Clinic web functions (PRD-CLINIC-WEB §11)
+
+Roles are custom claims (`role: clinic` + `clinicId`, or `role: superAdmin`), checked in `lib/access.ts`.
+Every change writes an `activityLogs` row (BW-10). Because Firestore triggers only run after Blaze,
+each callable also recomputes `day.activeNumbers` and calls `evaluateQueue` itself (same as `bookToken`).
+
+| Name | Who | Purpose |
+|---|---|---|
+| `queueAction` | clinic | `start`/`pause`/`end`/`next`/`undo` (30 s) and token actions `arrive`, `callNow`, `skip`, `hold`, `backToQueue`, `cancel`, `noShow`, `reprint`; history on the token. **Next (D-24, `clinic/nextOrder.ts`)**: a Skipped patient who checked in again (`priorityAt`) first, else the lowest number among Booked + Arrived; if that token is Booked the call fails with `details.code = "not-arrived"` (nothing written) until the web sends `callNotArrived: tokenId` ("Call anyway") or skips it. `arrive`/`backToQueue` from Skipped set `priorityAt` |
+| `clinicCreateWalkIn` | clinic | Walk-in token, same numbering as `bookToken` (BW-2), status `arrived`; creates the patient if new. A profile from `clinicLookupPhone` not yet at this clinic needs the matching full `phone` (D-22); the clinic is added to its `clinicIds` |
+| `clinicLookupPhone` | clinic | D-22: profiles on a **full** phone number from any clinic, returning only `id, name, relation, gender, age, atThisClinic`. Rate limit 30 lookups / 10 min per clinic (`rateLimits/phoneLookup_{clinicId}`) |
+| `clinicUpdatePatient` | clinic | Name/age/gender typo fix (Q-W07) |
+| `setFollowUp` | clinic | Follow-up from a visit (C-09) |
+| `saveDoctor`, `setDoctorActive`, `setDoctorLeave`, `cancelDoctorTokens` | clinic | The clinic manages its own doctors (D-19); letters never reused (BW-7) |
+| `updateClinicSettings`, `logExport` | clinic | C-13, C-14 |
+| `clinicLoginTouch`, `clinicPasswordChanged` | clinic | Last login / invite accepted; revoke other sessions after a password change (C-12) |
+| `adminCreateClinic` | super admin | Clinic + `private/billing` + the clinic's single Auth login + claims; the web then sends the set-password email |
+| `adminResendClinicInvite`, `adminSetClinicLogin` | super admin | Resend invite; disable/enable the login (revokes sessions) |
+| `adminSetClinicStatus`, `adminChangePlan`, `adminExtendPilot` | super admin | A-03 actions |
+| `recordPayment`, `waiveInvoice`, `giveExtension`, `saveAdminSettings` | super admin | A-05, A-06, A-08 |
+| `billingJobs` (scheduled 06:00 PKT) / `adminRunBillingJobs` | system / super admin | Invoices on billing day, overdue → grace → suspended |
+
+`bookToken` also adds the clinic to `patients.clinicIds` and counts `clinics/{id}/stats/{yyyy-MM}`.
+
+Shared modules: `queue/notify.ts`, `queue/position.ts`, `lib/dates.ts` (Asia/Karachi), `lib/fcm.ts`, `lib/errors.ts`, `lib/validators.ts`, `lib/access.ts`.
 
 All callables: `enforceAppCheck: true` in production, `region: "asia-south1"`, `minInstances: 0` (raise `bookToken` to 1 during pilot clinic hours if cold starts hurt).
 
@@ -290,7 +331,9 @@ Local development uses the **Firebase Emulator Suite** (Auth, Firestore, Functio
 - Clinic search is client-side for ≤ ~200 clinics per city. Beyond that move to `searchKeywords` + `arrayContains`, or Typesense/Algolia.
 - Keep the token screen to **2 listeners** (token doc + day doc). `activeNumbers` stays small (≤ `maxTokensPerDay`).
 
-## 10. Contract for the future desktop app (Phase 2)
+## 10. Queue contract (clinic web, Phase 2)
+
+The clinic side is the Flutter Web app `apps/clinic_web` (PRD-CLINIC-WEB). It never writes Firestore directly; `queueAction` and `clinicCreateWalkIn` apply exactly this contract:
 
 Whatever technology is chosen, the desktop app must change the queue **only** through these fields, so the patient app keeps working unchanged:
 

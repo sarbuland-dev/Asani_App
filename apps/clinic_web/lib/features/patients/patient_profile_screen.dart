@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/web/download.dart';
 import '../../core/widgets/desktop.dart';
@@ -27,10 +26,13 @@ class PatientProfileScreen extends ConsumerWidget {
     final today = ref.watch(todayProvider).value ?? dayKey(pktNow());
     String doctorName(String id) => doctors.where((d) => d.id == id).firstOrNull?.name ?? '—';
     if (cp == null) {
+      if (ref.watch(repositoryProvider).isLoadingPatient(patientId)) {
+        return const Padding(padding: EdgeInsets.all(Gap.xxl), child: SkeletonList(count: 4));
+      }
       return const Center(child: EmptyState(icon: Icons.person_off_outlined, title: 'Patient not found', message: 'This patient has no visits at this clinic.'));
     }
     final p = cp.patient;
-    final visits = user.role == StaffRole.doctor ? cp.visits.where((v) => v.token.doctorId == user.doctorId).toList() : cp.visits;
+    final visits = cp.visits;
     final writable = clinic?.status.acceptsBookings ?? false;
 
     return PageScaffold(
@@ -38,13 +40,13 @@ class PatientProfileScreen extends ConsumerWidget {
       subtitle: '${p.relation.label} · ${p.age(pktNow()) ?? '—'} / ${p.gender.label} · ${Fmt.phone(p.phone)}',
       leading: HeaderBackButton(dark: true, onPressed: () => context.go('/patients')),
       actions: [
-        if (user.role.canCheckIn)
+        if (user.role.canRunQueue)
           OutlinedButton.icon(
             onPressed: () => _edit(context, ref, p),
             icon: const Icon(Icons.edit_outlined, size: 18),
             label: const Text('Edit details'),
           ),
-        if (user.role.canWalkIn)
+        if (user.role.canRunQueue)
           FilledButton.icon(
             onPressed: writable
                 ? () async {

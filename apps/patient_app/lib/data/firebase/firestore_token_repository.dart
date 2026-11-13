@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/config/firebase_setup.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/utils/logger.dart';
 import '../repositories/repositories.dart';
 
 /// Converts Firestore values to the shapes the shared models read:
@@ -59,18 +58,57 @@ class FirestoreTokenRepository implements TokenRepository {
 
   fs.CollectionReference<Map<String, dynamic>> get _tokens => _db.collection('tokens');
 
-  /// Tokens I booked, newest first (index: bookedByUserId + createdAt desc).
+  /// Tokens I booked (index: bookedByUserId + createdAt desc) plus walk-ins the
+  /// clinic made for my family's profiles (PRD D-22, `patientOwnerUid`; two
+  /// equality filters, so no extra index). Newest first.
   /// The provider restarts this stream when the signed-in user changes.
   @override
   Stream<List<Token>> watchMyTokens() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(const []);
-    return _tokens
-        .where('bookedByUserId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
-        .limit(100)
-        .snapshots()
-        .map((s) => s.docs.map(_token).whereType<Token>().toList());
+    final booked = _tokens.where('bookedByUserId', isEqualTo: uid).orderBy('createdAt', descending: true).limit(100).snapshots();
+    final walkIns = _tokens.where('patientOwnerUid', isEqualTo: uid).where('source', isEqualTo: 'walkIn').limit(100).snapshots();
+    return _combineLatest(booked, walkIns).map((pair) {
+      final byId = <String, Token>{};
+      for (final d in [...pair.$1.docs, ...pair.$2.docs]) {
+        final t = _token(d);
+        if (t != null) byId[t.id] = t;
+      }
+      return byId.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    });
+  }
+
+  /// Emits once both streams have a value, then on every change of either.
+  static Stream<(A, B)> _combineLatest<A, B>(Stream<A> a, Stream<B> b) {
+    late StreamController<(A, B)> c;
+    StreamSubscription<A>? sa;
+    StreamSubscription<B>? sb;
+    A? la;
+    B? lb;
+    var hasA = false, hasB = false;
+    void emit() {
+      if (hasA && hasB) c.add((la as A, lb as B));
+    }
+
+    c = StreamController<(A, B)>(
+      onListen: () {
+        sa = a.listen((v) {
+          la = v;
+          hasA = true;
+          emit();
+        }, onError: c.addError);
+        sb = b.listen((v) {
+          lb = v;
+          hasB = true;
+          emit();
+        }, onError: c.addError);
+      },
+      onCancel: () async {
+        await sa?.cancel();
+        await sb?.cancel();
+      },
+    );
+    return c.stream;
   }
 
   @override

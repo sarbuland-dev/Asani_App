@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/firebase_setup.dart';
 import '../../core/errors/app_exception.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/demo_clinic_repository.dart';
 import '../../data/providers.dart';
@@ -91,7 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Text('Log in', style: AppText.displaySmall),
                     const SizedBox(height: Gap.xs),
-                    Text('Use the email your clinic account was created with.', style: AppText.bodyMedium.copyWith(fontSize: 15)),
+                    Text("Use your clinic's email. Everyone at the clinic uses this one login.", style: AppText.bodyMedium.copyWith(fontSize: 15)),
                     const SizedBox(height: Gap.xl),
                     FieldLabel(
                       'Email',
@@ -140,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: Gap.sm),
                     Align(alignment: Alignment.center, child: TextButton(onPressed: _forgot, child: const Text('Forgot password?'))),
                     const SizedBox(height: Gap.xl),
-                    _demoAccounts(),
+                    if (!Env.useFirebase) _demoAccounts(),
                   ]),
                 ),
               ),
@@ -184,9 +184,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _demoAccounts() {
     const accounts = [
       ('Super Admin', 'admin@asani.app'),
-      ('Clinic Admin', 'clinic@alshifa.pk'),
-      ('Receptionist', 'reception@alshifa.pk'),
-      ('Doctor', 'ayesha@alshifa.pk'),
+      ('Al-Shifa Clinic', 'clinic@alshifa.pk'),
+      ('DHA Family Clinic', 'clinic@dhafamily.pk'),
+      ('Rehman Clinic (suspended)', 'clinic@rehmanclinic.pk'),
     ];
     return AppCard(
       color: AppColors.muted,

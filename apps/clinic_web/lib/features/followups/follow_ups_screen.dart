@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/web/download.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
@@ -28,8 +26,7 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider)!;
     final today = ref.watch(todayProvider).value ?? dayKey(pktNow());
-    var all = ref.watch(followUpsProvider(widget.clinicId));
-    if (user.role == StaffRole.doctor) all = all.where((f) => f.doctorId == user.doctorId).toList();
+    final all = ref.watch(followUpsProvider(widget.clinicId));
     final doctors = ref.watch(allDoctorsProvider(widget.clinicId));
     final repo = ref.watch(repositoryProvider);
 
@@ -74,7 +71,7 @@ class _FollowUpsScreenState extends ConsumerState<FollowUpsScreen> {
               message: 'Set a follow-up from the Called token on the Queue Board.',
             ),
           ),
-          onTap: user.role.canSearchPatients ? (i) => context.go('/patients/${shown[i].patientId}') : null,
+          onTap: user.role.canRunQueue ? (i) => context.go('/patients/${shown[i].patientId}') : null,
           rows: [
             for (final f in shown)
               () {

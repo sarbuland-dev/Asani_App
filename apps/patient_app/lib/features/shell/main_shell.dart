@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
+import 'package:asani_ui/asani_ui.dart';
 
 /// Tabs: Home · Tokens · Family · Account (DESIGN.md §4), floating pill bar.
 class MainShell extends StatelessWidget {

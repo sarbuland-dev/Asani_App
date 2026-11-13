@@ -4,7 +4,7 @@
 |---|---|
 | **Product** | Asani: smart clinic token & live queue |
 | **Document** | Product Requirements: Clinic Web App (Phase 2) incl. Super Admin (Phase 3) |
-| **Version** | 0.2 (draft): repo structure confirmed |
+| **Version** | 0.4 (draft): clinic adds its own doctors; no doctor/receptionist logins |
 | **Date** | 2026-11-12 |
 | **Owner** | Sarbuland |
 | **Related** | PRD.md (patient app), ARCHITECTURE.md, DATABASE.md, PROJECT_DOCUMENTATION.md |
@@ -13,9 +13,9 @@
 
 ## 1. Summary
 
-The **Asani Clinic Web** app is a Flutter Web application opened in Chrome at the clinic's reception PC (or any computer). It lets clinic staff run the daily token queue, check patients in, add walk-ins, print the clinic form, manage follow-ups, and manage their doctors and staff.
+The **Asani Clinic Web** app is a Flutter Web application opened in Chrome at the clinic's reception PC (or any computer). It lets the clinic (the receptionist, using the clinic's single login) run the daily token queue, check patients in, add walk-ins, print the clinic form, manage follow-ups, and keep doctor timings and leave up to date.
 
-The **same web app** also contains the **Super Admin panel**. When Sarbuland logs in with a super admin account, he sees admin screens to manage all clinics, staff activity, subscriptions, payments and defaulters. **There is no separate admin app.**
+The **same web app** also contains the **Super Admin panel**. When Sarbuland logs in with a super admin account, he sees admin screens to register and manage all clinics and their doctors, see activity, subscriptions, payments and defaulters. **There is no separate admin app.**
 
 It uses the **same Firebase project** as the patient app (same Auth, Firestore, Cloud Functions), so a token booked in the patient app appears on the clinic screen instantly, and pressing **Next** on the clinic screen updates the patient's phone instantly.
 
@@ -26,7 +26,10 @@ It uses the **same Firebase project** as the patient app (same Auth, Firestore, 
 | # | Decision |
 |---|---|
 | D-06 (updated) | Clinic side is **Flutter Web**, not a Windows .exe. Runs in Chrome; can be "installed" as a desktop app from Chrome. |
-| D-07 (updated) | Clinic staff log in with **email + password**. The clinic's email is used for the clinic account. Users **set their own password** through an emailed link. (Was: phone/username + password.) |
+| D-07 (updated) | The clinic logs in with the **clinic's email + password**. The manager/senior doctor **sets the password** through an emailed link. (Was: phone/username + password.) |
+| D-18 | **One login per clinic.** Only the manager/senior doctor's clinic login (clinic email) exists; the **receptionist uses that same login** at reception. **No separate receptionist or doctor accounts.** Super Admin registers the clinic and its login. |
+| D-19 | **The clinic adds and manages its own doctors.** The Super Admin can see every clinic's doctors and is shown when a **new doctor is added** (dashboard + activity log). |
+| D-21..D-24 | Confirmed 2026-11-14, full text in PRD.md §9: old tokens auto-closed at 3:00 AM (D-21), full-phone lookup to link walk-ins to app accounts (D-22), push on clinic cancel (D-23), Next in strict token order (D-24). |
 | D-15 | **Super admin panel lives inside the clinic web app**; access is decided by role after login. |
 | D-16 | **Check-in:** receptionist types the **token code** (e.g. A-11); the **same token slip the patient generated** appears on screen so the receptionist can match it with the slip the patient shows. |
 | D-12 | Token code = doctor letter + number (A-11). |
@@ -45,7 +48,8 @@ Asani_app/
 │   ├── patient_app/          ← Flutter, Android + iOS (moved here from repo root)
 │   └── clinic_web/           ← Flutter Web: clinic dashboard + super admin
 ├── packages/
-│   └── asani_core/           ← shared: models, API client, auth
+│   ├── asani_core/           ← pure Dart: models, enums, PKT dates, phone utils, token code, formatting, logger
+│   └── asani_ui/             ← Flutter: theme (colors, fonts, spacing, ThemeData) + shared widgets
 ├── functions/                ← Cloud Functions (shared backend)
 ├── firebase.json
 ├── firestore.rules
@@ -56,13 +60,13 @@ Rules:
 1. **One-time move first:** before creating `clinic_web`, move the current patient app (lib, android, ios, pubspec.yaml…) from the repo root into `apps/patient_app`. Commit everything before the move so it can be undone.
 2. **Never nest** `clinic_web` inside the patient app folder.
 3. **Dart pub workspace:** root `pubspec.yaml` lists the workspace members; each member uses `resolution: workspace`. One `flutter pub get` at the root resolves all; both apps use `asani_core` locally.
-4. **`asani_core`** holds code both apps need: models (Clinic, Doctor, Token, Patient, QueueDay…), enums, shared logic (token code, PKT dates, phone utils), the **API client** (callable Cloud Functions wrappers) and the **auth** layer. No app-specific UI.
+4. **Shared packages (updated 2026-11-14, Sarbuland):** `asani_core` is **pure Dart** (no Flutter): models (Clinic, Doctor, Token, Patient, QueueDay…), enums, shared logic (token code, PKT dates, phone utils), formatting (`Fmt`) and `AppLogger`. `asani_ui` is a **Flutter** package with the theme tokens, both ThemeData (`buildAppTheme` for the phone, `buildDesktopAppTheme` for the web) and the common widgets, so both apps look the same. **Auth and the Cloud Functions callables stay inside each app** (patient app = phone OTP, clinic web = email + password); `ErrorState` stays per app because each app has its own error messages.
 5. **CI path filters:** each app builds and deploys on its own:
    - changes in `apps/patient_app/**` → patient app build only
    - changes in `apps/clinic_web/**` → clinic web build + deploy to Firebase Hosting only
-   - changes in `packages/asani_core/**` → both apps build and test
+   - changes in `packages/asani_core/**` or `packages/asani_ui/**` → both apps build and test
    - changes in `functions/**` or `firestore.rules` → backend tests (+ deploy when approved)
-6. Both apps use the **same Firebase project** per environment (`asani-dev`, `asani-prod`).
+6. Both apps use the **same Firebase project** per environment (dev = `asani-b2b17`, prod = `asani-prod`).
 
 ---
 
@@ -73,7 +77,7 @@ Rules:
 - G2: A walk-in token can be created in **under 15 seconds**.
 - G3: The queue on screen and on patients' phones updates within **2–3 seconds** of any action.
 - G4: Asani **reduces** reception work compared to a register; it never adds double entry.
-- G5: Sarbuland can see every clinic's status, staff changes and payments in one place.
+- G5: Sarbuland can see every clinic's status, doctor changes and payments in one place.
 
 ### Non-goals (this phase)
 - Patient-facing features (they are in the patient app)
@@ -85,75 +89,78 @@ Rules:
 
 ---
 
-## 4. Users, roles and permissions
+## 4. Users, roles and permissions (D-18)
 
-### 4.1 Roles
+### 4.1 One login per clinic
 
-| Role | Who | Main job |
+Each clinic has **exactly one clinic login**: the **clinic's email** + password. It belongs to the clinic's **manager or senior doctor**, who sets the password. The **receptionist uses the same login** on the reception PC to run the queue. There are **no separate receptionist or doctor accounts**.
+
+Doctors are **records** in the system (name, letter A/B/C, schedule), not users who log in.
+
+| Role | Who logs in | Main job |
 |---|---|---|
-| **Receptionist** | Clinic front desk | Runs the queue, check-in, walk-ins, printing, follow-up lists |
-| **Doctor** | Clinic doctor (optional login) | Sees own queue, calls next, sets follow-ups, sees own summary |
-| **Clinic Admin** | Clinic owner/manager (uses the **clinic's email**) | Everything a receptionist can do + manage doctors, staff, clinic settings, reports |
-| **Super Admin** | Sarbuland | All clinics, onboarding, subscriptions, payments, defaulters, activity logs |
-
-A clinic may run Asani with **only the Clinic Admin account** (e.g. the owner sits at reception). Receptionist and doctor accounts are optional extras.
+| **Clinic** (`clinic` role) | Clinic manager / senior doctor; used day-to-day by the receptionist at reception | Runs the queue, check-in, walk-ins, printing, follow-ups, daily summary, **adds and manages its doctors**, clinic settings |
+| **Super Admin** | Sarbuland | Registers clinics and their login; **sees** all doctors and new-doctor alerts; subscriptions, payments, defaulters, activity logs |
 
 ### 4.2 Permission matrix
 
-| Action | Receptionist | Doctor | Clinic Admin | Super Admin |
-|---|:-:|:-:|:-:|:-:|
-| View today's queue (all doctors of clinic) | ✅ | Own only | ✅ | ✅ (any clinic, read-only) |
-| Check in (Arrived & Print) | ✅ | ❌ | ✅ | ❌ |
-| Next / Skip / Hold / No-show / Cancel token | ✅ | Next only (own) | ✅ | ❌ |
-| Start / Pause / End session | ✅ | ✅ (own) | ✅ | ❌ |
-| Walk-in token | ✅ | ❌ | ✅ | ❌ |
-| Search patient by phone, see clinic visit history | ✅ | ✅ (own patients) | ✅ | ❌ |
-| Set follow-up | ✅ | ✅ | ✅ | ❌ |
-| Follow-up lists (today / missed) | ✅ | Own | ✅ | ❌ |
-| Daily summary | ✅ | Own | ✅ | ✅ |
-| Doctor schedule, leave, max tokens | ❌ | ❌ | ✅ | ✅ |
-| Add / remove doctors | ❌ | ❌ | ✅ | ✅ |
-| Add / remove staff accounts | ❌ | ❌ | ✅ | ✅ |
-| Clinic settings (print format, phone, address) | ❌ | ❌ | ✅ | ✅ |
-| Export data (CSV/Excel) | ❌ | ❌ | ✅ | ✅ |
-| See own clinic's invoices | ❌ | ❌ | ✅ | ✅ |
-| Super admin screens | ❌ | ❌ | ❌ | ✅ |
+| Action | Clinic login | Super Admin |
+|---|:-:|:-:|
+| View today's queue (all doctors of the clinic) | ✅ | ✅ (any clinic, read-only) |
+| Check in (Arrived & Print) | ✅ | ❌ |
+| Next / Skip / Hold / No-show / Cancel token | ✅ | ❌ |
+| Start / Pause / End session | ✅ | ❌ |
+| Walk-in token | ✅ | ❌ |
+| Search patient by phone, see clinic visit history | ✅ | ❌ |
+| Set follow-up, follow-up lists | ✅ | ❌ |
+| Daily summary | ✅ | ✅ |
+| Doctor timings, leave, max tokens | ✅ | 👁 view |
+| Add / edit / deactivate doctors | ✅ | 👁 view (+ new-doctor alert) |
+| Clinic settings (print format, phone, address) | ✅ | ✅ |
+| Export data (CSV/Excel) | ✅ | ✅ |
+| See own clinic's invoices | ✅ *(⚠️ Q-W11)* | ✅ |
+| Register clinic, create/disable clinic login | ❌ | ✅ |
+| Super admin screens | ❌ | ✅ |
 
-Roles are stored as Firebase Auth **custom claims** (`role`, `clinicId`, `doctorId`), set only by Cloud Functions. Never read from Firestore documents.
+Roles are stored as Firebase Auth **custom claims** (`role: "clinic"` + `clinicId`, or `role: "superAdmin"`), set only by Cloud Functions. Never read from Firestore documents.
+
+> Because the whole clinic shares one login, the activity log records actions as **"<Clinic name> (clinic login)"**; it cannot tell the manager and the receptionist apart.
 
 ---
 
-## 5. Login and accounts (D-07)
+## 5. Login and accounts (D-07, D-18)
 
 ### 5.1 How accounts are created
 | Account | Created by | When |
 |---|---|---|
-| Clinic Admin (clinic's email) | Super Admin, in the "New clinic" wizard | Clinic onboarding |
-| Receptionist / Doctor | Clinic Admin (Staff screen) or Super Admin | Any time |
+| Clinic login (clinic's email) | Super Admin, in the "New clinic" wizard (A-04) | Clinic onboarding |
 | Super Admin | One-time admin script | Once |
 
-### 5.2 Set-password flow (no passwords chosen by others)
-1. The creator enters the person's **name, email and role** (and doctor link for doctors).
-2. The system creates the account and sends an email: **"Set your Asani password"** with a secure link.
-3. The person opens the link, sets a password (min 8 characters), and can log in.
-4. If the link expires, the Clinic Admin / Super Admin can press **"Resend invite"**.
+Doctors are added by the **clinic itself** after login (C-11). Doctors never get logins.
+
+### 5.2 Set-password flow
+1. Super Admin enters the clinic's **email** while registering the clinic.
+2. The system creates the clinic login and emails **"Set your Asani password"** with a secure link to that address.
+3. The manager / senior doctor opens the link, sets a password (min 8 characters), and logs in. They can then log in on the reception PC for the receptionist.
+4. If the link expires, the Super Admin presses **"Resend invite"** on the clinic's page.
+5. If the manager wants to change the password (e.g. a receptionist leaves), they use **Change password** in clinic settings or **Forgot password** on the login page. Changing the password signs the clinic out on all other computers.
 
 ### 5.3 Login page (W-01)
 - Fields: **Email**, **Password**, **Log in** button, **"Forgot password?"** link.
-- Forgot password → enter email → reset link sent ("If this email is registered, you'll get a link").
+- Forgot password → reset link sent to the clinic's email ("If this email is registered, you'll get a link").
 - After login the app reads the role and opens:
   - Super Admin → **Admin Dashboard**
-  - Clinic Admin / Receptionist → **Queue Board**
-  - Doctor → **My Queue**
+  - Clinic login → **Queue Board**
   - Any other account (e.g. a patient account) → "This account doesn't have clinic access." + Log out
-- Wrong password → "Email or password is incorrect." (never reveal which one).
-- After 5 failed attempts Firebase rate-limits; show "Too many attempts. Try again later or reset your password."
+- Wrong password → "Email or password is incorrect."
+- After repeated failed attempts Firebase rate-limits; show "Too many attempts. Try again later or reset your password."
 
 ### 5.4 Session rules
-- Session stays logged in on that browser until **Log out**.
-- Top bar always shows **who is logged in** and a **Log out** button (shared reception PCs).
-- Removing a staff member disables their account and signs them out everywhere within minutes.
-- Suspended clinic: staff can still log in but see read-only mode (§9).
+- Session stays logged in on that browser until **Log out**, so the receptionist doesn't need the password every day.
+- Top bar shows the **clinic name** and a **Log out** button.
+- The clinic can be logged in on more than one computer at the same time (e.g. reception PC + manager's laptop).
+- Super Admin can **disable** a clinic login (signs it out everywhere within minutes).
+- Suspended clinic: the clinic can still log in but sees read-only mode (BW-8).
 
 ---
 
@@ -182,7 +189,7 @@ On **Next** for a doctor:
 2. The next token in order becomes **Called** and **Now serving** updates.
 3. The backend sends notifications (3, 2, 1 ahead and "Your turn now") automatically.
 
-Order of "next": lowest token number among *Arrived* tokens first; if none are Arrived, lowest among *Booked*. **⚠️ Confirm (Q-W03):** should Booked-but-not-arrived patients be called at all, or should Next only call Arrived patients?
+Order of "next" (D-24, closes Q-W03): the **lowest token number** among *Booked* and *Arrived*. If that token is not Arrived, the receptionist is asked: "A-7 has not arrived. **Skip** / **Call anyway**". A *Skipped* patient who checks in later is called **right after the patient now with the doctor**. The 3-2-1 alerts count by token number.
 
 Undo: **"Undo last Next"** available for 30 seconds (in case of a wrong click).
 
@@ -233,7 +240,7 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 - Result: profiles on that phone that have visited **this clinic**: name, relation, age/sex, visit count, last visit.
 - Profile view: visit history **at this clinic only** (date, doctor, token, wait time, status), upcoming follow-ups.
 - Actions: **Book token** (walk-in for today), **Edit details** (name/age/gender typo fixes, logged).
-- Privacy: staff never see the patient's visits at other clinics.
+- Privacy: a clinic never sees the patient's visits at other clinics.
 
 ### C-09 Follow-ups (P1)
 - When completing a visit (from the Called token or history): **Set follow-up** → 3 days / 1 week / 2 weeks / 1 month / pick date, optional short note (non-medical, e.g. "Review").
@@ -243,32 +250,33 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 
 ### C-10 Daily summary (P1)
 - Per day and per doctor: tokens issued, app vs walk-in, completed, cancelled, no-show, **average wait time**, busiest hour.
-- Date picker (last 30 days). Doctor role sees own numbers only.
+- Date picker (last 30 days).
 
-### C-11 Doctors management (P0, Clinic Admin)
+### C-11 Doctors management (P0, clinic login) (D-19)
 - List of doctors with letter (A, B, C…), speciality, active/inactive.
 - Add / edit doctor: name, qualification, speciality, **weekly schedule** (per day start–end or off), **average consultation minutes**, **max tokens per day**, **booking window days**.
 - **Leave dates**: add/remove (patients see "On leave"; existing tokens on that date get a warning and can be cancelled in bulk with a reason).
 - Letter is assigned automatically and never reused within the clinic.
 - Deactivate doctor (no new bookings; history kept).
-- Optional: link a doctor login (Staff screen).
+- The **clinic adds, edits and deactivates its own doctors**. Every add/change is logged, and a **new doctor** shows up for the Super Admin (A-01 alert, A-03, A-07).
+- Doctors never log in; they are records only.
+- First-time setup: right after the first login, if the clinic has no doctors, the Queue Board shows **"Add your first doctor"**.
 
-### C-12 Staff management (P0, Clinic Admin)
-- List: name, email, role, status (Invited / Active / Disabled), last login.
-- **Add staff**: name, email, role (Receptionist / Doctor + which doctor) → invite email (§5.2).
-- **Resend invite**, **Disable**, **Enable**, **Change role**.
-- A clinic admin cannot remove themselves or the clinic's main account.
+### C-12 Change password (P0, clinic login)
+- There is **no staff management**: the clinic has one login (D-18).
+- **Change password**: current password + new password. Signs the clinic out on all other computers (useful when a receptionist leaves).
+- Shows the clinic email (read-only; changed only by Super Admin).
 
-### C-13 Clinic settings (P0, Clinic Admin)
+### C-13 Clinic settings (P0, clinic login)
 - Clinic name (read-only; changed by Super Admin), address, area, phone, map location.
 - Print format (Thermal 80 / A5 / None).
 - **Clinic QR standee**: download/print a poster with the clinic QR ("Scan to book your token with Asani").
 
-### C-14 Data export (P1, Clinic Admin)
+### C-14 Data export (P1, clinic login)
 - Export a date range of visits to **CSV / Excel**: date, token, doctor, patient name, age/sex, phone, status, wait time.
 - **Copy patient details** button on any token (for clinics that also use their own software).
 
-### C-15 Billing banner & invoices (P1, Clinic Admin)
+### C-15 Billing banner & invoices (P1, clinic login)
 - If the clinic is in **Grace**: yellow banner "Payment pending, please pay by <date> to avoid interruption."
 - **Billing page**: current plan, paid until, invoices list (month, amount, status), payment instructions (bank / JazzCash / Easypaisa details), "Send payment proof" (upload screenshot) (P2).
 
@@ -286,16 +294,17 @@ Visible only with the `superAdmin` role. Left navigation: **Dashboard · Clinics
 - This month: expected revenue, collected, pending
 - **Defaulters** count (red card, click → list)
 - Tokens booked this month (all clinics), app vs walk-in
+- **New doctors** card: doctors added by clinics in the last 7 days (clinic, doctor, speciality, when), with an unseen badge
 - Latest activity feed (e.g. "Al-Shifa added Dr. Ayesha Malik · 2h ago")
 
 ### A-02 Clinics list (P0)
-- Table: name, city/area, plan, status, doctors, staff, tokens this month, **paid until**, last activity.
+- Table: name, city/area, plan, status, doctors, tokens this month, **paid until**, clinic login status (Invited / Active / Disabled), last activity.
 - Filters: status, city, plan. Search by name/phone/email.
 
 ### A-03 Clinic detail (P0)
 Tabs:
-- **Info**: details, owner name/phone, clinic email, pilot end date, plan, monthly fee
-- **Doctors & Staff**: lists with **who added them and when**
+- **Info**: details, owner name/phone, **clinic email (login)** with status + **Resend invite** / **Disable login**, pilot end date, plan, monthly fee
+- **Doctors** (view): list with letter, speciality, timings, active status, **when added/changed** (by the clinic). New ones marked **New**.
 - **Payments**: invoices and payment history
 - **Activity**: this clinic's activity log
 - **Usage**: tokens per day, app vs walk-in, average wait
@@ -303,10 +312,11 @@ Tabs:
 
 ### A-04 New clinic wizard (P0)
 1. Clinic: name, area, city, address, phone, location, print format
-2. Doctors: one or more (schedule, avg minutes, max tokens); letters auto-assigned
-3. Clinic admin: owner name, **clinic email** → invite email sent
-4. Plan: pilot length (default 30 days), plan after pilot, monthly fee, billing day
-5. Review → **Create**
+2. Clinic login: manager/senior doctor name + phone, **clinic email** → "Set your Asani password" email sent
+3. Plan: pilot length (default 30 days), plan after pilot, monthly fee, billing day
+4. Review → **Create**
+
+Doctors are **not** added here; the clinic adds its own doctors after its first login (D-19).
 
 ### A-05 Payments & invoices (P0)
 - Invoices are created automatically each billing day (not during pilot).
@@ -331,8 +341,8 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 
 ### A-07 Activity log (P0)
 - Recorded automatically by the backend (cannot be edited or skipped by clinics).
-- Events: clinic created/updated/suspended/reactivated, doctor added/updated/deactivated, leave added, staff invited/disabled/role changed, settings changed, payment recorded, invoice waived, export done.
-- Each row: time, clinic, who (name + role), action, target.
+- Events: clinic created/updated/suspended/reactivated, doctor added/updated/deactivated, leave added, clinic login invited/disabled/password changed, settings changed, payment recorded, invoice waived, export done.
+- Each row: time, clinic, who (**Super Admin** or **<Clinic> (clinic login)**), action, target.
 - Filters: clinic, action type, date range, person.
 
 ### A-08 Settings (P1)
@@ -349,11 +359,11 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | BW-3 | Only one token per doctor can be **Called** at a time. |
 | BW-4 | A **Completed** token cannot be changed (except Super Admin correction, logged). |
 | BW-5 | Check-in search is limited to **today + this clinic**. |
-| BW-6 | Staff see patients only through visits/bookings at **their own clinic**. |
+| BW-6 | A clinic sees patients only through visits/bookings at **its own clinic**. |
 | BW-7 | Doctor letters are unique per clinic and never reused. |
-| BW-8 | A suspended clinic is **read-only**: no new tokens (app or walk-in), no Next; staff can still view and export. Patients see "Online booking isn't available right now." |
-| BW-9 | Billing data is only visible to Clinic Admin (own clinic) and Super Admin. |
-| BW-10 | Every staff/admin action that changes data creates an activity log entry with the actor's name and role. |
+| BW-8 | A suspended clinic is **read-only**: no new tokens (app or walk-in), no Next; the clinic can still view and export. Patients see "Online booking isn't available right now." |
+| BW-9 | Billing data is only visible to the clinic login (own clinic) and Super Admin. |
+| BW-10 | Every clinic/admin action that changes data creates an activity log entry (actor = Super Admin or the clinic login). |
 
 ---
 
@@ -376,8 +386,8 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | W-14 | Patients (search) + Patient profile (clinic history, follow-ups) |
 | W-15 | Follow-ups (Today / Upcoming / Missed) |
 | W-16 | Daily summary |
-| W-17 | Doctors list + Doctor form (schedule, leave) |
-| W-18 | Staff list + Add staff |
+| W-17 | Doctors list + Add/Edit doctor (schedule, leave, deactivate) |
+| W-18 | Change password (clinic login) |
 | W-19 | Clinic settings + QR standee |
 | W-20 | Billing (plan, invoices, payment instructions) |
 | W-21 | Help |
@@ -410,7 +420,7 @@ Design: same brand as the patient app (teal `#0F766E`, navy `#1E3A8A`, mint `#CC
 | Reliability | If the internet drops: red banner "Offline: actions disabled", queue shows last data; actions resume when back online. |
 | Printing | Thermal 80 mm and A5 templates print correctly from Chrome; kiosk printing guide provided. |
 | Security | Email/password auth, custom-claim roles, Firestore rules for clinic isolation, all queue actions validated by backend, activity logs write-only by backend. |
-| Privacy | Staff see only their clinic's patients/visits; no medical data stored. |
+| Privacy | A clinic sees only its own patients/visits; no medical data stored. |
 | Install | Can be installed from Chrome as a desktop app (own window and icon). |
 | Hosting | Firebase Hosting (works on the free plan). Separate URLs for dev and prod. |
 | Cost | Email/password login is free. Cloud Functions and scheduled jobs need the Blaze plan when going live. |
@@ -421,18 +431,18 @@ Design: same brand as the patient app (teal `#0F766E`, navy `#1E3A8A`, mint `#CC
 
 | Collection / field | Purpose |
 |---|---|
-| `staff/{uid}` | name, email, role, clinicId, doctorId?, status (invited/active/disabled), invitedBy, createdAt, lastLoginAt |
+| `clinicAccounts/{uid}` | clinic login: email, clinicId, status (invited/active/disabled), invitedAt, lastLoginAt |
 | `doctors.tokenPrefix` | Letter A, B, C… (already planned) |
 | `tokens.history[]` or `tokens/{id}/events` | Who did what and when (arrived, called, skipped…) |
-| `patients.clinicIds[]` | Clinics this patient has visited/booked: lets staff search only their clinic's patients |
-| `followUps` | Already planned; staff create them |
+| `patients.clinicIds[]` | Clinics this patient has visited/booked: lets a clinic search only its own patients |
+| `followUps` | Already planned; created from the clinic web |
 | `clinics/{id}/private/billing` | plan, monthlyFee, billingDay, paidUntil, pilotEndsAt, owner contact |
 | `invoices/{id}` | month, amount, dueDate, status, payment details, proof, recordedBy |
 | `activityLogs/{id}` | clinicId, actor (uid, name, role), action, target, time; written only by backend |
 | `clinics/{id}/stats/{yyyy-MM}` | Monthly counters for dashboards |
 | `settings/billing` | Plans, prices, grace/suspension days, payment instructions |
 
-Backend functions needed (names indicative): `queueAction`, `staffCreateWalkIn`, `staffSearchPatients`, `setFollowUp`, `inviteStaff`, `updateStaff`, `adminCreateClinic`, `adminUpdateClinic`, `recordPayment`, `waiveInvoice`, `generateInvoices` (scheduled), `defaulterCheck` (scheduled), activity-log triggers.
+Backend functions needed (names indicative): `queueAction`, `clinicCreateWalkIn`, `clinicSearchPatients`, `setFollowUp`, `updateDoctorSchedule`, `inviteClinicLogin`, `disableClinicLogin`, `adminCreateClinic`, `adminUpdateClinic`, `recordPayment`, `waiveInvoice`, `generateInvoices` (scheduled), `defaulterCheck` (scheduled), activity-log triggers.
 
 ---
 
@@ -455,7 +465,7 @@ Pilot runs on 2a with 2–3 clinics, free month.
 - % of tokens booked through the app vs walk-in
 - Average patient wait time per clinic
 - Clinic feedback: fewer phone calls and disputes
-- Staff accounts actively used per clinic
+- Clinics logging in daily
 
 ---
 
@@ -464,20 +474,22 @@ Pilot runs on 2a with 2–3 clinics, free month.
 | # | Question | Affects |
 |---|---|---|
 | ~~Q-W01~~ | ~~Repo location~~: **Closed**: same `Asani_app` repo as a monorepo (D-17, §2.1). | Setup |
-| Q-W02 | **Staff emails:** does every receptionist/doctor get their **own** email login, or can a small clinic use only the **clinic email** account at reception? (PRD supports both: clinic email = Clinic Admin; extra staff optional.) | §5, C-12 |
-| Q-W03 | **Next order:** should Next call only *Arrived* patients, or also *Booked* (not yet checked in)? | C-03 |
-| Q-W04 | Should **doctors** have their own login at all in the pilot, or only receptionist/clinic admin? | §4 |
+| ~~Q-W02~~ | ~~Staff emails~~: **Closed**: one clinic login (clinic email), shared with the receptionist (D-18). | §4, §5 |
+| ~~Q-W03~~ | ~~Next order~~: **Closed**: strict token number order with a "not arrived: Skip / Call anyway" prompt (D-24). | C-03 |
+| ~~Q-W04~~ | ~~Doctor logins~~: **Closed**: doctors don't log in (D-18). | §4 |
 | Q-W05 | Grace and suspension days: **7 and 15** OK? | A-06 |
 | Q-W06 | Subscription prices per plan | A-08 |
-| Q-W07 | Can staff **edit** a patient's name/age/gender (typo fix), or only the patient from the app? | C-08 |
-| Q-W08 | Should the patient get a notification when the clinic **cancels** their token or marks them **No-show**? | C-04 |
+| Q-W07 | Can the clinic **edit** a patient's name/age/gender (typo fix), or only the patient from the app? | C-08 |
+| ~~Q-W08~~ | ~~Notify on clinic cancel / No-show~~: **Closed**: push on clinic cancel with the reason, none on No-show (D-23). | C-04 |
 | Q-W09 | Domain/URLs for the clinic web (e.g. `clinic.asani.app`) | Hosting |
+| ~~Q-W10~~ | ~~Doctor changes~~: **Closed**: the clinic adds and manages its own doctors; Super Admin sees them (D-19). | C-11 |
+| Q-W11 | **Shared login & sensitive pages:** since the receptionist uses the manager's login, should **Billing, Export, Doctors and Change password** be protected by a short **manager PIN**? | C-11..C-15 |
 
 ---
 
 ## 15. Changes needed in other documents (when confirmed)
 
-- **PRD.md**: Decisions log: update D-06 (Flutter Web), D-07 (email + password), add D-15, D-16, D-17; close Q-01, Q-02, Q-10.
+- **PRD.md**: Decisions log: update D-06 (Flutter Web), D-07 (clinic email + password), add D-15, D-16, D-17, D-18, D-19; close Q-01, Q-02, Q-10.
 - **README.md**: repo structure (`apps/patient_app`, `apps/clinic_web`, `packages/asani_core`, workspace root) and commands.
 - **docs/02-setup.md**: workspace setup, `flutter pub get` at root, running each app.
 - **PROJECT_DOCUMENTATION.md**: §4, §5, §11, §14, §15, §21, §22 change log.

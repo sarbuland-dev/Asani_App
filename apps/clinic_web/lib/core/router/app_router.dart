@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../../features/account/change_password_screen.dart';
 import '../../features/admin/activity_screen.dart';
 import '../../features/admin/admin_settings_screen.dart';
 import '../../features/admin/clinic_detail_screen.dart';
@@ -22,18 +23,14 @@ import '../../features/patients/patients_screen.dart';
 import '../../features/queue/queue_board_screen.dart';
 import '../../features/settings/clinic_settings_screen.dart';
 import '../../features/shell/app_shell.dart';
-import '../../features/staff/staff_screen.dart';
 import '../../features/summary/summary_screen.dart';
 
 /// Where each role lands after login (§5.3).
-String homeFor(StaffAccount? u) => switch (u?.role) {
+String homeFor(UserAccount? u) => switch (u?.role) {
       null => '/login',
-      StaffRole.superAdmin => '/admin',
+      UserRole.superAdmin => '/admin',
       _ => '/queue',
     };
-
-/// Clinic pages only the Clinic Admin may open (§4.2).
-const _adminOnly = ['/doctors', '/staff', '/settings', '/billing'];
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
@@ -53,10 +50,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (user == null) return path == '/login' ? null : '/login';
       if (path == '/login' || path == '/') return homeFor(user);
       final isAdminArea = path.startsWith('/admin');
-      if (user.role == StaffRole.superAdmin) return isAdminArea ? null : '/admin';
+      if (user.role == UserRole.superAdmin) return isAdminArea ? null : '/admin';
       if (isAdminArea) return '/queue';
       if (user.clinicId == null) return '/login';
-      if (_adminOnly.any(path.startsWith) && user.role != StaffRole.clinicAdmin) return '/queue';
       return null;
     },
     routes: [
@@ -74,7 +70,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/follow-ups', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => FollowUpsScreen(id)))),
           GoRoute(path: '/summary', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => SummaryScreen(id)))),
           GoRoute(path: '/doctors', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => DoctorsScreen(id)))),
-          GoRoute(path: '/staff', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => StaffScreen(id)))),
+          GoRoute(path: '/password', pageBuilder: (c, s) => page(const ChangePasswordScreen())),
           GoRoute(path: '/settings', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => ClinicSettingsScreen(id)))),
           GoRoute(path: '/billing', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => BillingScreen(id)))),
           GoRoute(path: '/help', pageBuilder: (c, s) => page(const HelpScreen())),
@@ -98,7 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Gives a clinic page the logged-in staff member's clinic id.
+/// Gives a clinic page the logged-in clinic's id.
 class ClinicScope extends ConsumerWidget {
   const ClinicScope({super.key, required this.builder});
   final Widget Function(String clinicId) builder;

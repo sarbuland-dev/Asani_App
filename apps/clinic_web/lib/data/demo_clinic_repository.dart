@@ -33,13 +33,15 @@ class DemoClinicRepository implements ClinicRepository {
   final _patients = <String, Patient>{};
   final _patientClinics = <String, Set<String>>{}; // patients.clinicIds
   final _followUps = <String, FollowUp>{};
-  final _staff = <String, StaffAccount>{};
+  final _staff = <String, UserAccount>{};
+  final _passwords = <String, String>{}; // email -> password (demo only)
+  final _addedAt = <String, DateTime>{}; // doctorId -> added (D-19)
   final _invoices = <String, Invoice>{};
   final _activity = <ActivityLog>[];
   final _failedLogins = <String, int>{};
   final _undo = <String, _UndoNext>{};
   AdminSettings _settings = const AdminSettings();
-  StaffAccount? _user;
+  UserAccount? _user;
   int _seq = 0;
 
   void dispose() {
@@ -54,7 +56,11 @@ class DemoClinicRepository implements ClinicRepository {
 
   Future<void> _latency([int ms = 180]) => Future<void>.delayed(Duration(milliseconds: ms));
 
-  String get _actor => _user == null ? 'System' : '${_user!.name} (${_user!.role.label})';
+  /// Who did it, as logs show it: "Sarbuland (Super Admin)" or "Al-Shifa Clinic (clinic login)".
+  String get _actor => _user == null ? 'System' : '${_actorName(_user!)} (${_user!.isClinic ? 'clinic login' : _user!.role.label})';
+
+  /// The whole clinic shares one login, so the actor is the clinic (PRD §4.1).
+  String _actorName(UserAccount u) => u.isClinic ? (_clinics[u.clinicId]?.clinic.name ?? u.name) : u.name;
 
   void _log(String? clinicId, String action, String target) {
     final u = _user;
@@ -63,8 +69,8 @@ class DemoClinicRepository implements ClinicRepository {
       ActivityLog(
         id: _id('log'),
         clinicId: clinicId,
-        actorName: u?.name ?? 'System',
-        actorRole: u?.role ?? StaffRole.superAdmin,
+        actorName: u == null ? 'System' : _actorName(u),
+        actorRole: u?.role ?? UserRole.superAdmin,
         action: action,
         target: target,
         at: _now,
@@ -72,7 +78,7 @@ class DemoClinicRepository implements ClinicRepository {
     );
   }
 
-  StaffAccount _requireUser() => _user ?? (throw AppException.notAllowed);
+  UserAccount _requireUser() => _user ?? (throw AppException.notAllowed);
 
   void _requireWritable(String clinicId) {
     final c = _clinics[clinicId];
@@ -88,20 +94,20 @@ class DemoClinicRepository implements ClinicRepository {
   Stream<void> get changes => _changes.stream;
 
   @override
-  StaffAccount? get currentUser => _user;
+  UserAccount? get currentUser => _user;
 
   @override
-  Future<StaffAccount> signIn(String email, String password) async {
+  Future<UserAccount> signIn(String email, String password) async {
     await _latency(450);
     final key = email.trim().toLowerCase();
     if ((_failedLogins[key] ?? 0) >= 5) throw AppException.tooManyAttempts;
     final acc = _staff.values.where((s) => s.email.toLowerCase() == key).firstOrNull;
     // Invited accounts have no password yet; never reveal which part is wrong.
-    if (acc == null || password != demoPassword || acc.status == StaffStatus.invited) {
+    if (acc == null || password != (_passwords[key] ?? demoPassword) || acc.status == LoginStatus.invited) {
       _failedLogins[key] = (_failedLogins[key] ?? 0) + 1;
       throw AppException.wrongLogin;
     }
-    if (acc.status == StaffStatus.disabled) throw AppException.disabled;
+    if (acc.status == LoginStatus.disabled) throw AppException.disabled;
     _failedLogins.remove(key);
     final updated = acc.copyWith(lastLoginAt: _now);
     _staff[acc.uid] = updated;
@@ -127,6 +133,9 @@ class DemoClinicRepository implements ClinicRepository {
   ClinicAccount? clinic(String clinicId) => _clinics[clinicId];
 
   @override
+  Map<String, DateTime> doctorAddedAt() => Map.unmodifiable(_addedAt);
+
+  @override
   List<ClinicAccount> clinics() => _clinics.values.toList()..sort((a, b) => a.clinic.name.compareTo(b.clinic.name));
 
   @override
@@ -150,11 +159,9 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   CodeLookup findByCode(String clinicId, String code) {
-    final clean = code.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
-    final m = RegExp(r'^([A-Z]*)(\d+)$').firstMatch(clean);
-    if (m == null) return const CodeLookup();
-    final letter = m.group(1)!;
-    final number = int.parse(m.group(2)!);
+    final parsed = TokenCode.parse(code);
+    if (parsed == null) return const CodeLookup();
+    final (:letter, :number) = parsed;
     final docs = doctors(clinicId, includeInactive: true);
     bool matches(QueueToken t) => t.number == number && (letter.isEmpty || t.token.tokenPrefix == letter);
 
@@ -221,8 +228,7 @@ class DemoClinicRepository implements ClinicRepository {
       _followUps.values.where((f) => f.clinicId == clinicId).toList()..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
   @override
-  List<StaffAccount> staff(String clinicId) =>
-      _staff.values.where((s) => s.clinicId == clinicId).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  UserAccount? clinicLogin(String clinicId) => _staff.values.where((s) => s.isClinic && s.clinicId == clinicId).firstOrNull;
 
   @override
   List<Invoice> invoices({String? clinicId}) =>
@@ -310,16 +316,52 @@ class DemoClinicRepository implements ClinicRepository {
     _notify();
   }
 
-  /// C-03 order: lowest Arrived first; if none, lowest Booked (Q-W03 open).
+  /// D-24 (same as functions/src/clinic/nextOrder.ts): a Skipped patient who
+  /// checked in again goes first; otherwise the lowest number among Booked and Arrived.
   QueueToken? _nextCandidate(List<QueueToken> list) {
-    final arrived = list.where((t) => t.status == TokenStatus.arrived).toList()..sort((a, b) => a.number.compareTo(b.number));
-    if (arrived.isNotEmpty) return arrived.first;
-    final booked = list.where((t) => t.status == TokenStatus.booked).toList()..sort((a, b) => a.number.compareTo(b.number));
-    return booked.firstOrNull;
+    final priority = list.where((t) => t.status == TokenStatus.arrived && _priorityAt.containsKey(t.id)).toList()
+      ..sort((a, b) => _priorityAt[a.id]!.compareTo(_priorityAt[b.id]!));
+    if (priority.isNotEmpty) return priority.first;
+    final waiting = list.where((t) => t.status == TokenStatus.arrived || t.status == TokenStatus.booked).toList()
+      ..sort((a, b) => a.number.compareTo(b.number));
+    return waiting.firstOrNull;
+  }
+
+  /// tokenId → when a Skipped patient checked in again (D-24).
+  final _priorityAt = <String, DateTime>{};
+
+  @override
+  (int, int) monthTokens({String? clinicId}) {
+    final now = _now;
+    var app = 0, walk = 0;
+    for (final c in clinicId == null ? _clinics.keys.toList() : [clinicId]) {
+      for (var d = 1; d <= now.day; d++) {
+        for (final t in tokens(c, dayKey(DateTime(now.year, now.month, d)))) {
+          if (t.status == TokenStatus.cancelled) continue;
+          t.source == TokenSource.app ? app++ : walk++;
+        }
+      }
+    }
+    return (app, walk);
   }
 
   @override
-  Future<QueueToken?> next(String clinicId, String doctorId) async {
+  bool isLoadingPatient(String patientId) => false;
+
+  @override
+  Future<ClinicPatient?> loadClinicPatient(String clinicId, String patientId) async => clinicPatient(clinicId, patientId);
+
+  @override
+  Future<List<QueueToken>> loadTokens(String clinicId, String from, String to) async {
+    final out = <QueueToken>[];
+    for (var d = parseDayKey(from); !d.isAfter(parseDayKey(to)); d = d.add(const Duration(days: 1))) {
+      out.addAll(tokens(clinicId, dayKey(d)));
+    }
+    return out;
+  }
+
+  @override
+  Future<CalledInfo?> next(String clinicId, String doctorId, {String? callNotArrived}) async {
     _requireUser();
     _requireWritable(clinicId);
     final day = queueDay(clinicId, doctorId, _today);
@@ -332,6 +374,9 @@ class DemoClinicRepository implements ClinicRepository {
     final current = list.where((t) => t.status == TokenStatus.called).firstOrNull;
     final candidate = _nextCandidate(list);
     if (current == null && candidate == null) throw const AppException('empty', 'No patients waiting.');
+    if (candidate != null && candidate.status == TokenStatus.booked && candidate.id != callNotArrived) {
+      throw NotArrived(candidate.id, candidate.label, candidate.token.patientSnapshot.name);
+    }
 
     _undo[doctorId] = _UndoNext(_now, day, [?current, ?candidate]);
     if (current != null) {
@@ -345,7 +390,7 @@ class DemoClinicRepository implements ClinicRepository {
     }
     _syncDay(clinicId, doctorId, _today);
     _notify();
-    return called;
+    return called == null ? null : CalledInfo(called.label, called.token.patientSnapshot.name);
   }
 
   @override
@@ -374,7 +419,9 @@ class DemoClinicRepository implements ClinicRepository {
     final tk = t.token;
     switch (action) {
       case TokenAction.arrive:
-        _put(_event(t, 'Arrived', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: _now));
+        final fromSkip = t.status == TokenStatus.skipped;
+        if (fromSkip) _priorityAt[t.id] = _now;
+        _put(_event(t, fromSkip ? 'Arrived after skip · called next' : 'Arrived', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: _now));
       case TokenAction.callNow:
         // BW-3: only one Called token per doctor; the current one is completed.
         final current = tokens(tk.clinicId, tk.date).where((x) => x.token.doctorId == tk.doctorId && x.status == TokenStatus.called);
@@ -385,11 +432,15 @@ class DemoClinicRepository implements ClinicRepository {
             token: tk.copyWith(status: TokenStatus.called, calledAt: _now), arrivedAt: t.arrivedAt ?? _now));
         _days['${tk.doctorId}|${tk.date}'] = queueDay(tk.clinicId, tk.doctorId, tk.date).copyWith(currentToken: tk.number);
       case TokenAction.skip:
+        _priorityAt.remove(t.id);
         _put(_event(t, 'Skipped', token: tk.copyWith(status: TokenStatus.skipped)));
       case TokenAction.hold:
+        _priorityAt.remove(t.id);
         _put(_event(t, 'On hold', token: tk.copyWith(status: TokenStatus.onHold), note: reason));
       case TokenAction.backToQueue:
-        _put(_event(t, 'Back to queue', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: t.arrivedAt ?? _now));
+        final fromSkip = t.status == TokenStatus.skipped;
+        if (fromSkip) _priorityAt[t.id] = _now;
+        _put(_event(t, fromSkip ? 'Back to queue · called next' : 'Back to queue', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: t.arrivedAt ?? _now));
       case TokenAction.cancel:
         _put(_event(t, 'Cancelled',
             token: tk.copyWith(status: TokenStatus.cancelled, cancelledAt: _now, cancelledBy: 'clinic'),
@@ -405,7 +456,24 @@ class DemoClinicRepository implements ClinicRepository {
   }
 
   @override
-  Future<QueueToken> createWalkIn(String clinicId, String doctorId, {String? patientId, NewPatient? newPatient}) async {
+  PhoneLookup lookupPhone(String clinicId, String phone) {
+    final now = pktNow();
+    return PhoneLookup.done([
+      for (final p in _patients.values)
+        if (p.phone == phone && p.status == PatientStatus.active)
+          PhoneProfile(
+            id: p.id,
+            name: p.name,
+            relation: p.relation,
+            gender: p.gender,
+            age: p.age(now),
+            atThisClinic: _patientClinics[p.id]?.contains(clinicId) ?? false,
+          ),
+    ]);
+  }
+
+  @override
+  Future<QueueToken> createWalkIn(String clinicId, String doctorId, {String? patientId, String? phone, NewPatient? newPatient}) async {
     _requireUser();
     _requireWritable(clinicId);
     final doctor = _doctors[doctorId];
@@ -502,7 +570,8 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false}) async {
-    _requireUser();
+    // D-19: the clinic manages its own doctors; the Super Admin only views.
+    if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     await _latency();
     var d = doctor;
     if (isNew) {
@@ -522,7 +591,8 @@ class DemoClinicRepository implements ClinicRepository {
         schedule: doctor.schedule,
         sortOrder: doctors(clinicId, includeInactive: true).length + 1,
       );
-      _log(clinicId, 'added doctor', d.name);
+      _addedAt[d.id] = _now;
+      _log(clinicId, 'added doctor', '${d.name} · ${d.speciality}');
     } else {
       _log(clinicId, 'updated doctor', d.name);
     }
@@ -556,7 +626,7 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   Future<int> addLeave(String doctorId, String date) async {
-    _requireUser();
+    if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
     await _latency();
     if (!d.onLeaveDates.contains(date)) {
@@ -569,7 +639,7 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   Future<void> removeLeave(String doctorId, String date) async {
-    _requireUser();
+    if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
     await _latency();
     _doctors[doctorId] = _copyDoctor(d, onLeaveDates: d.onLeaveDates.where((x) => x != date).toList());
@@ -579,7 +649,7 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   Future<int> cancelTokensOn(String doctorId, String date, String reason) async {
-    _requireUser();
+    if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
     await _latency(300);
     var n = 0;
@@ -595,7 +665,7 @@ class DemoClinicRepository implements ClinicRepository {
 
   @override
   Future<void> setDoctorActive(String doctorId, bool active) async {
-    _requireUser();
+    if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
     await _latency();
     _doctors[doctorId] = _copyDoctor(d, active: active);
@@ -605,51 +675,37 @@ class DemoClinicRepository implements ClinicRepository {
   }
 
   @override
-  Future<void> inviteStaff(String clinicId, {required String name, required String email, required StaffRole role, String? doctorId}) async {
+  Future<void> changePassword(String current, String next) async {
     final u = _requireUser();
-    final e = email.trim().toLowerCase();
-    if (_staff.values.any((s) => s.email.toLowerCase() == e)) {
-      throw const AppException('email-taken', 'An account with this email already exists.');
-    }
-    await _latency(350);
-    final s = StaffAccount(
-      uid: _id('u'),
-      name: name.trim(),
-      email: e,
-      role: role,
-      clinicId: clinicId,
-      doctorId: role == StaffRole.doctor ? doctorId : null,
-      status: StaffStatus.invited,
-      invitedBy: u.name,
-      createdAt: _now,
-    );
-    _staff[s.uid] = s;
-    _log(clinicId, 'invited ${role.label.toLowerCase()}', '${s.name} <$e>');
+    final key = u.email.toLowerCase();
+    if (current != (_passwords[key] ?? demoPassword)) throw const AppException('wrong-password', 'Current password is incorrect.');
+    if (next.length < 8) throw const AppException('weak-password', 'The new password needs at least 8 characters.');
+    await _latency(400);
+    _passwords[key] = next;
+    _staff[u.uid] = u.copyWith(passwordChangedAt: _now);
+    _user = _staff[u.uid];
+    _log(u.clinicId, 'changed clinic login password', u.email);
     _notify();
   }
 
   @override
-  Future<void> resendInvite(String uid) async {
+  Future<void> resendClinicInvite(String clinicId) async {
     _requireUser();
-    final s = _staff[uid] ?? (throw AppException.generic);
+    final s = clinicLogin(clinicId) ?? (throw AppException.generic);
     await _latency(300);
-    _log(s.clinicId, 'resent invite', s.name);
+    _staff[s.uid] = s.copyWith(invitedAt: _now);
+    _log(clinicId, 'resent clinic login invite', s.email);
     _notify();
   }
 
   @override
-  Future<void> updateStaff(String uid, {StaffRole? role, String? doctorId, StaffStatus? status}) async {
+  Future<void> setClinicLoginStatus(String clinicId, LoginStatus status) async {
     final u = _requireUser();
-    final s = _staff[uid] ?? (throw AppException.generic);
-    if (u.uid == uid || (s.isMainAccount && u.role != StaffRole.superAdmin)) {
-      throw const AppException('self', "You can't change this account.");
-    }
+    if (u.role != UserRole.superAdmin) throw AppException.notAllowed;
+    final s = clinicLogin(clinicId) ?? (throw AppException.generic);
     await _latency();
-    _staff[uid] = s.copyWith(role: role, doctorId: doctorId, status: status);
-    if (role != null && role != s.role) _log(s.clinicId, 'changed role to ${role.label}', s.name);
-    if (status != null && status != s.status) {
-      _log(s.clinicId, status == StaffStatus.disabled ? 'disabled staff' : 'enabled staff', s.name);
-    }
+    _staff[s.uid] = s.copyWith(status: status);
+    _log(clinicId, status == LoginStatus.disabled ? 'disabled clinic login' : 'enabled clinic login', s.email);
     _notify();
   }
 
@@ -694,7 +750,7 @@ class DemoClinicRepository implements ClinicRepository {
         address: draft.address.trim(),
         phone: draft.phone.trim(),
         status: ClinicStatus.pilot,
-        doctorCount: draft.doctors.length,
+        doctorCount: 0,
       ),
       email: email,
       ownerName: draft.ownerName.trim(),
@@ -709,21 +765,17 @@ class DemoClinicRepository implements ClinicRepository {
     );
     _clinics[id] = clinic;
     _log(id, 'created clinic', clinic.clinic.name);
-    for (final d in draft.doctors) {
-      await saveDoctor(id, d, isNew: true);
-    }
-    _staff['u_${id}_main'] = StaffAccount(
+    _staff['u_$id'] = UserAccount(
       uid: 'u_${id}_main',
       name: draft.ownerName.trim(),
       email: email,
-      role: StaffRole.clinicAdmin,
+      role: UserRole.clinic,
       clinicId: id,
-      status: StaffStatus.invited,
-      invitedBy: _user?.name,
+      status: LoginStatus.invited,
       createdAt: _now,
-      isMainAccount: true,
+      invitedAt: _now,
     );
-    _log(id, 'invited clinic admin', '${draft.ownerName.trim()} <$email>');
+    _log(id, 'invited clinic login', '${draft.ownerName.trim()} <$email>');
     _notify();
     return _clinics[id]!;
   }
@@ -917,7 +969,7 @@ class DemoClinicRepository implements ClinicRepository {
       acc(const Clinic(id: 'c_modeltown', name: 'Model Town Medical', area: 'Model Town', city: 'Lahore', address: 'Link Road, Model Town', phone: '042-3588812', status: ClinicStatus.grace, doctorCount: 1),
           'clinic@modeltownmedical.pk', 'Dr. Usman Tariq', '+923335551234', ageDays: 100),
       acc(const Clinic(id: 'c_dha', name: 'DHA Family Clinic', area: 'DHA Phase 5', city: 'Lahore', address: 'Sector C, DHA Phase 5', phone: '042-3712990', status: ClinicStatus.active, doctorCount: 2),
-          'clinic@dhafamily.pk', 'Mrs. Rubina Shah', '+923008889911', plan: Plan.premium, fee: 5000, paidMonths: 1, letters: 2, ageDays: 95),
+          'clinic@dhafamily.pk', 'Mrs. Rubina Shah', '+923008889911', plan: Plan.premium, fee: 5000, paidMonths: 1, letters: 3, ageDays: 95),
       acc(const Clinic(id: 'c_rehman', name: 'Rehman Clinic', area: 'Iqbal Town', city: 'Lahore', address: 'Moon Market, Iqbal Town', phone: '042-3781100', status: ClinicStatus.suspended, doctorCount: 1),
           'clinic@rehmanclinic.pk', 'Dr. Abdul Rehman', '+923451112233', ageDays: 110),
       acc(const Clinic(id: 'c_clifton', name: 'Clifton Care Clinic', area: 'Clifton', city: 'Karachi', address: 'Block 5, Clifton', phone: '021-35871234', status: ClinicStatus.pilot, doctorCount: 1),
@@ -937,11 +989,13 @@ class DemoClinicRepository implements ClinicRepository {
       Doctor(id: 'd_usman', clinicId: 'c_modeltown', name: 'Dr. Usman Tariq', speciality: 'ENT Specialist', tokenPrefix: 'A', schedule: week(const DaySchedule('16:00', '20:00'), off: {'sat', 'sun'}), sortOrder: 1),
       Doctor(id: 'd_hina', clinicId: 'c_dha', name: 'Dr. Hina Shah', speciality: 'Pediatrician', tokenPrefix: 'A', schedule: week(const DaySchedule('09:00', '13:00'), off: {}), sortOrder: 1),
       Doctor(id: 'd_bilal', clinicId: 'c_dha', name: 'Dr. Bilal Ahmed', speciality: 'General Physician', tokenPrefix: 'B', schedule: week(evening, today: runningNow), sortOrder: 2),
+      Doctor(id: 'd_nida', clinicId: 'c_dha', name: 'Dr. Nida Farooq', speciality: 'Dermatologist', qualification: 'MBBS, FCPS', tokenPrefix: 'C', avgConsultMinutes: 12, schedule: week(const DaySchedule('11:00', '14:00'), off: {'fri', 'sun'}), sortOrder: 3),
       Doctor(id: 'd_rehman', clinicId: 'c_rehman', name: 'Dr. Abdul Rehman', speciality: 'General Physician', tokenPrefix: 'A', schedule: week(evening), sortOrder: 1),
       Doctor(id: 'd_zara', clinicId: 'c_clifton', name: 'Dr. Zara Hussain', speciality: 'General Physician', tokenPrefix: 'A', schedule: week(evening, today: runningNow), sortOrder: 1),
     ];
     for (final d in docs) {
       _doctors[d.id] = d;
+      _addedAt[d.id] = _clinics[d.clinicId]!.createdAt;
     }
 
     // ---- Patients (families on one phone) ----
@@ -986,6 +1040,7 @@ class DemoClinicRepository implements ClinicRepository {
 
     // ---- 30 days of history for every doctor ----
     for (final d in docs) {
+      if (d.id == 'd_nida') continue; // added by the clinic today: no history yet
       final busy = d.clinicId == 'c_alshifa' ? 16 : 7;
       for (var back = 30; back >= 1; back--) {
         final date = now.subtract(Duration(days: back));
@@ -1085,35 +1140,27 @@ class DemoClinicRepository implements ClinicRepository {
       );
     }
 
-    // ---- Staff (§5, C-12) ----
-    StaffAccount staff(String uid, String name, String email, StaffRole role, String? clinicId,
-            {String? doctorId, StaffStatus status = StaffStatus.active, bool main = false, int ageDays = 90, String? invitedBy = 'Sarbuland'}) =>
-        StaffAccount(
+    // ---- Logins (§5, D-18): Super Admin + one clinic login per clinic ----
+    UserAccount login(String uid, String name, String email, UserRole role, String? clinicId, {LoginStatus status = LoginStatus.active, int ageDays = 90}) =>
+        UserAccount(
           uid: uid,
           name: name,
           email: email,
           role: role,
           clinicId: clinicId,
-          doctorId: doctorId,
           status: status,
-          invitedBy: invitedBy,
           createdAt: now.subtract(Duration(days: ageDays)),
-          lastLoginAt: status == StaffStatus.active ? now.subtract(Duration(hours: 1 + ageDays % 30)) : null,
-          isMainAccount: main,
+          invitedAt: now.subtract(Duration(days: ageDays)),
+          lastLoginAt: status == LoginStatus.active ? now.subtract(Duration(hours: 1 + ageDays % 30)) : null,
         );
     for (final s in [
-      staff('u_admin', 'Sarbuland', 'admin@asani.app', StaffRole.superAdmin, null, ageDays: 200, invitedBy: null),
-      staff('u_alshifa_main', 'Dr. Tariq Mehmood', 'clinic@alshifa.pk', StaffRole.clinicAdmin, 'c_alshifa', main: true, ageDays: 150),
-      staff('u_asma', 'Asma Khan', 'reception@alshifa.pk', StaffRole.receptionist, 'c_alshifa', ageDays: 140, invitedBy: 'Dr. Tariq Mehmood'),
-      staff('u_ayesha', 'Dr. Ayesha Malik', 'ayesha@alshifa.pk', StaffRole.doctor, 'c_alshifa', doctorId: 'd_ayesha', ageDays: 120, invitedBy: 'Dr. Tariq Mehmood'),
-      staff('u_bilal_r', 'Bilal Hussain', 'evening@alshifa.pk', StaffRole.receptionist, 'c_alshifa', status: StaffStatus.invited, ageDays: 2, invitedBy: 'Dr. Tariq Mehmood'),
-      staff('u_old', 'Kiran Javed', 'kiran@alshifa.pk', StaffRole.receptionist, 'c_alshifa', status: StaffStatus.disabled, ageDays: 130, invitedBy: 'Dr. Tariq Mehmood'),
-      staff('u_citycare_main', 'Nasir Ali', 'clinic@citycare.pk', StaffRole.clinicAdmin, 'c_citycare', main: true, ageDays: 18),
-      staff('u_modeltown_main', 'Dr. Usman Tariq', 'clinic@modeltownmedical.pk', StaffRole.clinicAdmin, 'c_modeltown', main: true, ageDays: 100),
-      staff('u_dha_main', 'Mrs. Rubina Shah', 'clinic@dhafamily.pk', StaffRole.clinicAdmin, 'c_dha', main: true, ageDays: 95),
-      staff('u_dha_rec', 'Saima Noor', 'front@dhafamily.pk', StaffRole.receptionist, 'c_dha', ageDays: 80, invitedBy: 'Mrs. Rubina Shah'),
-      staff('u_rehman_main', 'Dr. Abdul Rehman', 'clinic@rehmanclinic.pk', StaffRole.clinicAdmin, 'c_rehman', main: true, ageDays: 110),
-      staff('u_clifton_main', 'Zara Hussain', 'clinic@cliftoncare.pk', StaffRole.clinicAdmin, 'c_clifton', main: true, status: StaffStatus.invited, ageDays: 5),
+      login('u_admin', 'Sarbuland', 'admin@asani.app', UserRole.superAdmin, null, ageDays: 200),
+      login('u_c_alshifa', 'Dr. Tariq Mehmood', 'clinic@alshifa.pk', UserRole.clinic, 'c_alshifa', ageDays: 150),
+      login('u_c_citycare', 'Nasir Ali', 'clinic@citycare.pk', UserRole.clinic, 'c_citycare', ageDays: 18),
+      login('u_c_modeltown', 'Dr. Usman Tariq', 'clinic@modeltownmedical.pk', UserRole.clinic, 'c_modeltown', ageDays: 100),
+      login('u_c_dha', 'Mrs. Rubina Shah', 'clinic@dhafamily.pk', UserRole.clinic, 'c_dha', ageDays: 95),
+      login('u_c_rehman', 'Dr. Abdul Rehman', 'clinic@rehmanclinic.pk', UserRole.clinic, 'c_rehman', ageDays: 110),
+      login('u_c_clifton', 'Zara Hussain', 'clinic@cliftoncare.pk', UserRole.clinic, 'c_clifton', status: LoginStatus.invited, ageDays: 5),
     ]) {
       _staff[s.uid] = s;
     }
@@ -1156,18 +1203,21 @@ class DemoClinicRepository implements ClinicRepository {
     _clinics['c_rehman'] = _clinics['c_rehman']!.copyWith(paidUntil: DateTime(now.year, now.month - 1, 1));
 
     // ---- Activity (A-07) ----
-    void act(String? clinicId, String name, StaffRole role, String action, String target, Duration ago) =>
+    void act(String? clinicId, String name, UserRole role, String action, String target, Duration ago) =>
         _activity.add(ActivityLog(id: _id('log'), clinicId: clinicId, actorName: name, actorRole: role, action: action, target: target, at: now.subtract(ago)));
-    act('c_alshifa', 'Dr. Tariq Mehmood', StaffRole.clinicAdmin, 'invited receptionist', 'Bilal Hussain <evening@alshifa.pk>', const Duration(days: 2));
-    act('c_alshifa', 'Dr. Tariq Mehmood', StaffRole.clinicAdmin, 'added leave', 'Dr. Kamran Ahmed · ${Fmt0.day(leaveDay)}', const Duration(hours: 2));
-    act('c_clifton', 'Sarbuland', StaffRole.superAdmin, 'created clinic', 'Clifton Care Clinic', const Duration(days: 5));
-    act('c_clifton', 'Sarbuland', StaffRole.superAdmin, 'invited clinic admin', 'Zara Hussain <clinic@cliftoncare.pk>', const Duration(days: 5));
-    act('c_rehman', 'System', StaffRole.superAdmin, 'suspended clinic', 'Rehman Clinic · unpaid 15+ days', const Duration(days: 7));
-    act('c_modeltown', 'System', StaffRole.superAdmin, 'moved to grace', 'Model Town Medical · invoice overdue', const Duration(days: 9));
-    act('c_dha', 'Mrs. Rubina Shah', StaffRole.clinicAdmin, 'updated doctor', 'Dr. Hina Shah', const Duration(days: 3, hours: 4));
-    act('c_alshifa', 'Sarbuland', StaffRole.superAdmin, 'recorded payment', '${month(0)} · Rs 3000 · Bank', const Duration(days: 6));
-    act('c_citycare', 'Nasir Ali', StaffRole.clinicAdmin, 'added doctor', 'Dr. Farah Naz', const Duration(days: 15));
-    act('c_dha', 'Mrs. Rubina Shah', StaffRole.clinicAdmin, 'exported visits', 'Last 30 days', const Duration(days: 1, hours: 2));
+    act('c_alshifa', 'Al-Shifa Clinic', UserRole.clinic, 'changed doctor timings', 'Dr. Sana Riaz', const Duration(days: 2));
+    act('c_alshifa', 'Al-Shifa Clinic', UserRole.clinic, 'added leave', 'Dr. Kamran Ahmed · ${Fmt0.day(leaveDay)}', const Duration(hours: 2));
+    act('c_clifton', 'Sarbuland', UserRole.superAdmin, 'created clinic', 'Clifton Care Clinic', const Duration(days: 5));
+    act('c_clifton', 'Sarbuland', UserRole.superAdmin, 'invited clinic login', 'clinic@cliftoncare.pk', const Duration(days: 5));
+    act('c_rehman', 'System', UserRole.superAdmin, 'suspended clinic', 'Rehman Clinic · unpaid 15+ days', const Duration(days: 7));
+    act('c_modeltown', 'System', UserRole.superAdmin, 'moved to grace', 'Model Town Medical · invoice overdue', const Duration(days: 9));
+    act('c_dha', 'DHA Family Clinic', UserRole.clinic, 'changed doctor timings', 'Dr. Hina Shah', const Duration(days: 3, hours: 4));
+    act('c_alshifa', 'Sarbuland', UserRole.superAdmin, 'recorded payment', '${month(0)} · Rs 3000 · Bank', const Duration(days: 6));
+    act('c_citycare', 'City Care Clinic', UserRole.clinic, 'added doctor', 'Dr. Farah Naz · Dermatologist', const Duration(days: 2, hours: 3));
+    act('c_dha', 'DHA Family Clinic', UserRole.clinic, 'added doctor', 'Dr. Nida Farooq · Dermatologist', const Duration(hours: 5));
+    _addedAt['d_farah'] = now.subtract(const Duration(days: 2, hours: 3));
+    _addedAt['d_nida'] = now.subtract(const Duration(hours: 5));
+    act('c_dha', 'DHA Family Clinic', UserRole.clinic, 'exported visits', 'Last 30 days', const Duration(days: 1, hours: 2));
     _activity.sort((a, b) => b.at.compareTo(a.at));
   }
 }

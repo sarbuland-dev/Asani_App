@@ -2,8 +2,6 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 
 const _dayNames = {'mon': 'Monday', 'tue': 'Tuesday', 'wed': 'Wednesday', 'thu': 'Thursday', 'fri': 'Friday', 'sat': 'Saturday', 'sun': 'Sunday'};
@@ -12,7 +10,7 @@ const _dayNames = {'mon': 'Monday', 'tue': 'Tuesday', 'wed': 'Wednesday', 'thu':
 final _times = [for (var m = 6 * 60; m <= 23 * 60 + 30; m += 30) minutesToHhmm(m)];
 
 /// W-17 doctor form (C-11). Returns the edited doctor; the caller saves it.
-/// Used by the Doctors page and the New clinic wizard.
+/// The clinic adds and edits its own doctors (D-19).
 Future<Doctor?> showDoctorForm(BuildContext context, {Doctor? initial, required String clinicId}) =>
     showDialog<Doctor>(context: context, builder: (_) => _DoctorForm(initial: initial, clinicId: clinicId));
 
@@ -44,6 +42,16 @@ class _DoctorFormState extends State<_DoctorForm> {
     }
     super.dispose();
   }
+
+  /// First working day (Mon → Sun), the source for "Copy … to all days".
+  String? get _firstOn => weekdayKeys.where((k) => _schedule[k] != null).firstOrNull;
+
+  void _copyFirstToAll() => setState(() {
+        final src = _schedule[_firstOn];
+        for (final k in weekdayKeys) {
+          if (_schedule[k] != null) _schedule[k] = src;
+        }
+      });
 
   String? _num(String? v, int min, int max) {
     final n = int.tryParse(v ?? '');
@@ -106,7 +114,9 @@ class _DoctorFormState extends State<_DoctorForm> {
     final isNew = widget.initial == null;
     return AppDialog(
       title: isNew ? 'Add doctor' : 'Edit ${widget.initial!.name}',
-      subtitle: isNew ? 'The token letter (A, B, C…) is assigned automatically.' : 'Token letter ${widget.initial!.tokenPrefix} (never changes).',
+      subtitle: isNew
+          ? 'The token letter (A, B, C…) is assigned automatically.'
+          : 'Token letter ${widget.initial!.tokenPrefix} (never changes).',
       width: 680,
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -141,7 +151,15 @@ class _DoctorFormState extends State<_DoctorForm> {
             const SizedBox(width: Gap.md),
             _numField('Booking window', _window, 0, 60, 'days'),
           ]),
-          Text('Weekly schedule', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
+          Row(children: [
+            Expanded(child: Text('Weekly schedule', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary))),
+            // One button: the first working day's timing goes to every working day.
+            TextButton.icon(
+              onPressed: _schedule.values.whereType<DaySchedule>().length < 2 ? null : _copyFirstToAll,
+              icon: const Icon(Icons.content_copy_rounded, size: 18),
+              label: Text(_firstOn == null ? 'Copy to all days' : 'Copy ${_dayNames[_firstOn]} timing to all days'),
+            ),
+          ]),
           const SizedBox(height: Gap.sm),
           AppCard(
             padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.sm),
@@ -163,17 +181,6 @@ class _DoctorFormState extends State<_DoctorForm> {
                       Padding(padding: const EdgeInsets.symmetric(horizontal: Gap.md), child: Text('to', style: AppText.bodyMedium)),
                       _timeDrop(_schedule[k]!.end, (v) => setState(() => _schedule[k] = DaySchedule(_schedule[k]!.start, v))),
                     ],
-                    const Spacer(),
-                    if (_schedule[k] != null)
-                      TextButton(
-                        onPressed: () => setState(() {
-                          final src = _schedule[k];
-                          for (final o in weekdayKeys) {
-                            if (_schedule[o] != null) _schedule[o] = src;
-                          }
-                        }),
-                        child: const Text('Copy to all'),
-                      ),
                   ]),
                 ),
             ]),

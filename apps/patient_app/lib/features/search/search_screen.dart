@@ -4,10 +4,10 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/widgets/common.dart';
+import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../clinic/clinic_card.dart';
+import '../../core/widgets/error_state.dart';
 
 /// S-06 search: clinic name or area, filters as you type (250 ms debounce).
 class SearchScreen extends ConsumerStatefulWidget {

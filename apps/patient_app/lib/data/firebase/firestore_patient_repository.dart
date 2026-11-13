@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/errors/app_exception.dart';
-import '../../core/utils/logger.dart';
 import '../demo/demo_backend.dart';
 import '../repositories/repositories.dart';
 

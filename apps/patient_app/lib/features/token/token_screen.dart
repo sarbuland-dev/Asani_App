@@ -6,10 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/net/connectivity.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
+import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/launch.dart';
-import '../../core/widgets/common.dart';
 import '../../data/providers.dart';
 
 /// S-11 live token screen (PRD F-05). Notification target.
@@ -131,6 +129,9 @@ class TokenScreen extends ConsumerWidget {
                           child: Text(
                             switch (status) {
                               TokenStatus.completed => 'Visit completed',
+                              // D-23: say who cancelled and why.
+                              TokenStatus.cancelled when token.cancelledByClinic =>
+                                'Cancelled by clinic${(token.cancelReason ?? '').trim().isEmpty ? '' : ' · ${token.cancelReason!.trim()}'}',
                               TokenStatus.cancelled =>
                                 'Cancelled${token.cancelledAt == null ? '' : ' on ${Fmt.dateTime(token.cancelledAt!)}'}',
                               TokenStatus.noShow => 'Marked as no-show',
@@ -142,13 +143,17 @@ class TokenScreen extends ConsumerWidget {
                         StatusChip(status),
                       ]),
                       const SizedBox(height: Gap.xs),
-                      Text(Fmt.longDay(token.date), style: AppText.bodyMedium),
+                      Text(
+                        token.cancelledByClinic && token.cancelledAt != null
+                            ? '${Fmt.longDay(token.date)} · cancelled on ${Fmt.dateTime(token.cancelledAt!)}'
+                            : Fmt.longDay(token.date),
+                        style: AppText.bodyMedium,
+                      ),
                       const SizedBox(height: Gap.lg),
                       FilledButton(
                         onPressed: () => context.push('/book/${token.clinicId}/${token.doctorId}?patient=${token.patientId}'),
-                        child: const Text('Book again'),
-                      ),
-                      const SizedBox(height: Gap.md),
+                        child: Text(token.cancelledByClinic ? 'Book another day' : 'Book again'),
+                      ),                      const SizedBox(height: Gap.md),
                     ],
                     if (!finished && settings != null && !settings.notificationsAllowed) ...[
                       _NotificationsOffCard(onTurnOn: () => context.push('/notifications')),
@@ -193,7 +198,8 @@ class TokenScreen extends ConsumerWidget {
                       const SizedBox(width: Gap.sm),
                       Expanded(child: _ActionButton(icon: Icons.near_me_outlined, label: 'Directions', onTap: () => openDirections(context, clinic))),
                     ]),
-                    if (status.canCancel) ...[
+                    // Walk-ins made at reception have no booker; only the clinic can cancel them (D-22).
+                    if (status.canCancel && token.bookedByUserId != null) ...[
                       const SizedBox(height: Gap.sm),
                       Builder(builder: (context) {
                         // Cancelling needs internet (ARCHITECTURE.md §8).

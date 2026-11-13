@@ -7,6 +7,12 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function uid() { return request.auth.uid; }
     function myPhone() { return request.auth.token.phone_number; }
+    // Clinic web (PRD-CLINIC-WEB §4, D-18): roles are custom claims set by functions only.
+    function isSuperAdmin() { return signedIn() && request.auth.token.role == 'superAdmin'; }
+    function isClinic() { return signedIn() && request.auth.token.role == 'clinic'; }
+    function myClinic() { return request.auth.token.clinicId; }
+    function isClinicOf(clinicId) { return isClinic() && myClinic() == clinicId; }
+    function staffOf(clinicId) { return isSuperAdmin() || isClinicOf(clinicId); }
     function changedOnly(keys) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
@@ -54,7 +60,9 @@ service cloud.firestore {
 
     // ---------- patients (family profiles) ----------
     match /patients/{patientId} {
-      allow read: if signedIn() && resource.data.ownerUid == uid();
+      // BW-6: a clinic sees only patients who visited/booked there (clinicIds).
+      allow read: if signedIn() && (resource.data.ownerUid == uid()
+        || (isClinic() && myClinic() in resource.data.get('clinicIds', [])));
 
       allow create: if signedIn()
         && request.resource.data.ownerUid == uid()
@@ -84,8 +92,9 @@ service cloud.firestore {
     match /clinics/{clinicId} {
       allow read: if signedIn();
       allow write: if false;
-      match /private/{docId} { allow read, write: if false; }   // billing, Phase 3
-      match /stats/{docId}   { allow read, write: if false; }   // Phase 2
+      // Billing + monthly counters: own clinic login and Super Admin (BW-9).
+      match /private/{docId} { allow read: if staffOf(clinicId); allow write: if false; }
+      match /stats/{docId}   { allow read: if staffOf(clinicId); allow write: if false; }
     }
 
     match /doctors/{doctorId} {
@@ -101,13 +110,36 @@ service cloud.firestore {
     match /tokens/{tokenId} {
       allow read: if signedIn()
         && (resource.data.bookedByUserId == uid()
-            || resource.data.patientOwnerUid == uid());
-      allow write: if false;                  // bookToken / cancelToken / triggers only
+            || resource.data.patientOwnerUid == uid()
+            || staffOf(resource.data.clinicId));
+      allow write: if false;                  // bookToken / cancelToken / queueAction / triggers only
     }
 
     // ---------- follow-ups ----------
     match /followUps/{id} {
-      allow read: if signedIn() && resource.data.ownerUid == uid();
+      allow read: if signedIn() && (resource.data.ownerUid == uid() || staffOf(resource.data.clinicId));
+      allow write: if false;
+    }
+
+    // ---------- clinic web (PRD-CLINIC-WEB §11) ----------
+    match /clinicAccounts/{accountId} {          // one login per clinic (D-18)
+      allow read: if isSuperAdmin() || (isClinic() && uid() == accountId);
+      allow write: if false;
+    }
+    match /adminUsers/{adminId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
+    }
+    match /invoices/{invoiceId} {
+      allow read: if staffOf(resource.data.clinicId);
+      allow write: if false;
+    }
+    match /activityLogs/{logId} {                // written by the backend only (A-07)
+      allow read: if staffOf(resource.data.clinicId);
+      allow write: if false;
+    }
+    match /settings/{docId} {                    // plans, prices, payment instructions
+      allow read: if isSuperAdmin() || isClinic();
       allow write: if false;
     }
   }

@@ -2,8 +2,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../theme/app_theme.dart';
-import '../utils/formatters.dart';
+import 'package:asani_ui/asani_ui.dart';
+import 'package:asani_core/asani_core.dart';
 
 /// Online or not (ARCHITECTURE.md §8). Reads keep working from the Firestore
 /// cache; booking and cancelling need a connection. If the check itself

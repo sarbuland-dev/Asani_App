@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/net/connectivity.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
@@ -57,11 +55,15 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
     return ref.read(repositoryProvider).searchPatients(widget.clinicId, e164).where((p) => p.patient.phone == e164).toList();
   }
 
-  bool _similarName(List<ClinicPatient> list) {
+  /// D-22: the same number's profiles from the Asani app / other clinics
+  /// (name, relation, age, gender only), minus the ones already listed above.
+  PhoneLookup? _lookup() => _phoneOk ? ref.read(repositoryProvider).lookupPhone(widget.clinicId, PhoneUtils.toE164(_phone.text)) : null;
+
+  bool _similarName(List<String> names) {
     final n = _name.text.trim().toLowerCase();
     if (n.length < 3) return false;
-    return list.any((p) {
-      final o = p.patient.nameLower;
+    return names.any((name) {
+      final o = name.toLowerCase();
       return o == n || o.split(' ').first == n.split(' ').first;
     });
   }
@@ -77,6 +79,7 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
         widget.clinicId,
         doctorId,
         patientId: _newPatient ? null : _patientId,
+        phone: _newPatient ? null : PhoneUtils.toE164(_phone.text),
         newPatient: _newPatient
             ? NewPatient(
                 phone: PhoneUtils.toE164(_phone.text),
@@ -103,6 +106,9 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
     final doctors = ref.watch(doctorsProvider(widget.clinicId));
     _doctorId ??= doctors.firstOrNull?.id;
     final profiles = _profiles();
+    final lookup = _lookup();
+    final here = {for (final p in profiles) p.patient.id};
+    final others = [for (final p in lookup?.profiles ?? const <PhoneProfile>[]) if (!here.contains(p.id) && !p.atThisClinic) p];
     final age = int.tryParse(_age.text);
     final newOk = _name.text.trim().length >= 2 && _gender != null && (_age.text.isEmpty || (age != null && age >= 0 && age <= 120));
     final ready = _phoneOk && _doctorId != null && (_newPatient ? newOk : _patientId != null) && ref.watch(isOnlineProvider);
@@ -144,16 +150,33 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
         if (_phoneOk) ...[
           Text('2. Patient', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: 6),
-          if (profiles.isEmpty && !_newPatient)
+          if (profiles.isEmpty && others.isEmpty && !_newPatient && !(lookup?.loading ?? false))
             Padding(
               padding: const EdgeInsets.only(bottom: Gap.sm),
-              child: Text('No patients on this number have visited this clinic.', style: AppText.bodyMedium),
+              child: Text('No patients on this number yet.', style: AppText.bodyMedium),
             ),
           for (final p in profiles) _profileTile(p),
+          if (lookup != null && lookup.loading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Gap.sm),
+              child: Text('Checking the Asani app for this number…', style: AppText.labelSmall),
+            ),
+          if (lookup?.error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: Gap.sm),
+              child: Banner2(text: lookup!.error!, icon: Icons.info_outline_rounded),
+            ),
+          if (others.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: Gap.xs, bottom: 6),
+              child: Text('On the Asani app, new to this clinic', style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+            ),
+            for (final p in others) _otherTile(p),
+          ],
           _newPatientTile(),
           if (_newPatient) ...[
             const SizedBox(height: Gap.md),
-            _newPatientForm(profiles),
+            _newPatientForm([for (final p in profiles) p.patient.name, for (final p in others) p.name]),
           ],
           const SizedBox(height: Gap.lg),
           FieldLabel(
@@ -200,6 +223,31 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
     );
   }
 
+  /// D-22 profile from another clinic / the app: only name, relation, age, gender.
+  Widget _otherTile(PhoneProfile p) {
+    final selected = !_newPatient && _patientId == p.id;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Gap.sm),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
+        borderColor: selected ? AppColors.primary : AppColors.border,
+        color: selected ? AppColors.primaryContainer.withValues(alpha: 0.5) : AppColors.surface,
+        onTap: () => setState(() {
+          _patientId = p.id;
+          _newPatient = false;
+        }),
+        child: Row(children: [
+          Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: selected ? AppColors.primary : AppColors.textMuted),
+          const SizedBox(width: Gap.md),
+          InitialsAvatar(name: p.name, size: 36, bg: InitialsAvatar.colorsFor(p.relation).$1, fg: InitialsAvatar.colorsFor(p.relation).$2),
+          const SizedBox(width: Gap.md),
+          Expanded(child: TwoLine(p.name, '${p.relation.label} · ${p.age ?? '—'} / ${p.gender.short}')),
+          Text('New to this clinic', style: AppText.labelSmall),
+        ]),
+      ),
+    );
+  }
+
   Widget _newPatientTile() => AppCard(
         padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
         borderColor: _newPatient ? AppColors.primary : AppColors.border,
@@ -216,7 +264,7 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
         ]),
       );
 
-  Widget _newPatientForm(List<ClinicPatient> existing) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  Widget _newPatientForm(List<String> existing) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             flex: 3,

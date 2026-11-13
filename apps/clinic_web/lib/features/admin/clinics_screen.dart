@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
@@ -12,13 +11,8 @@ import '../../data/providers.dart';
 /// Tokens this month at one clinic (not cancelled).
 final clinicMonthTokensProvider = Provider.family<int, String>((ref, clinicId) {
   ref.watch(repoTickProvider);
-  final repo = ref.watch(repositoryProvider);
-  final now = pktNow();
-  var n = 0;
-  for (var d = 1; d <= now.day; d++) {
-    n += repo.tokens(clinicId, dayKey(DateTime(now.year, now.month, d))).where((t) => t.status != TokenStatus.cancelled).length;
-  }
-  return n;
+  final (app, walk) = ref.watch(repositoryProvider).monthTokens(clinicId: clinicId);
+  return app + walk;
 });
 
 /// A-11 / A-02: all clinics.
@@ -91,7 +85,7 @@ class _ClinicsScreenState extends ConsumerState<ClinicsScreen> {
             TableColumn('Plan', flex: 2),
             TableColumn('Status', flex: 2),
             TableColumn('Doctors', flex: 2, align: TextAlign.center),
-            TableColumn('Staff', flex: 1, align: TextAlign.center),
+            TableColumn('Login', flex: 2),
             TableColumn('Tokens (month)', flex: 2, align: TextAlign.center),
             TableColumn('Paid until', flex: 3),
             TableColumn('Last activity', flex: 2),
@@ -107,7 +101,10 @@ class _ClinicsScreenState extends ConsumerState<ClinicsScreen> {
                   Text(c.plan.label, style: AppText.bodyMedium),
                   ClinicStatusPill(c.status),
                   Text('${c.clinic.doctorCount}', style: AppText.labelMedium),
-                  Text('${repo.staff(c.id).where((s) => s.status != StaffStatus.disabled).length}', style: AppText.labelMedium),
+                  () {
+                    final login = repo.clinicLogin(c.id);
+                    return login == null ? const Text('—') : LoginStatusPill(login.status) as Widget;
+                  }(),
                   Text('${ref.watch(clinicMonthTokensProvider(c.id))}', style: AppText.labelMedium),
                   Text(
                     c.plan == Plan.pilot ? 'Pilot to ${c.pilotEndsAt == null ? '—' : WebFmt.date(c.pilotEndsAt!)}' : (c.paidUntil == null ? '—' : WebFmt.date(c.paidUntil!)),

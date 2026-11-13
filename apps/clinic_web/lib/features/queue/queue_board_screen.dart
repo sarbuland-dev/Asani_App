@@ -2,20 +2,21 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/errors/app_exception.dart';
 import '../../core/net/connectivity.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../doctors/doctors_screen.dart';
 import 'check_in_dialog.dart';
 import 'queue_actions.dart';
 import 'token_panel.dart';
 import 'walk_in_dialog.dart';
+
+enum _NotArrivedChoice { skip, callAnyway }
 
 enum _Filter {
   all('All'),
@@ -62,7 +63,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     super.dispose();
   }
 
-  StaffAccount get _user => ref.read(currentUserProvider)!;
+  UserAccount get _user => ref.read(currentUserProvider)!;
 
   bool get _writable {
     final c = ref.read(clinicProvider(widget.clinicId));
@@ -80,15 +81,15 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     if (!onBoard || !(ModalRoute.of(context)?.isCurrent ?? true)) return false;
     final key = e.logicalKey;
     final role = _user.role;
-    if ((key == LogicalKeyboardKey.slash || key == LogicalKeyboardKey.numpadDivide) && role.canCheckIn && !widget.readOnly) {
+    if ((key == LogicalKeyboardKey.slash || key == LogicalKeyboardKey.numpadDivide) && role.canRunQueue && !widget.readOnly) {
       _openCheckIn();
       return true;
     }
-    if (key == LogicalKeyboardKey.keyW && role.canWalkIn && _writable) {
+    if (key == LogicalKeyboardKey.keyW && role.canRunQueue && _writable) {
       _openWalkIn();
       return true;
     }
-    if (key == LogicalKeyboardKey.keyN && role.canNext && _writable && _doctorId != null) {
+    if (key == LogicalKeyboardKey.keyN && role.canRunQueue && _writable && _doctorId != null) {
       _next(_doctorId!);
       return true;
     }
@@ -106,7 +107,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     _focus.requestFocus();
   }
 
-  Future<void> _next(String doctorId) async {
+  Future<void> _next(String doctorId, {String? callNotArrived}) async {
     if (_nextBusy) return;
     if (!ref.read(isOnlineProvider)) {
       showSnack(context, AppException.offline.message);
@@ -114,20 +115,54 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     }
     setState(() => _nextBusy = true);
     final repo = ref.read(repositoryProvider);
+    NotArrived? notArrived;
     try {
-      final called = await repo.next(widget.clinicId, doctorId);
+      final called = await repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           duration: const Duration(seconds: 30),
-          content: Text(called == null ? 'Visit completed. No more patients waiting.' : 'Now serving ${called.label}, ${called.token.patientSnapshot.name}.'),
+          content: Text(called == null ? 'Visit completed. No more patients waiting.' : 'Now serving ${called.label}, ${called.name}.'),
           action: SnackBarAction(label: 'Undo', onPressed: () => runAction(context, () => repo.undoNext(doctorId), success: 'Last Next undone.')),
         ));
+    } on NotArrived catch (e) {
+      notArrived = e;
     } catch (e) {
       if (mounted) showSnack(context, AppException.messageOf(e));
     } finally {
       if (mounted) setState(() => _nextBusy = false);
+    }
+    if (notArrived != null && mounted) await _askNotArrived(doctorId, notArrived);
+  }
+
+  /// D-24: Next reached a token that has not arrived.
+  Future<void> _askNotArrived(String doctorId, NotArrived t) async {
+    final choice = await showDialog<_NotArrivedChoice>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: '${t.label} has not arrived',
+        width: 440,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Back')),
+          OutlinedButton(onPressed: () => Navigator.pop(ctx, _NotArrivedChoice.skip), child: const Text('Skip')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, _NotArrivedChoice.callAnyway), child: const Text('Call anyway')),
+        ],
+        child: Text(
+          '${t.name.isEmpty ? 'This patient' : t.name} has not checked in yet. '
+          'Skip calls the next patient; if they come later, check them in and they are called right after the current patient.',
+          style: AppText.bodyMedium,
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    final repo = ref.read(repositoryProvider);
+    switch (choice) {
+      case _NotArrivedChoice.skip:
+        final ok = await runAction(context, () => repo.tokenAction(t.tokenId, TokenAction.skip));
+        if (ok && mounted) await _next(doctorId); // may ask again for the next one
+      case _NotArrivedChoice.callAnyway:
+        await _next(doctorId, callNotArrived: t.tokenId);
     }
   }
 
@@ -156,18 +191,20 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider)!;
     final clinic = ref.watch(clinicProvider(widget.clinicId));
-    var doctors = ref.watch(doctorsProvider(widget.clinicId));
-    if (user.role == StaffRole.doctor) doctors = doctors.where((d) => d.id == user.doctorId).toList();
+    final doctors = ref.watch(doctorsProvider(widget.clinicId));
     final all = ref.watch(todayTokensProvider(widget.clinicId));
     if (clinic == null) return const Center(child: Text('Clinic not found.'));
     if (doctors.isEmpty) {
       return Center(
+        // C-11 first-time setup: the clinic adds its own doctors (D-19).
         child: EmptyState(
           icon: Icons.medical_services_outlined,
-          title: 'No doctors yet',
-          message: user.role == StaffRole.clinicAdmin ? 'Add a doctor to start running the queue.' : 'Ask your clinic admin to add doctors.',
-          actionLabel: user.role == StaffRole.clinicAdmin ? 'Add doctor' : null,
-          onAction: () => context.go('/doctors'),
+          title: user.role.canManageDoctors ? 'Add your first doctor' : 'No doctors yet',
+          message: user.role.canManageDoctors
+              ? 'Add each doctor with a letter, weekly timings and max tokens. Then patients can book and the queue starts here.'
+              : 'This clinic has not added any doctors yet.',
+          actionLabel: user.role.canManageDoctors ? 'Add doctor' : null,
+          onAction: user.role.canManageDoctors ? () => addDoctor(context, ref, widget.clinicId) : null,
         ),
       );
     }
@@ -214,14 +251,14 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
 
   // ---------------------------------------------------------------- toolbar
 
-  Widget _toolbar(StaffAccount user, ClinicAccount clinic, bool readOnly) {
+  Widget _toolbar(UserAccount user, ClinicAccount clinic, bool readOnly) {
     return Row(children: [
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(user.role == StaffRole.doctor ? 'My Queue' : 'Queue Board', style: AppText.displaySmall.copyWith(fontSize: 26)),
+        Text('Queue Board', style: AppText.displaySmall.copyWith(fontSize: 26)),
         Text(widget.readOnly ? '${clinic.clinic.name} · read-only view' : 'Live: updates on patients\' phones within seconds', style: AppText.bodyMedium),
       ]),
       const SizedBox(width: Gap.xl),
-      if (user.role.canCheckIn && !widget.readOnly)
+      if (user.role.canRunQueue && !widget.readOnly)
         Expanded(
           child: Tooltip(
             message: 'Shortcut: /',
@@ -246,7 +283,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
         )
       else
         const Spacer(),
-      if (user.role.canWalkIn && !widget.readOnly) ...[
+      if (user.role.canRunQueue && !widget.readOnly) ...[
         const SizedBox(width: Gap.md),
         Tooltip(
           message: 'Shortcut: W',
@@ -310,7 +347,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
 
   // ---------------------------------------------------------- left column
 
-  Widget _leftColumn(Doctor d, List<QueueToken> list, StaffAccount user, bool readOnly) {
+  Widget _leftColumn(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
     final day = ref.watch(queueDayProvider((widget.clinicId, d.id)));
     final called = list.where((t) => t.status == TokenStatus.called).firstOrNull;
     final schedule = d.scheduleOn(pktNow());
@@ -351,7 +388,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
             Text(called?.token.patientSnapshot.name ?? (day.sessionStatus == SessionStatus.running ? 'Press Next to call a patient' : 'No one called yet'),
                 style: AppText.titleMedium.copyWith(color: AppColors.onPrimary)),
             const SizedBox(height: Gap.xl),
-            if (user.role.canNext)
+            if (user.role.canRunQueue)
               SizedBox(
                 width: double.infinity,
                 height: 60,
@@ -380,11 +417,11 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
           ]),
         ),
       ),
-      if (user.role.canSession && !widget.readOnly) ...[
+      if (user.role.canRunQueue && !widget.readOnly) ...[
         const SizedBox(height: Gap.md),
         _sessionControls(d, day, list, canAct),
       ],
-      if (called != null && user.role.canFollowUp && !readOnly) ...[
+      if (called != null && user.role.canRunQueue && !readOnly) ...[
         const SizedBox(height: Gap.sm),
         OutlinedButton.icon(
           onPressed: () => showFollowUpDialog(context, ref, called),
@@ -446,7 +483,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
 
   // --------------------------------------------------------- waiting list
 
-  Widget _waitingList(Doctor d, List<QueueToken> list, StaffAccount user, bool readOnly) {
+  Widget _waitingList(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
     bool done(QueueToken t) => t.status == TokenStatus.completed || t.status == TokenStatus.cancelled || t.status == TokenStatus.noShow;
     final active = list.where((t) => !done(t)).toList()
       ..sort((a, b) {
@@ -522,7 +559,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
 
   Widget _h(String text, int flex) => Expanded(flex: flex, child: Text(text, style: AppText.overline.copyWith(fontSize: 11, letterSpacing: 0.8)));
 
-  Widget _row(QueueToken t, StaffAccount user, bool readOnly) {
+  Widget _row(QueueToken t, UserAccount user, bool readOnly) {
     final s = t.token.patientSnapshot;
     final age = s.age();
     final selected = t.id == _selectedTokenId;
