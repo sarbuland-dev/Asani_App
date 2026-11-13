@@ -32,3 +32,6 @@ functions/lib/
 # Local dev test logins (never commit)
 tools/admin-scripts/*.local.txt
 packages/asani_core/build/
+
+# Local Claude Code settings (per machine)
+.claude/
