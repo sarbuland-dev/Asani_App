@@ -97,7 +97,9 @@ abstract final class QueueActions {
     if (!context.mounted) return false;
     final done = await runAction(context, () => repo.tokenAction(t.id, a, reason: reason));
     if (!done) return false;
-    if (a == TokenAction.arrive || a == TokenAction.reprint) printForm(ref, repo.tokenById(t.id) ?? t);
+    if (a == TokenAction.arrive || a == TokenAction.reprint) {
+      printForm(ref, repo.tokenById(t.id) ?? t, context: context.mounted ? context : null);
+    }
     if (context.mounted) {
       showSnack(context, switch (a) {
         TokenAction.arrive => '${t.label} arrived. Printing the clinic form…',
@@ -111,10 +113,15 @@ abstract final class QueueActions {
   }
 
   /// Prints the clinic form in the clinic's chosen format (C-07).
-  static Future<void> printForm(WidgetRef ref, QueueToken t) async {
+  /// With [context], a "Preparing the clinic form…" progress card shows while
+  /// the patient's history loads (it can take a few seconds).
+  static Future<void> printForm(WidgetRef ref, QueueToken t, {BuildContext? context}) async {
     final repo = ref.read(repositoryProvider);
     // The visit number needs this patient's history at the clinic.
-    final history = await repo.loadClinicPatient(t.token.clinicId, t.token.patientId);
+    Future<ClinicPatient?> load() => repo.loadClinicPatient(t.token.clinicId, t.token.patientId);
+    final history = context != null && context.mounted
+        ? await showBusyWhile(context, load, message: 'Preparing the clinic form…')
+        : await load();
     final clinic = repo.clinic(t.token.clinicId);
     if (clinic == null || clinic.printFormat == PrintFormat.none) return;
     final doctor = repo.doctors(t.token.clinicId, includeInactive: true).where((d) => d.id == t.token.doctorId).firstOrNull;

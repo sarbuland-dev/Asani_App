@@ -117,7 +117,11 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     final repo = ref.read(repositoryProvider);
     NotArrived? notArrived;
     try {
-      final called = await repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived);
+      final called = await showBusyWhile(
+        context,
+        () => repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived),
+        message: 'Calling the next patient…',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()

@@ -169,7 +169,7 @@ class _ExportCardState extends ConsumerState<_ExportCard> {
     final doctors = {for (final d in repo.doctors(widget.clinicId, includeInactive: true)) d.id: d.name};
     final lines = <String>[csvRow(['Date', 'Token', 'Doctor', 'Patient', 'Age', 'Sex', 'Phone', 'Source', 'Status', 'Wait (min)'])];
     var n = 0;
-    final list = await repo.loadTokens(widget.clinicId, dayKey(_range.start), dayKey(_range.end))
+    final list = await showBusyWhile(context, () => repo.loadTokens(widget.clinicId, dayKey(_range.start), dayKey(_range.end)), message: 'Preparing the export…')
       ..sort((a, b) {
         final c = a.token.date.compareTo(b.token.date);
         return c != 0 ? c : a.label.compareTo(b.label);

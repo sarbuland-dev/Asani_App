@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 
@@ -351,13 +353,57 @@ class FieldLabel extends StatelessWidget {
 /// Runs [action]; shows its error in a snackbar. Returns true on success.
 Future<bool> runAction(BuildContext context, Future<void> Function() action, {String? success}) async {
   try {
-    await action();
+    await showBusyWhile(context, action);
     if (success != null && context.mounted) showSnack(context, success);
     return true;
   } catch (e) {
     if (context.mounted) showSnack(context, AppException.messageOf(e));
     return false;
   }
+}
+
+/// Shows a centred circular progress card ("Please wait…") over the whole
+/// app while [work] talks to the backend, and blocks other clicks. Appears
+/// only after 250 ms, so quick actions don't flicker.
+Future<T> showBusyWhile<T>(BuildContext context, Future<T> Function() work, {String message = 'Please wait…'}) async {
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  OverlayEntry? entry;
+  final timer = Timer(const Duration(milliseconds: 250), () {
+    if (overlay == null || !overlay.mounted) return;
+    entry = OverlayEntry(builder: (_) => _BusyOverlay(message: message));
+    overlay.insert(entry!);
+  });
+  try {
+    return await work();
+  } finally {
+    timer.cancel();
+    entry?.remove();
+  }
+}
+
+class _BusyOverlay extends StatelessWidget {
+  const _BusyOverlay({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Stack(children: [
+        const ModalBarrier(dismissible: false, color: Color(0x33000000)),
+        Center(
+          child: Material(
+            color: AppColors.surface,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(Radii.card),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gap.xl, vertical: Gap.lg),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary)),
+                const SizedBox(width: Gap.lg),
+                Text(message, style: AppText.titleMedium),
+              ]),
+            ),
+          ),
+        ),
+      ]);
 }
 
 /// Asks for a short reason (cancel, waive, suspend). Null = dismissed.

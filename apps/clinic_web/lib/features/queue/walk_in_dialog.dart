@@ -94,7 +94,7 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok && token != null) {
-      QueueActions.printForm(ref, token!);
+      QueueActions.printForm(ref, token!, context: context);
       showSnack(context, 'Walk-in ${token!.label} created. Printing the clinic form…');
       Navigator.pop(context, token);
     }
