@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -5,6 +8,25 @@ plugins {
     // END: FlutterFire Configuration
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release signing (docs/02-setup.md §7b): android/key.properties points to the
+// upload keystore. Both files stay on Sarbuland's machine and are git-ignored.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKey = keystorePropertiesFile.exists()
+if (hasReleaseKey) keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+
+// A Play Store (prod release) build must never be signed with the debug key.
+// (Checks the requested tasks: the Flutter plugin wires tasks of every variant.)
+gradle.taskGraph.whenReady {
+    val requested = gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
+    if (!hasReleaseKey && requested.any { it.contains("ProdRelease") }) {
+        throw GradleException(
+            "Release signing is not set up: android/key.properties is missing. " +
+                "See docs/02-setup.md §7b. (Dev release builds still use the debug key.)",
+        )
+    }
 }
 
 android {
@@ -48,11 +70,22 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // The upload key when android/key.properties exists. Without it only
+            // dev release builds fall back to the debug key (prod is blocked above).
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
         }
     }
 }

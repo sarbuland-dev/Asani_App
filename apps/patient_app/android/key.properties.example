@@ -1,0 +1,8 @@
+# Copy to android/key.properties (git-ignored) and fill in. Never commit the
+# real key.properties or the .jks file. See docs/02-setup.md §7b.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+# Path relative to android/app/, or an absolute path outside the repo, e.g.
+# C:/Users/<you>/keys/asani-upload.jks
+storeFile=C:/Users/YOU/keys/asani-upload.jks

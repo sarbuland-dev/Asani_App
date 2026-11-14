@@ -178,6 +178,31 @@ Add `--project dev` to run against `asani-dev` instead of emulators (needs `serv
 
 ---
 
+## 7b. Android release signing (Play Store)
+
+A prod release build **refuses to build** until this is set up (it is never signed with the debug key).
+Sarbuland does this once, on his own machine:
+
+```bash
+# 1. Create the upload keystore (keep it OUTSIDE the repo, and back it up + the passwords)
+keytool -genkey -v -keystore C:/Users/<you>/keys/asani-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+
+# 2. Copy the template and fill in the passwords and the path
+cd apps/patient_app/android
+copy key.properties.example key.properties
+
+# 3. Build the Play Store bundle
+cd .. && flutter build appbundle --flavor prod --release
+```
+
+- `key.properties` and `*.jks` are git-ignored; never commit them or paste the passwords anywhere.
+- Turn on **Play App Signing** in the Play Console (Google keeps the app signing key; this is only the upload key).
+- Add the upload key's (and Play's app signing key's) **SHA-1 and SHA-256** to the prod Firebase Android app
+  (`keytool -list -v -keystore … -alias upload`), or phone login fails in the release build.
+- Losing the upload key is recoverable with Play App Signing (Google can reset it), but keep a backup anyway.
+
+---
+
 ## 7. iOS
 
 iOS builds need **macOS + Xcode**. Options:

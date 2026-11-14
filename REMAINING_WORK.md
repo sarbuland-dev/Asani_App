@@ -24,7 +24,7 @@ Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase step
 - [ ] Create `asani-prod` (Blaze, Firestore asia-south1, Phone auth, SMS region: Pakistan only).
 - [ ] Sarbuland runs `flutterfire configure` for prod → `lib/firebase_options_prod.dart` and
       `android/app/src/prod/google-services.json`. Add both to `.gitignore` first (never commit).
-- [ ] Release keystore; add its SHA-1/SHA-256 in the prod console.
+- [ ] Release keystore: signing config is ready (android/key.properties, docs/02-setup.md §7b); Sarbuland creates the keystore and adds its SHA-1/SHA-256 in the prod console.
 - [ ] App Check: register Play Integrity (Android) and App Attest (iOS) in the console.
 - [ ] Sarbuland deploys rules, indexes and functions to prod himself (AGENTS.md §7).
 
