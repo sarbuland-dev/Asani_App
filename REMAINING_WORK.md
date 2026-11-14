@@ -4,8 +4,8 @@ Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase step
 (see `apps/patient_app/DEMO_TO_FIREBASE.txt`). This file lists what is still open.
 
 ## 1. Step 10 – push notifications (paused)
-- [ ] Android APK build with the new packages (first Gradle build hung / very slow):
-      `flutter build apk --debug --flavor dev --dart-define=BACKEND=firebase`
+- [x] 2026-11-14: Android APK builds (`flutter build apk --debug --flavor dev`, 4m 50s) after compileSdk 37,
+      AGP 9.1.1 and Gradle 9.3.1 (flutter_local_notifications 23 / androidx.core 1.19 need them).
 - [ ] Real phone test on the Redmi: primer "Allow" popup, push arrives with the app closed,
       tapping it opens the token; follow-up reminder tap opens pre-filled booking.
 - [ ] `getToken` / `onTokenRefresh` are deprecated in firebase_messaging 17; move to
