@@ -49,24 +49,42 @@ const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
 // The client then calls sendPasswordResetEmail(email): Firebase sends the
 // "Set your Asani password" email (template set in the console).
 // ======================================================================
-export const adminCreateClinic = onCall(callableOptions, async (request) => {
-  const db = getFirestore();
-  const d = input(request);
-  const actor = await requireSuperAdmin(db, request);
+/**
+ * Every field of the New clinic wizard (A-04), validated BEFORE anything is
+ * created: a bad or missing field must never leave a login without a clinic.
+ */
+export function readNewClinic(d: Record<string, unknown>) {
   const email = str(d, 'email', 120).toLowerCase();
   if (!EMAIL.test(email)) throw new HttpsError('invalid-argument', 'Enter a valid clinic email.');
-  const name = str(d, 'name', 80);
-  const area = str(d, 'area', 60);
-  const city = str(d, 'city', 40);
   const printFormat = str(d, 'printFormat', 12);
   if (!PRINT_FORMATS.includes(printFormat)) throw new HttpsError('invalid-argument', 'Unknown print format.');
   const planAfterPilot = str(d, 'planAfterPilot', 10);
   if (!['basic', 'premium'].includes(planAfterPilot)) throw new HttpsError('invalid-argument', 'Unknown plan.');
-  const pilotDays = int(d, 'pilotDays', 0, 365);
+  return {
+    email,
+    name: str(d, 'name', 80),
+    area: str(d, 'area', 60),
+    city: str(d, 'city', 40),
+    address: str(d, 'address', 120),
+    phone: str(d, 'phone', 20),
+    printFormat,
+    planAfterPilot,
+    pilotDays: int(d, 'pilotDays', 0, 365),
+    monthlyFee: int(d, 'monthlyFee', 0, 1_000_000),
+    billingDay: int(d, 'billingDay', 1, 28),
+    ownerName: str(d, 'ownerName', 60),
+    ownerPhone: str(d, 'ownerPhone', 20),
+  };
+}
+
+export const adminCreateClinic = onCall(callableOptions, async (request) => {
+  const db = getFirestore();
+  const actor = await requireSuperAdmin(db, request);
+  const c = readNewClinic(input(request));
 
   const auth = getAuth();
   try {
-    await auth.getUserByEmail(email);
+    await auth.getUserByEmail(c.email);
     throw new HttpsError('already-exists', 'An account with this email already exists.', { code: 'email-taken' });
   } catch (e) {
     if (e instanceof HttpsError) throw e;
@@ -77,52 +95,57 @@ export const adminCreateClinic = onCall(callableOptions, async (request) => {
   const ts = FieldValue.serverTimestamp();
   const now = new Date();
   // Random password nobody knows; the manager sets their own from the email.
-  const user = await auth.createUser({ email, password: randomBytes(24).toString('base64url'), displayName: name, emailVerified: false });
-  await auth.setCustomUserClaims(user.uid, { role: 'clinic', clinicId: clinicRef.id });
-
-  const batch = db.batch();
-  batch.set(clinicRef, {
-    name,
-    nameLower: name.toLowerCase(),
-    area,
-    city,
-    address: str(d, 'address', 120),
-    phone: str(d, 'phone', 20),
-    location: null,
-    searchKeywords: searchKeywords(name, area),
-    status: 'pilot',
-    doctorCount: 0,
-    nextDoctorLetter: 0,
-    timezone: 'Asia/Karachi',
-    printFormat,
-    createdAt: ts,
-    updatedAt: ts,
-  });
-  batch.set(clinicRef.collection('private').doc('billing'), {
-    plan: 'pilot',
-    planAfterPilot,
-    monthlyFee: int(d, 'monthlyFee', 0, 1_000_000),
-    billingDay: int(d, 'billingDay', 1, 28),
-    pilotEndsAt: addDays(now, pilotDays),
-    paidUntil: null,
-    ownerName: str(d, 'ownerName', 60),
-    ownerPhone: str(d, 'ownerPhone', 20),
-    email,
-    createdAt: ts,
-  });
-  batch.set(db.collection('clinicAccounts').doc(user.uid), {
-    email,
-    clinicId: clinicRef.id,
-    name: str(d, 'ownerName', 60),
-    status: 'invited',
-    invitedAt: ts,
-    lastLoginAt: null,
-    createdAt: ts,
-  });
-  await batch.commit();
-  await logActivity(db, actor, clinicRef.id, 'created clinic', name);
-  await logActivity(db, actor, clinicRef.id, 'invited clinic login', email);
-  return { clinicId: clinicRef.id, email };
+  const user = await auth.createUser({ email: c.email, password: randomBytes(24).toString('base64url'), displayName: c.name, emailVerified: false });
+  try {
+    await auth.setCustomUserClaims(user.uid, { role: 'clinic', clinicId: clinicRef.id });
+    const batch = db.batch();
+    batch.set(clinicRef, {
+      name: c.name,
+      nameLower: c.name.toLowerCase(),
+      area: c.area,
+      city: c.city,
+      address: c.address,
+      phone: c.phone,
+      location: null,
+      searchKeywords: searchKeywords(c.name, c.area),
+      status: 'pilot',
+      doctorCount: 0,
+      nextDoctorLetter: 0,
+      timezone: 'Asia/Karachi',
+      printFormat: c.printFormat,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    batch.set(clinicRef.collection('private').doc('billing'), {
+      plan: 'pilot',
+      planAfterPilot: c.planAfterPilot,
+      monthlyFee: c.monthlyFee,
+      billingDay: c.billingDay,
+      pilotEndsAt: addDays(now, c.pilotDays),
+      paidUntil: null,
+      ownerName: c.ownerName,
+      ownerPhone: c.ownerPhone,
+      email: c.email,
+      createdAt: ts,
+    });
+    batch.set(db.collection('clinicAccounts').doc(user.uid), {
+      email: c.email,
+      clinicId: clinicRef.id,
+      name: c.ownerName,
+      status: 'invited',
+      invitedAt: ts,
+      lastLoginAt: null,
+      createdAt: ts,
+    });
+    await batch.commit();
+  } catch (e) {
+    // Saving the clinic failed: remove the new login so the email can be used again.
+    await auth.deleteUser(user.uid).catch((err) => logger.error('rollback: could not delete clinic login', err));
+    throw e;
+  }
+  await logActivity(db, actor, clinicRef.id, 'created clinic', c.name);
+  await logActivity(db, actor, clinicRef.id, 'invited clinic login', c.email);
+  return { clinicId: clinicRef.id, email: c.email };
 });
 
 async function loginOf(db: Firestore, clinicId: string) {
