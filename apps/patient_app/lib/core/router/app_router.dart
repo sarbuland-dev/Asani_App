@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,10 +28,26 @@ import '../../features/tokens/tokens_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-/// Re-runs the router redirect whenever the auth state changes.
+/// S-01 stays on screen at least this long on every launch (PRD D-25).
+const splashMinDuration = Duration(milliseconds: 1500);
+
+/// Turns true once the splash has been shown for [splashMinDuration].
+class SplashTimer extends Notifier<bool> {
+  @override
+  bool build() {
+    final timer = Timer(splashMinDuration, () => state = true);
+    ref.onDispose(timer.cancel);
+    return false;
+  }
+}
+
+final splashDoneProvider = NotifierProvider<SplashTimer, bool>(SplashTimer.new);
+
+/// Re-runs the router redirect whenever the auth state or the splash timer changes.
 class _AuthListenable extends ChangeNotifier {
   _AuthListenable(Ref ref) {
     ref.listen(authStateProvider, (_, _) => notifyListeners());
+    ref.listen(splashDoneProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -46,6 +64,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final onLogin = loc.startsWith('/login');
       if (auth.isLoading && !auth.hasValue) return loc == '/splash' ? null : '/splash';
+      // Keep the splash for its minimum time. Only holds while we ARE on the
+      // splash, so a notification tap that opens a token is never sent back.
+      if (loc == '/splash' && !ref.read(splashDoneProvider)) return null;
       final status = auth.value?.status ?? AuthStatus.signedOut;
       switch (status) {
         case AuthStatus.signedOut:

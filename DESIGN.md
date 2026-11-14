@@ -122,7 +122,11 @@ Routes (go_router):
 Wireframes are layout guides, not pixel specs.
 
 ### S-01 Splash
-Logo centred on `primary` background. Max 1.5 s while auth state loads.
+Logo tile, "asani" and the tagline "Book your clinic token without the long wait." centred on the teal header
+gradient. Shown **about 1.5 s on every launch** (PRD D-25), longer only while the auth state still loads (then a
+small spinner; after 10 s "Still connecting… Please check your internet."). Before Flutter starts, the Android
+system splash is the same teal with the white "a" mark (Android 12+: `values-v31` theme; older: `launch_background`).
+A notification tap that opens a token skips the wait.
 
 ### S-00 Intro pages (first launch only)
 Three swipeable pages on `surface`, shown once before S-02 (D-16): "Find your clinic", "Skip the waiting room",

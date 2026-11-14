@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'package:asani_ui/asani_ui.dart';
 
-/// S-01: logo on primary while the auth state loads. If it takes long
-/// (no internet on first launch), says so instead of spinning silently.
+import '../../core/router/app_router.dart' show splashMinDuration;
+
+/// S-01 (PRD D-25): logo, name and tagline on the teal header gradient,
+/// shown about 1.5 s on every launch. A spinner appears only if loading
+/// takes longer than that; after 10 s it also says to check the internet.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -15,18 +18,22 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   static const _slow = Duration(seconds: 10);
-  Timer? _timer;
+  Timer? _spinnerTimer;
+  Timer? _slowTimer;
+  bool _showSpinner = false;
   bool _slowNow = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(_slow, () => setState(() => _slowNow = true));
+    _spinnerTimer = Timer(splashMinDuration, () => setState(() => _showSpinner = true));
+    _slowTimer = Timer(_slow, () => setState(() => _slowNow = true));
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _spinnerTimer?.cancel();
+    _slowTimer?.cancel();
     super.dispose();
   }
 
@@ -44,10 +51,17 @@ class _SplashScreenState extends State<SplashScreen> {
                 const AsaniLogoTile(size: 96),
                 const SizedBox(height: Gap.lg),
                 Text('asani', style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
+                const SizedBox(height: Gap.sm),
+                Text(
+                  'Book your clinic token without the long wait.',
+                  textAlign: TextAlign.center,
+                  style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9)),
+                ),
                 const SizedBox(height: Gap.xl),
-                const SizedBox.square(
+                // Same height either way, so the logo never jumps.
+                SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary),
+                  child: _showSpinner ? const CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary) : null,
                 ),
                 if (_slowNow) ...[
                   const SizedBox(height: Gap.lg),
