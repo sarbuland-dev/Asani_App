@@ -607,7 +607,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
                       ? FilledButton(
                           style: FilledButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: Gap.md), textStyle: AppText.labelMedium),
                           onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
-                          child: const Text('Arrived & Print'),
+                          child: Text(QueueActions.label(quick, t)), // "Check in" → slip check dialog
                         )
                       : OutlinedButton(
                           style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38)),

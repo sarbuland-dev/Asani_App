@@ -32,7 +32,7 @@ class HelpScreen extends StatelessWidget {
               Text('Keyboard shortcuts (Queue Board)', style: AppText.titleMedium),
             ]),
             const SizedBox(height: Gap.lg),
-            for (final (k, d) in const [('/', 'Check in by token code'), ('W', 'New walk-in token'), ('N', 'Next patient for the selected doctor'), ('Esc', 'Close a dialog'), ('Enter', 'In check-in: Arrived & Print')])
+            for (final (k, d) in const [('/', 'Check in by token code'), ('W', 'New walk-in token'), ('N', 'Next patient for the selected doctor'), ('Esc', 'Close a dialog'), ('Enter', 'In check-in: Slip matches · Arrived & Print')])
               Padding(
                 padding: const EdgeInsets.only(bottom: Gap.sm),
                 child: Row(children: [

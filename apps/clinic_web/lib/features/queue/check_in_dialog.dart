@@ -11,13 +11,16 @@ import 'queue_actions.dart';
 import 'token_slip.dart';
 
 /// W-12 / C-05: type the token code → see the patient's own slip → Arrived & Print.
-Future<void> showCheckInDialog(BuildContext context, String clinicId, {String initialCode = ''}) =>
-    showDialog<void>(context: context, builder: (_) => _CheckInDialog(clinicId: clinicId, initialCode: initialCode));
+/// Every "Arrived" goes through here, so the slip is always checked first.
+/// [tokenId] opens it on one token (from the board or the token panel).
+Future<void> showCheckInDialog(BuildContext context, String clinicId, {String initialCode = '', String? tokenId}) =>
+    showDialog<void>(context: context, builder: (_) => _CheckInDialog(clinicId: clinicId, initialCode: initialCode, tokenId: tokenId));
 
 class _CheckInDialog extends ConsumerStatefulWidget {
-  const _CheckInDialog({required this.clinicId, required this.initialCode});
+  const _CheckInDialog({required this.clinicId, required this.initialCode, this.tokenId});
   final String clinicId;
   final String initialCode;
+  final String? tokenId;
 
   @override
   ConsumerState<_CheckInDialog> createState() => _CheckInDialogState();
@@ -25,7 +28,7 @@ class _CheckInDialog extends ConsumerStatefulWidget {
 
 class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
   late final _code = TextEditingController(text: widget.initialCode);
-  String? _pickedId; // when "11" matched several doctors
+  late String? _pickedId = widget.tokenId; // set when "11" matched several doctors, or opened on one token
   bool _busy = false;
 
   @override
@@ -36,7 +39,7 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
 
   Future<void> _arrive(QueueToken t) async {
     setState(() => _busy = true);
-    final ok = await QueueActions.perform(context, ref, t, TokenAction.arrive);
+    final ok = await QueueActions.perform(context, ref, t, TokenAction.arrive, slipChecked: true);
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok) Navigator.pop(context);
@@ -79,7 +82,7 @@ class _CheckInDialogState extends ConsumerState<_CheckInDialog> {
         FilledButton.icon(
           onPressed: canArrive && !_busy ? () => _arrive(token) : null,
           icon: const Icon(Icons.how_to_reg_rounded),
-          label: const Text('Arrived & Print'),
+          label: const Text('Slip matches · Arrived & Print'),
         ),
       ],
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

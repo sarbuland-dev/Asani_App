@@ -8,6 +8,7 @@ import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../print/clinic_form.dart';
+import 'check_in_dialog.dart';
 
 /// Token actions shared by the Queue Board, token panel, check-in and
 /// patient pages (C-04). The backend validates everything again (BW-1).
@@ -27,7 +28,7 @@ abstract final class QueueActions {
   }
 
   static String label(TokenAction a, QueueToken t) => switch (a) {
-        TokenAction.arrive => 'Arrived & Print',
+        TokenAction.arrive => 'Check in', // opens the slip check first (C-05)
         TokenAction.callNow => t.status == TokenStatus.skipped ? 'Recall' : 'Call now',
         TokenAction.skip => 'Skip',
         TokenAction.hold => 'Hold',
@@ -52,9 +53,16 @@ abstract final class QueueActions {
   static bool isDanger(TokenAction a) => a == TokenAction.cancel || a == TokenAction.noShow;
 
   /// Runs an action with its confirmation step. Returns true when done.
-  static Future<bool> perform(BuildContext context, WidgetRef ref, QueueToken t, TokenAction a) async {
+  /// [slipChecked]: Arrived is only allowed from the check-in dialog, after the
+  /// receptionist has seen the patient's slip (C-05). From anywhere else
+  /// (board row, token panel) Arrived opens that dialog first.
+  static Future<bool> perform(BuildContext context, WidgetRef ref, QueueToken t, TokenAction a, {bool slipChecked = false}) async {
     if (!ref.read(isOnlineProvider)) {
       showSnack(context, 'You are offline. Actions are disabled.');
+      return false;
+    }
+    if (a == TokenAction.arrive && !slipChecked) {
+      await showCheckInDialog(context, t.token.clinicId, initialCode: t.label, tokenId: t.id);
       return false;
     }
     final repo = ref.read(repositoryProvider);
