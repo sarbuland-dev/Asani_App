@@ -31,7 +31,8 @@ gradle.taskGraph.whenReady {
 
 android {
     namespace = "app.asani.patient_app"
-    compileSdk = flutter.compileSdkVersion
+    // 37: flutter_local_notifications 23 and androidx.core 1.19 need it (target stays Flutter's default).
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
