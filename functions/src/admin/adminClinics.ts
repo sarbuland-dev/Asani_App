@@ -207,6 +207,18 @@ export const adminExtendPilot = onCall(callableOptions, async (request) => {
 // ======================================================================
 // A-05 / A-06 payments, invoices, defaulters.
 // ======================================================================
+/** Only an open invoice (unpaid / overdue) can be paid or waived, once. */
+export function canRecordPayment(status: string): boolean {
+  return status === 'unpaid' || status === 'overdue';
+}
+
+/** Payment date from the client (ms since epoch); anything odd → now. Not in the future. */
+export function paymentDate(v: unknown, now: Date): Date {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return now;
+  const d = new Date(v);
+  return d.getTime() > now.getTime() || d.getFullYear() < 2020 ? now : d;
+}
+
 async function invoiceRef(db: Firestore, invoiceId: string) {
   const ref = db.collection('invoices').doc(invoiceId);
   const inv = (await ref.get()).data();
@@ -222,12 +234,20 @@ export const recordPayment = onCall(callableOptions, async (request) => {
   const method = str(d, 'method', 12);
   if (!METHODS.includes(method)) throw new HttpsError('invalid-argument', 'Unknown method.');
   const amount = int(d, 'amount', 1, 10_000_000);
-  const paidOn = typeof d.date === 'number' ? new Date(d.date) : new Date();
+  const paidOn = paymentDate(d.date, new Date());
   const ts = FieldValue.serverTimestamp();
-  await ref.update({
-    status: 'paid',
-    payment: { amount, method, reference: optStr(d, 'reference', 60), date: paidOn, recordedBy: actor.name },
-    updatedAt: ts,
+  // Claim the invoice in a transaction: a second click (or a second admin tab)
+  // must not record the payment again and extend paidUntil twice.
+  await db.runTransaction(async (tx) => {
+    const status = String((await tx.get(ref)).data()?.status ?? '');
+    if (!canRecordPayment(status)) {
+      throw new HttpsError('failed-precondition', `This invoice is already ${status}.`, { code: 'invoice-closed' });
+    }
+    tx.update(ref, {
+      status: 'paid',
+      payment: { amount, method, reference: optStr(d, 'reference', 60), date: paidOn, recordedBy: actor.name },
+      updatedAt: ts,
+    });
   });
 
   // A-05: paid until +1 month, clinic Active (unless another invoice is still overdue).
@@ -250,7 +270,13 @@ export const waiveInvoice = onCall(callableOptions, async (request) => {
   const actor = await requireSuperAdmin(db, request);
   const { ref, inv } = await invoiceRef(db, id(d, 'invoiceId'));
   const reason = str(d, 'reason', 80);
-  await ref.update({ status: 'waived', waiveReason: reason, updatedAt: FieldValue.serverTimestamp() });
+  await db.runTransaction(async (tx) => {
+    const status = String((await tx.get(ref)).data()?.status ?? '');
+    if (!canRecordPayment(status)) {
+      throw new HttpsError('failed-precondition', `This invoice is already ${status}.`, { code: 'invoice-closed' });
+    }
+    tx.update(ref, { status: 'waived', waiveReason: reason, updatedAt: FieldValue.serverTimestamp() });
+  });
   await logActivity(db, actor, inv.clinicId, 'waived invoice', `${inv.month} · ${reason}`);
   return { ok: true };
 });
