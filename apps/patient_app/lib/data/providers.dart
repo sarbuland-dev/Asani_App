@@ -78,17 +78,32 @@ final myTokensProvider = StreamProvider<List<Token>>((ref) {
   return ref.watch(tokenRepositoryProvider).watchMyTokens();
 });
 
-final myActiveTokensProvider = Provider<AsyncValue<List<Token>>>((ref) => ref.watch(myTokensProvider).whenData(
-      (list) => list.where((t) => t.status.isActive).toList()
-        ..sort((a, b) {
-          final byDate = a.date.compareTo(b.date);
-          return byDate != 0 ? byDate : a.number.compareTo(b.number);
-        }),
-    ));
+/// D-27: is this token still live for the patient (see `tokenIsLive`)? Uses
+/// the minute clock, so a token leaves "Active" 1 h after its session ends.
+final tokenIsLiveProvider = Provider<bool Function(Token)>((ref) {
+  final now = ref.watch(clockProvider).value ?? pktNow();
+  final doctors = {for (final list in (ref.watch(doctorsByClinicProvider).value ?? const {}).values) for (final d in list) d.id: d};
+  return (t) => tokenIsLive(t, doctor: doctors[t.doctorId], now: now);
+});
 
-final myPastTokensProvider = Provider<AsyncValue<List<Token>>>((ref) => ref.watch(myTokensProvider).whenData(
-      (list) => list.where((t) => !t.status.isActive).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-    ));
+final myActiveTokensProvider = Provider<AsyncValue<List<Token>>>((ref) {
+  final live = ref.watch(tokenIsLiveProvider);
+  return ref.watch(myTokensProvider).whenData(
+        (list) => list.where(live).toList()
+          ..sort((a, b) {
+            final byDate = a.date.compareTo(b.date);
+            return byDate != 0 ? byDate : a.number.compareTo(b.number);
+          }),
+      );
+});
+
+/// Finished tokens, plus active ones whose session is over (shown as "Session over").
+final myPastTokensProvider = Provider<AsyncValue<List<Token>>>((ref) {
+  final live = ref.watch(tokenIsLiveProvider);
+  return ref.watch(myTokensProvider).whenData(
+        (list) => list.where((t) => !live(t)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      );
+});
 
 final tokenProvider = StreamProvider.family<Token?, String>(
   (ref, id) => ref.watch(tokenRepositoryProvider).watchToken(id),

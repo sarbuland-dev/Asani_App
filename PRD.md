@@ -229,6 +229,8 @@ Rules:
 | D-24 | 2026-11-14 | **Next follows the token number** (closes Q-W03). Next calls the **lowest number** among Booked and Arrived. If that token is not Arrived, the receptionist sees "A-7 has not arrived. **Skip** / **Call anyway**". A **Skipped** patient who checks in later is called **right after the patient now with the doctor**. The 3-2-1 alerts keep counting by token number, as now. |
 | D-25 | 2026-11-14 | **Splash on every launch.** S-01 (logo, "asani", tagline on teal) stays about **1.5 s** on every app start, longer only while login state loads. The Android system splash (before Flutter) is the same teal with the white "a" mark, also on Android 12+. A notification tap that opens a token is not held back. |
 | D-26 | 2026-11-14 | **Arrived only after the slip check.** On the clinic web every "Arrived" (board row, token panel, check-in by code) opens the check-in dialog with the patient's token slip; the token is marked Arrived and the form printed only when the receptionist confirms **"Slip matches · Arrived & Print"**. The row/panel button is called **Check in**. |
+| D-27 | 2026-11-14 | **Closed now + session over.** A clinic shows **"Closed now"** (not "Open today") once every doctor working today is past their session end time; "Open now" is the search filter. A today token leaves **Active** (Home banner, My Tokens) **1 hour after its doctor's session end time**, or when the clinic ended the session; it then shows under Past as **"Session over"** until the 3 AM job (D-21) closes it. |
+| D-28 | 2026-11-14 | **Intro pages removed** (replaces D-16). App start is Splash (S-01) → phone login, or Home when signed in. |
 
 ## 10. Open questions (confirm before building the related part)
 

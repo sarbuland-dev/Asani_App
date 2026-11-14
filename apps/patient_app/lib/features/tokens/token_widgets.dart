@@ -137,10 +137,12 @@ class TokenListCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final doctor = ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
-    final active = token.status.isActive;
+    // D-27: an active token whose session is over is shown as finished.
+    final active = ref.watch(tokenIsLiveProvider)(token);
+    final sessionOver = token.status.isActive && !active;
     final isToday = token.date == dayKey(pktNow());
     final pos = active && isToday ? ref.watch(tokenPositionProvider(token.id)).value : null;
-    final (tileBg, tileFg) = switch (token.status) {
+    final (tileBg, tileFg) = sessionOver ? (AppColors.muted, AppColors.textSecondary) : switch (token.status) {
       TokenStatus.booked || TokenStatus.onHold => (AppColors.primaryContainer, AppColors.primary),
       TokenStatus.arrived || TokenStatus.called => (AppColors.avatarCool, AppColors.secondary),
       _ => (AppColors.muted, AppColors.textSecondary),
@@ -175,7 +177,10 @@ class TokenListCard extends ConsumerWidget {
                       child: Text(token.patientSnapshot.name,
                           style: AppText.titleMedium.copyWith(fontSize: 16), overflow: TextOverflow.ellipsis),
                     ),
-                    StatusChip(token.status),
+                    if (sessionOver)
+                      const Pill(label: 'Session over', fg: AppColors.textSecondary, bg: AppColors.muted, dot: true)
+                    else
+                      StatusChip(token.status),
                   ]),
                   const SizedBox(height: 2),
                   Text(

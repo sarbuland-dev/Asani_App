@@ -6,10 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 
-/// Open today / Closed today, plus next opening info for closed clinics.
-({bool open, String? hours, String? nextOpen}) clinicOpenInfo(List<Doctor> doctors, DateTime now) {
+/// "Open today" / "Closed now" (every doctor's session today is over, D-27) /
+/// "Closed today", plus next opening info for closed clinics.
+({bool open, String label, String? hours, String? nextOpen}) clinicOpenInfo(List<Doctor> doctors, DateTime now) {
   final today = dateOnly(now);
-  final open = clinicOpenOn(doctors, today);
+  final worksToday = clinicOpenOn(doctors, today);
+  final open = worksToday && clinicOpenNow(doctors, now);
+  final label = open ? 'Open today' : (worksToday ? 'Closed now' : 'Closed today');
   String? hours;
   if (open) {
     final scheds = doctors.where((d) => !d.onLeave(today)).map((d) => d.scheduleOn(today)).whereType<DaySchedule>().toList();
@@ -29,7 +32,7 @@ import '../../data/providers.dart';
       }
     }
   }
-  return (open: open, hours: hours, nextOpen: nextOpen);
+  return (open: open, label: label, hours: hours, nextOpen: nextOpen);
 }
 
 class ClinicCard extends ConsumerWidget {
@@ -100,7 +103,7 @@ class ClinicCard extends ConsumerWidget {
                               shape: BoxShape.circle, color: info.open ? AppColors.success : AppColors.textMuted),
                         ),
                       ),
-                      TextSpan(text: info.open ? 'Open today' : 'Closed today'),
+                      TextSpan(text: info.label),
                     ]),
                     style: AppText.labelSmall.copyWith(
                         color: info.open ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w600),

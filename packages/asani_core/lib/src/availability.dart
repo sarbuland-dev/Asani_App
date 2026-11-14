@@ -51,6 +51,38 @@ DoctorAvailability availabilityFor({
 bool clinicOpenOn(Iterable<Doctor> doctors, DateTime date) =>
     doctors.any((d) => d.active && !d.onLeave(date) && d.scheduleOn(date) != null);
 
+/// Open right now: some doctor working today whose session hasn't ended yet
+/// (before its end time). When every doctor's session is over, the clinic
+/// shows "Closed now" (PRD D-27).
+bool clinicOpenNow(Iterable<Doctor> doctors, DateTime now) {
+  final nowMin = now.hour * 60 + now.minute;
+  return doctors.any((d) {
+    if (!d.active || d.onLeave(now)) return false;
+    final s = d.scheduleOn(now);
+    return s != null && nowMin < s.endMinutes;
+  });
+}
+
+/// How long after a doctor's session end time a today token still counts as
+/// "Active" on Home / My Tokens (PRD D-27).
+const tokenGraceAfterSession = Duration(hours: 1);
+
+/// D-27: whether a token is still live for the patient. Closed statuses and
+/// past days are never live; future days always are. Today's token stops
+/// being live when the clinic ended the session, or one hour after the
+/// doctor's session end time (the 3 AM job closes it properly later).
+bool tokenIsLive(Token t, {Doctor? doctor, QueueDay? day, required DateTime now}) {
+  if (!t.status.isActive) return false;
+  final today = dayKey(now);
+  if (t.date.compareTo(today) < 0) return false;
+  if (t.date.compareTo(today) > 0) return true;
+  if (day?.sessionStatus.name == 'ended' && t.status.name != 'arrived') return false;
+  final s = doctor?.scheduleOn(now);
+  if (s == null) return true; // unknown schedule: keep showing it
+  final nowMin = now.hour * 60 + now.minute;
+  return nowMin < s.endMinutes + tokenGraceAfterSession.inMinutes;
+}
+
 /// Bookable dates: today + the doctor's booking window (PRD F-04 step 2).
 List<DateTime> bookingDates(Doctor doctor, DateTime now) {
   final today = dateOnly(now);

@@ -82,7 +82,7 @@ abstract interface class SettingsRepository {
 
 class AppSettings {
   const AppSettings({this.introSeen = false, this.primerShown = false, this.notificationsAllowed = false, this.autoAdvanceQueue = true});
-  /// Intro pages (S-00) were shown once (D-16).
+  /// Intro pages (S-00) were shown once (D-16). Unused since the intro was removed (D-28).
   final bool introSeen;
   final bool primerShown;
   final bool notificationsAllowed;

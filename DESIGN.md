@@ -90,7 +90,7 @@ Bottom navigation with 4 tabs:
 Booking is a full-screen flow pushed on top of the tabs (no bottom bar), with a back arrow on each step.
 
 ```
-Splash → (not logged in) Phone → OTP → Name & Consent → Home
+Splash → (not logged in) Phone → OTP → Name & Consent → Home   (no intro pages, D-28)
 Splash → (logged in) Home
 
 Home ─┬─ Search results ─┐
@@ -128,7 +128,7 @@ small spinner; after 10 s "Still connecting… Please check your internet."). Be
 system splash is the same teal with the white "a" mark (Android 12+: `values-v31` theme; older: `launch_background`).
 A notification tap that opens a token skips the wait.
 
-### S-00 Intro pages (first launch only)
+### S-00 Intro pages (removed, PRD D-28)
 Three swipeable pages on `surface`, shown once before S-02 (D-16): "Find your clinic", "Skip the waiting room",
 "We'll tell you when to go". Each page: large icon in `primaryContainer` circles, title, one line of body text.
 Logo top-left, **Skip** top-right (hidden on the last page), page dots, primary button **Next** / **Get started**.

@@ -100,20 +100,7 @@ void main() {
         await settle();
       }
 
-      // Intro pages (first launch), then login screens
-      // Not visit(): it would scroll the PageView to the last page.
-      current = 'intro 1';
-      router.go('/intro');
-      await settle();
-      expect(router.routerDelegate.currentConfiguration.uri.path, '/intro');
-      for (var i = 2; i <= 3; i++) {
-        current = 'intro $i';
-        await tester.tap(find.text('Next'));
-        await settle();
-      }
-      await tester.tap(find.text('Get started'));
-      await settle();
-      expect(router.routerDelegate.currentConfiguration.uri.path, '/login/phone');
+      // Login screens (no intro pages since D-28)
       await visit('phone', '/login/phone');
       await tester.runAsync(() => backend.sendCode('+923001234567'));
       await settle();

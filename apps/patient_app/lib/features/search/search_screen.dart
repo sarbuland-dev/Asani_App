@@ -55,7 +55,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final results = all.where((c) {
       if (!c.matches(_query)) return false;
-      if (_filter == _openToday) return clinicOpenOn(byClinic[c.id] ?? const [], now);
+      if (_filter == _openToday) return clinicOpenInfo(byClinic[c.id] ?? const [], now).open; // D-27: open now
       if (_filter != null) return c.area == _filter;
       return true;
     }).toList();
@@ -103,7 +103,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: Gap.screen, vertical: Gap.sm),
                 children: [
                   _chip('All', null),
-                  _chip('Open today', _openToday, dot: true),
+                  _chip('Open now', _openToday, dot: true),
                   for (final a in areas) _chip(a, a),
                 ],
               ),

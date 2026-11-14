@@ -305,7 +305,8 @@ class _RecentClinicCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctors = ref.watch(doctorsByClinicProvider).value?[clinic.id] ?? const <Doctor>[];
-    final open = clinicOpenOn(doctors, pktNow());
+    final info = clinicOpenInfo(doctors, nowFrom(ref));
+    final open = info.open;
     final suspended = !clinic.status.acceptsBookings;
     return SizedBox(
       width: 160,
@@ -321,7 +322,7 @@ class _RecentClinicCard extends ConsumerWidget {
             Text(clinic.area, style: AppText.labelSmall, maxLines: 1),
             const SizedBox(height: 2),
             Text(
-              suspended ? 'Booking unavailable' : (open ? 'Open today' : 'Closed today'),
+              suspended ? 'Booking unavailable' : info.label,
               style: AppText.labelSmall.copyWith(
                   color: suspended ? AppColors.textSecondary : (open ? AppColors.success : AppColors.textSecondary),
                   fontWeight: FontWeight.w600),
