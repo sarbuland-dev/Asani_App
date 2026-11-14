@@ -50,16 +50,21 @@ abstract final class FirebaseSetup {
   /// Only with --dart-define=USE_EMULATOR=true, and never in prod (AGENTS.md §7).
   static Future<void> _connectEmulators() async {
     if (Env.isProd) return;
+    // A host given with EMULATOR_HOST is used as is: on a real phone with
+    // `adb reverse tcp:5001 tcp:5001`, 127.0.0.1 must NOT become 10.0.2.2
+    // (that address only exists inside the Android emulator).
+    final remap = Env.emulatorHost.isEmpty;
     if (Env.useFunctionsEmulator && !Env.useEmulator) {
-      FirebaseFunctions.instanceFor(region: firebaseRegion).useFunctionsEmulator(_emulatorHost, 5001);
+      FirebaseFunctions.instanceFor(region: firebaseRegion)
+          .useFunctionsEmulator(_emulatorHost, 5001, automaticHostMapping: remap);
       AppLogger.info('Functions emulator at $_emulatorHost:5001 (Auth and Firestore: dev project)');
       return;
     }
     if (!Env.useEmulator) return;
     final host = _emulatorHost;
-    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-    FirebaseFunctions.instanceFor(region: firebaseRegion).useFunctionsEmulator(host, 5001);
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099, automaticHostMapping: remap);
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080, automaticHostMapping: remap);
+    FirebaseFunctions.instanceFor(region: firebaseRegion).useFunctionsEmulator(host, 5001, automaticHostMapping: remap);
     AppLogger.info('Firebase emulators connected at $host');
   }
 }

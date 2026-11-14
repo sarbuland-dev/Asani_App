@@ -178,6 +178,21 @@ Add `--project dev` to run against `asani-dev` instead of emulators (needs `serv
 
 ---
 
+## 5c. Patient app on a real Android phone + functions emulator
+
+```bash
+cd functions && npm run serve:dev                    # terminal 1: functions on this PC
+adb reverse tcp:5001 tcp:5001                        # phone's 127.0.0.1:5001 → this PC
+cd apps/patient_app
+flutter run -d <phone id> --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true \
+  --dart-define=EMULATOR_HOST=127.0.0.1 --dart-define=AUTH_TEST_MODE=true
+```
+`EMULATOR_HOST=127.0.0.1` keeps Firebase from rewriting the host to `10.0.2.2` (that only works inside the
+Android emulator). Debug builds allow plain HTTP to 127.0.0.1 / localhost / 10.0.2.2
+(`android/app/src/debug/res/xml/network_security_config.xml`); release builds stay HTTPS only.
+
+---
+
 ## 7b. Android release signing (Play Store)
 
 A prod release build **refuses to build** until this is set up (it is never signed with the debug key).

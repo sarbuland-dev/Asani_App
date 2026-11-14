@@ -3,11 +3,18 @@
 Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase steps are coded
 (see `apps/patient_app/DEMO_TO_FIREBASE.txt`). This file lists what is still open.
 
-## 1. Step 10 – push notifications (paused)
+## 1. Step 10 – push notifications
 - [x] 2026-11-14: Android APK builds (`flutter build apk --debug --flavor dev`, 4m 50s) after compileSdk 37,
       AGP 9.1.1 and Gradle 9.3.1 (flutter_local_notifications 23 / androidx.core 1.19 need them).
-- [ ] Real phone test on the Redmi: primer "Allow" popup, push arrives with the app closed,
-      tapping it opens the token; follow-up reminder tap opens pre-filled booking.
+- [x] 2026-11-14 Redmi (25028RN03A) test: login with test number, booking A-6, primer → Android "Allow" popup,
+      device token saved, clinic Next → "Your turn now" push with the app in the background, tap opens A-6.
+      Needed: debug-only cleartext to the emulator + no 10.0.2.2 remap when EMULATOR_HOST is set (adb reverse).
+- [ ] Not tested yet: follow-up reminder tap opens pre-filled booking; push with the app fully killed; iPhone.
+- [ ] Notification small icon is a blank circle: add a white monochrome icon
+      (`com.google.firebase.messaging.default_notification_icon` meta-data + flutter_local_notifications icon).
+- [ ] **Decide:** a patient who books when nobody is waiting (0 ahead, someone with the doctor) gets no
+      "You're next", only "Your turn now" (steps.ts sends ahead1..3 only for 1..3 ahead).
+- [ ] Clinic card "Est. wait: Any moment" wraps as "mome / nt" on a 720 px phone (Redmi).
 - [ ] `getToken` / `onTokenRefresh` are deprecated in firebase_messaging 17; move to
       `register()` / `onRegistered` when the server can send to Installation IDs.
 
