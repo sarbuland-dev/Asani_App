@@ -307,9 +307,17 @@ class StatTile extends StatelessWidget {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             transitionBuilder: (c, a) => FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: const Offset(0, .3), end: Offset.zero).animate(a), child: c)),
-            child: Text(value,
-                key: ValueKey(value),
-                style: (big ? AppText.displaySmall : AppText.titleMedium).copyWith(color: fg, fontWeight: FontWeight.w800)),
+            // One line; shrinks only when it doesn't fit (narrow phones, large
+            // system font), instead of breaking a word ("Any mome / nt").
+            child: FittedBox(
+              key: ValueKey(value),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: (big ? AppText.displaySmall : AppText.titleMedium).copyWith(color: fg, fontWeight: FontWeight.w800)),
+            ),
           ),
         ],
       ),

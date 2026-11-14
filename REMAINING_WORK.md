@@ -10,11 +10,10 @@ Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase step
       device token saved, clinic Next → "Your turn now" push with the app in the background, tap opens A-6.
       Needed: debug-only cleartext to the emulator + no 10.0.2.2 remap when EMULATOR_HOST is set (adb reverse).
 - [ ] Not tested yet: follow-up reminder tap opens pre-filled booking; push with the app fully killed; iPhone.
-- [ ] Notification small icon is a blank circle: add a white monochrome icon
-      (`com.google.firebase.messaging.default_notification_icon` meta-data + flutter_local_notifications icon).
+- [x] 2026-11-14 notification icon: white "a" mark (res/drawable/ic_notification.xml) + teal header colour; checked on the Redmi.
 - [ ] **Decide:** a patient who books when nobody is waiting (0 ahead, someone with the doctor) gets no
       "You're next", only "Your turn now" (steps.ts sends ahead1..3 only for 1..3 ahead).
-- [ ] Clinic card "Est. wait: Any moment" wraps as "mome / nt" on a 720 px phone (Redmi).
+- [x] 2026-11-14 StatTile values stay on one line and shrink to fit ("Any moment" no longer breaks); checked on the Redmi.
 - [ ] `getToken` / `onTokenRefresh` are deprecated in firebase_messaging 17; move to
       `register()` / `onRegistered` when the server can send to Installation IDs.
 
