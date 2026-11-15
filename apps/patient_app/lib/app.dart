@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/net/connectivity.dart';
 import 'core/router/app_router.dart';
+import 'core/widgets/keyboard_dismisser.dart';
 import 'package:asani_ui/asani_ui.dart';
 import 'data/providers.dart';
 import 'data/repositories/repositories.dart';
@@ -72,7 +73,8 @@ class AsaniApp extends ConsumerWidget {
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
-          child: OfflineBanner(child: child!),
+          // Tapping anywhere outside a text field closes the keyboard, on every screen.
+          child: KeyboardDismisser(child: OfflineBanner(child: child!)),
         );
       },
     );
