@@ -87,6 +87,8 @@ Bottom navigation with 4 tabs:
 | **Family** | `group` | Patient profiles, each with history and follow-ups |
 | **Account** | `person` | Settings |
 
+Look (2026-11-16): a floating teal pill bar (`AppColors.primary`) above the bottom edge. The selected tab grows into a lighter pill (white at 18 %) showing its icon and label in white; the other tabs show the icon only (white at 70 %), with the label kept for screen readers.
+
 Booking is a full-screen flow pushed on top of the tabs (no bottom bar), with a back arrow on each step.
 
 ```
