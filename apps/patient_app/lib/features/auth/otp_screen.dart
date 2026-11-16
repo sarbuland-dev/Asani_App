@@ -105,7 +105,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Widget build(BuildContext context) {
     final phone = ref.watch(authStateProvider).value?.pendingPhone;
     final code = _controller.text;
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarDark,
+      child: Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: FillScrollView(
@@ -117,12 +119,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               const SizedBox(height: Gap.xl),
               const IconBox(icon: Icons.smartphone_rounded, size: 52),
               const SizedBox(height: Gap.lg),
-              Text('Enter the code', style: AppText.displaySmall.copyWith(fontSize: 28)),
+              Text('Enter the code', style: AppText.headline),
               const SizedBox(height: Gap.sm),
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text('Sent to ', style: AppText.bodyMedium.copyWith(fontSize: 15)),
+                  Text('Sent to ', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
                   Text(phone == null ? '' : Fmt.phone(phone), style: AppText.labelMedium),
                   Text(' · ', style: AppText.bodyMedium),
                   InkWell(
@@ -202,14 +204,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               FilledButton(
                 onPressed: code.length == 6 && !_verifying ? _verify : null,
                 child: _verifying
-                    ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
+                    ? const ButtonSpinner()
                     : const Text('Verify'),
               ),
             ],
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _box(String digit, bool active) {
@@ -225,7 +227,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             width: active ? 2 : 1.2,
           ),
         ),
-        child: Text(digit, style: AppText.titleLarge.copyWith(fontSize: 24)),
+        child: Text(digit, style: AppText.titleLarge),
       ),
     );
   }

@@ -179,7 +179,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     ],
                   ]),
                   const SizedBox(height: Gap.lg),
-                  Text(titles[_step], style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontSize: 28)),
+                  Text(titles[_step], style: AppText.headline.copyWith(color: AppColors.onPrimary)),
                 ],
               ),
             ),
@@ -226,7 +226,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         }
                       : null,
                   child: _booking
-                      ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
+                      ? const ButtonSpinner()
                       : Row(mainAxisSize: MainAxisSize.min, children: [
                           if (_step == 2) ...[const Icon(Icons.check_rounded), const SizedBox(width: Gap.sm)],
                           Text(_step == 2 ? (online ? 'Confirm booking' : 'Needs internet') : 'Next'),
@@ -279,7 +279,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   const SizedBox(width: Gap.md),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(p.name, style: AppText.titleMedium.copyWith(fontSize: 16)),
+                      Text(p.name, style: AppText.titleSmall),
                       Text(patientSubtitle(p), style: AppText.bodyMedium),
                       if (existing != null)
                         Padding(
@@ -302,12 +302,17 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             );
           }),
         const SizedBox(height: Gap.xs),
-        _DashedButton(
-          label: 'Add family member',
-          onTap: () async {
-            final p = await showAddFamilySheet(context);
-            if (p != null && mounted) setState(() => _patientId = p.id);
-          },
+        // Same button as the Family tab.
+        SizedBox(
+          height: 56,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              final p = await showAddFamilySheet(context);
+              if (p != null && mounted) setState(() => _patientId = p.id);
+            },
+            icon: const Icon(Icons.person_add_alt_1_outlined),
+            label: const Text('Add family member'),
+          ),
         ),
       ],
     );
@@ -331,7 +336,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ]),
         const SizedBox(height: Gap.md),
         SizedBox(
-          height: 104,
+          // Grows with the user's text size (up to 1.3×); body-text factor
+          // because Android 14+ scales big sizes less (non-linear).
+          height: 40 + 64 * (MediaQuery.textScalerOf(context).scale(14) / 14),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: dates.length,
@@ -358,10 +365,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                       borderRadius: BorderRadius.circular(Radii.pill),
                       border: Border.all(color: selected ? AppColors.primary : AppColors.border),
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ExcludeSemantics(
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(label,
-                            style: AppText.labelSmall.copyWith(color: selected ? AppColors.onPrimary : AppColors.textSecondary, fontSize: 11)),
+                        // "Tomorrow" shrinks to fit instead of breaking at large text sizes.
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(label,
+                              maxLines: 1,
+                              style: AppText.labelSmall.copyWith(color: selected ? AppColors.onPrimary : AppColors.textSecondary)),
+                        ),
                         const SizedBox(height: 2),
                         Text('${d.day}',
                             style: AppText.titleLarge.copyWith(
@@ -369,7 +382,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               decoration: av == DoctorAvailability.full ? TextDecoration.lineThrough : null,
                             )),
                         if (!av.canBook)
-                          Text(av.shortReason, style: AppText.labelSmall.copyWith(fontSize: 10, color: AppColors.textMuted)),
+                          Text(av.shortReason, style: AppText.labelSmall),
                       ]),
                     ),
                   ),
@@ -393,7 +406,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 const SizedBox(width: Gap.md),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(doctor.name, style: AppText.titleMedium.copyWith(fontSize: 16)),
+                    Text(doctor.name, style: AppText.titleSmall),
                     if (schedule != null)
                       Row(children: [
                         const Icon(Icons.schedule_rounded, size: 15, color: AppColors.textSecondary),
@@ -519,47 +532,4 @@ class _ErrorBox extends StatelessWidget {
           Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.danger))),
         ]),
       );
-}
-
-class _DashedButton extends StatelessWidget {
-  const _DashedButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.card),
-        child: CustomPaint(
-          painter: _DashedBorderPainter(),
-          child: SizedBox(
-            height: 56,
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.add_rounded, color: AppColors.primary),
-              const SizedBox(width: Gap.sm),
-              Text(label, style: AppText.labelLarge.copyWith(color: AppColors.primary)),
-            ]),
-          ),
-        ),
-      );
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.primary.withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(Radii.card)));
-    for (final metric in path.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 10) {
-        canvas.drawPath(metric.extractPath(d, d + 6), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

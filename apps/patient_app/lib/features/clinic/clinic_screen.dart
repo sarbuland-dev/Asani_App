@@ -36,7 +36,8 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
     }
 
     if (clinicAsync.hasError) {
-      return Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(widget.clinicId))));
+      return StatusBarScrim(
+      child: Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(widget.clinicId)))));
     }
     if (clinicAsync.isLoading && clinic == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -67,13 +68,13 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
                       const SizedBox(width: Gap.md),
                       Expanded(
                         child: Text('Online booking is not available for this clinic right now.',
-                            style: AppText.bodyLarge.copyWith(color: AppColors.warning, fontSize: 15)),
+                            style: AppText.bodyLarge.copyWith(color: AppColors.warning)),
                       ),
                     ]),
                   ),
                 ),
               Row(children: [
-                Expanded(child: Text('Choose a doctor', style: AppText.titleLarge.copyWith(fontSize: 20))),
+                Expanded(child: Text('Choose a doctor', style: AppText.titleLarge)),
                 Text(Fmt.relativeDay(dayKey(now)).replaceFirst('Today, ', 'Today, ${_weekday(now)} '), style: AppText.labelSmall),
               ]),
               const SizedBox(height: Gap.md),
@@ -116,7 +117,7 @@ class _ClinicHeader extends StatelessWidget {
             const SizedBox(width: Gap.md),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(clinic.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontSize: 24)),
+                Text(clinic.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
                 const SizedBox(height: 2),
                 Row(children: [
                   const Icon(Icons.location_on_outlined, size: 16, color: AppColors.onPrimary),
@@ -234,7 +235,7 @@ class _DoctorCard extends ConsumerWidget {
                   Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
                   const SizedBox(width: 6),
                   Text(day.sessionStatus == SessionStatus.paused ? 'QUEUE PAUSED' : 'LIVE QUEUE',
-                      style: AppText.overline.copyWith(color: AppColors.primary, fontSize: 11)),
+                      style: AppText.overline.copyWith(color: AppColors.primary)),
                 ]),
                 const SizedBox(height: Gap.sm),
                 Row(children: [

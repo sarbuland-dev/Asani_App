@@ -18,12 +18,13 @@ class ProfileDetailScreen extends ConsumerWidget {
     final patients = ref.watch(myPatientsProvider);
     final patient = patients.value?.where((p) => p.id == patientId).firstOrNull;
     if (patient == null) {
-      return Scaffold(
+      return StatusBarScrim(
+      child: Scaffold(
         appBar: AppBar(),
         body: patients.isLoading
             ? const Center(child: CircularProgressIndicator())
             : const EmptyState(icon: Icons.person_off_outlined, title: 'Profile not found', message: 'This profile was removed.'),
-      );
+      ));
     }
     final tokens = (ref.watch(myTokensProvider).value ?? const <Token>[]).where((t) => t.patientId == patientId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -46,7 +47,7 @@ class ProfileDetailScreen extends ConsumerWidget {
               ]),
               InitialsAvatar(name: patient.name, size: 84, bg: bg, fg: fg),
               const SizedBox(height: Gap.md),
-              Text(patient.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontSize: 24)),
+              Text(patient.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
               const SizedBox(height: 2),
               Text(patientSubtitle(patient), style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
             ]),

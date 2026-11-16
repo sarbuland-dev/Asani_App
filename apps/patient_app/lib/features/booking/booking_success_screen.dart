@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,7 +23,9 @@ class BookingSuccessScreen extends ConsumerWidget {
     }
     final schedule = doctor.scheduleOn(DateTime.parse(token.date));
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarDark,
+      child: Scaffold(
       body: SafeArea(
         child: Column(
           children: [
@@ -58,14 +61,13 @@ class BookingSuccessScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: Gap.xl),
-                  Text('Token booked!', textAlign: TextAlign.center, style: AppText.titleLarge.copyWith(fontSize: 26)),
-                  const SizedBox(height: Gap.sm),
-                  Text(token.label, textAlign: TextAlign.center, style: AppText.tokenDisplay),
+                  Text('Token booked!', textAlign: TextAlign.center, style: AppText.headline),
+                  // The token number is on the slip below (shown once).
                   const SizedBox(height: Gap.sm),
                   Text(
                     '${doctor.name} · ${Fmt.relativeDay(token.date).split(',').first}${schedule == null ? '' : ', ${Fmt.timeRangeShort(schedule)}'}',
                     textAlign: TextAlign.center,
-                    style: AppText.bodyMedium.copyWith(fontSize: 15),
+                    style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: Gap.xl),
                   Padding(
@@ -98,6 +100,6 @@ class BookingSuccessScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }

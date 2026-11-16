@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asani_ui/asani_ui.dart';
@@ -60,7 +61,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return true;
     }).toList();
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarDark,
+      child: Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
@@ -155,7 +158,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _chip(String label, String? value, {bool dot = false}) {

@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:asani_ui/asani_ui.dart';
 
 /// Tabs: Home · Tokens · Family · Account (DESIGN.md §4).
-/// Floating teal pill bar; the selected tab grows into a lighter pill with
-/// its icon and label, the others show the icon only.
+/// Floating teal pill bar; the selected tab grows into a white pill with its
+/// teal icon and label (contrast 5.5:1), the others show the icon only and
+/// say their name on long-press.
 class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.shell});
   final StatefulNavigationShell shell;
@@ -81,7 +82,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, activeIcon, label) = item;
-    return Semantics(
+    final tab = Semantics(
       selected: selected,
       button: true,
       label: label,
@@ -91,20 +92,24 @@ class _NavItem extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(Radii.pill),
           // The highlight hugs the icon + label; the whole slot stays tappable.
-          child: Center(
+          // While the slot animates open it is briefly narrow: show the label
+          // only once icon + gap + label padding fit (no overflow on 320 px phones).
+          child: LayoutBuilder(builder: (context, box) {
+            final showLabel = selected && box.maxWidth >= 72;
+            return Center(
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
-                color: selected ? AppColors.onPrimary.withValues(alpha: 0.18) : Colors.transparent,
+                color: selected ? AppColors.surface : Colors.transparent,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
-              padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 4, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 4, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(selected ? activeIcon : icon, color: selected ? AppColors.onPrimary : AppColors.onPrimary.withValues(alpha: 0.7), size: 24),
-                  if (selected) ...[
+                  Icon(selected ? activeIcon : icon, color: selected ? AppColors.primary : AppColors.onPrimary.withValues(alpha: 0.85), size: 24),
+                  if (showLabel) ...[
                     const SizedBox(width: Gap.sm),
                     Flexible(
                       child: ExcludeSemantics(
@@ -113,7 +118,7 @@ class _NavItem extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.fade,
                           softWrap: false,
-                          style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
+                          style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
@@ -121,10 +126,13 @@ class _NavItem extends StatelessWidget {
                 ],
               ),
             ),
-          ),
+          );
+          }),
         ),
       ),
     );
+    // Icon-only tabs show their name on long-press (the label is hidden).
+    return selected ? tab : Tooltip(message: label, excludeFromSemantics: true, child: tab);
   }
 }
 

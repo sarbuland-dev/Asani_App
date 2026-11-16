@@ -74,7 +74,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         color: AppColors.primary, fontWeight: FontWeight.w600, decoration: TextDecoration.underline, decorationColor: AppColors.primary);
     final ageInvalid = _age.text.isNotEmpty && _ageValue == null;
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarDark,
+      child: Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: FillScrollView(
@@ -89,10 +91,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               const SizedBox(height: Gap.xl),
               const Align(alignment: Alignment.centerLeft, child: IconBox(icon: Icons.person_outline_rounded, size: 52)),
               const SizedBox(height: Gap.lg),
-              Text('Tell us about you', style: AppText.displaySmall.copyWith(fontSize: 28)),
+              Text('Tell us about you', style: AppText.headline),
               const SizedBox(height: Gap.sm),
               Text('This is your own profile. Clinics will see this name on your token. You can add family members later.',
-                  style: AppText.bodyMedium.copyWith(fontSize: 15)),
+                  style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
               const SizedBox(height: Gap.xl),
               _label('Full name'),
               TextField(
@@ -130,7 +132,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     children: [
                       Checkbox(value: _agreed, onChanged: _saving ? null : (v) => setState(() => _agreed = v ?? false)),
                       Expanded(
-                        child: Text.rich(TextSpan(style: AppText.bodyLarge.copyWith(fontSize: 15), children: [
+                        child: Text.rich(TextSpan(style: AppText.bodyLarge, children: [
                           const TextSpan(text: 'I agree to the '),
                           TextSpan(text: 'Terms', style: link, recognizer: _termsTap),
                           const TextSpan(text: ' and '),
@@ -150,7 +152,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               FilledButton(
                 onPressed: _valid && !_saving ? _continue : null,
                 child: _saving
-                    ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
+                    ? const ButtonSpinner()
                     : const Text('Continue'),
               ),
               const SizedBox(height: Gap.sm),
@@ -161,7 +163,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _label(String text) => Padding(

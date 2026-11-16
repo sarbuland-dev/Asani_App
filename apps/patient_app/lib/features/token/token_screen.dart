@@ -40,7 +40,9 @@ class TokenScreen extends ConsumerWidget {
     final live = isToday && !finished && session == SessionStatus.running;
     final relation = token.patientSnapshot.relation == Relation.self ? '' : ' (${token.patientSnapshot.relation.label})';
 
-    return Scaffold(
+    return StatusBarScrim(
+      color: called ? AppColors.infoDark : (finished ? AppColors.textSecondary : AppColors.primary),
+      child: Scaffold(
       body: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -49,7 +51,7 @@ class TokenScreen extends ConsumerWidget {
             gradient: called
                 ? AppColors.calledGradient
                 : finished
-                    ? const LinearGradient(colors: [AppColors.textSecondary, AppColors.textMuted])
+                    ? AppColors.finishedGradient
                     : AppColors.headerGradient,
             padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, 72),
             child: Column(children: [
@@ -82,17 +84,20 @@ class TokenScreen extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text('${doctor.name} · ${clinic.name}',
                     textAlign: TextAlign.center, style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
+                // A finished token shows its date in the card below instead.
+                if (!finished) ...[
                 const SizedBox(height: Gap.md),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: 6),
                   decoration: BoxDecoration(
-                      color: AppColors.onPrimary.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(Radii.pill)),
+                      color: AppColors.headerChip, borderRadius: BorderRadius.circular(Radii.pill)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.onPrimary),
                     const SizedBox(width: 6),
                     Text(Fmt.relativeDay(token.date), style: AppText.labelMedium.copyWith(color: AppColors.onPrimary)),
                   ]),
                 ),
+                ],
               ],
             ]),
           ),
@@ -180,7 +185,8 @@ class TokenScreen extends ConsumerWidget {
                         ]),
                       ),
                     const SizedBox(height: Gap.md),
-                    if (!called)
+                    // The slip is for reception: not needed once called or finished.
+                    if (!called && !finished)
                       Row(children: [
                         Expanded(
                           child: _ActionButton(
@@ -218,7 +224,7 @@ class TokenScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 
   List<Widget> _liveSection(Token token, Doctor doctor, TokenPosition? pos, SessionStatus? session, bool called) {

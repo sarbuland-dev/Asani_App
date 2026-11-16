@@ -259,7 +259,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
         FilledButton(
           onPressed: _valid && !_saving ? _save : null,
           child: _saving
-              ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
+              ? const ButtonSpinner()
               : const Text('Save'),
         ),
       ],

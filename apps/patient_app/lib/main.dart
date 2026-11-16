@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'app.dart';
 import 'core/config/env.dart';
@@ -16,6 +17,8 @@ import 'data/providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Inter is bundled in assets/google_fonts (DESIGN.md §3.2): never fetch it.
+  GoogleFonts.config.allowRuntimeFetching = false;
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   // Demo backend: demo mode, plus device settings in Firebase mode.

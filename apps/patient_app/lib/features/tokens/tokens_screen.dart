@@ -22,14 +22,15 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = ref.watch(_past ? myPastTokensProvider : myActiveTokensProvider);
-    return Scaffold(
+    return StatusBarScrim(
+      child: Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GradientHeader(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const SizedBox(height: Gap.sm),
-              Text('My tokens', style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontSize: 28)),
+              Text('My tokens', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
               const SizedBox(height: Gap.lg),
               _Segmented(past: _past, onChanged: (v) => setState(() => _past = v)),
             ]),
@@ -62,7 +63,7 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -99,7 +100,7 @@ class _Segmented extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.onPrimary.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(Radii.pill)),
+      decoration: BoxDecoration(color: AppColors.headerChip, borderRadius: BorderRadius.circular(Radii.pill)),
       child: Row(children: [seg('Active', false), seg('Past', true)]),
     );
   }

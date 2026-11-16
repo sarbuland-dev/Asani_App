@@ -66,7 +66,7 @@ class ClinicCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _HighlightText(clinic.name, highlight, AppText.titleMedium.copyWith(fontSize: 17)),
+                      _HighlightText(clinic.name, highlight, AppText.titleMedium),
                       const SizedBox(height: 2),
                       Row(children: [
                         const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),

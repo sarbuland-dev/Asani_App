@@ -43,8 +43,16 @@ All values live in `lib/core/theme/`. Widgets must use tokens, never raw values.
 | `warning` | `#B45309` | On hold, Not started, Grace |
 | `danger` | `#B91C1C` | Cancelled, errors, On leave |
 | `info` | `#0369A1` | Called / Your turn (with animation) |
+| `primaryMid` | `#0E847A` | Light end of the teal header gradient (`primary` → `primaryMid`) |
+| `slate` | `#64748B` | Light end of the finished-token header (`textSecondary` → `slate`) |
+| `headerChip` | `#134E4A` at 45 % | Chips and switches with white text on a teal header (city pill, Active/Past, date chip) |
+| `textMuted` | `#94A3B8` | Decoration only (chevrons). **Never for text** (fails 4.5:1) |
 
-All text/background pairs must meet **WCAG AA** (4.5:1 for body text).
+All text/background pairs must meet **WCAG AA** (4.5:1 for body text). Placeholders use `textSecondary`.
+
+**Status bar (2026-11-16):** light icons on teal / coloured headers, dark icons on white screens (OTP, Tell us
+about you, primer, booking success, search). Screens whose header scrolls away paint a solid strip behind the
+status bar (`StatusBarScrim`) so content never runs under the clock.
 
 ### 3.2 Typography
 
@@ -53,15 +61,20 @@ Font: **Inter** (via `google_fonts`, bundled for offline).
 | Style | Size / Weight | Use |
 |---|---|---|
 | `tokenDisplay` | 72 / 800 | Token number on live screen |
+| `tokenDisplayMedium` | 64 / 800 | Token number on the full slip |
+| `tokenDisplaySmall` | 48 / 800 | Token number on the compact slip (booking success) |
 | `displaySmall` | 32 / 700 | "Now serving #7" |
+| `headline` | 28 / 700 | Big page titles ("Enter the code", "Pick a date", "My tokens") |
 | `titleLarge` | 22 / 700 | Screen titles |
 | `titleMedium` | 18 / 600 | Card titles (clinic, doctor names) |
+| `titleSmall` | 16 / 600 | Names inside list rows (patient, token rows) |
 | `bodyLarge` | 16 / 400 | Body text (minimum body size) |
 | `bodyMedium` | 14 / 400 | Secondary text |
 | `labelLarge` | 16 / 600 | Buttons |
 | `labelSmall` | 12 / 500 | Chips, badges |
 
-Support system text scale up to **1.3×** without overflow.
+Support system text scale up to **1.3×** without overflow. Widgets never set `fontSize` directly; add a style
+here instead. Nothing smaller than `labelSmall` (12).
 
 ### 3.3 Spacing, radius, elevation
 
@@ -72,7 +85,9 @@ Support system text scale up to **1.3×** without overflow.
 
 ### 3.4 Icons
 
-Material Symbols (Rounded). Always paired with a text label in navigation and status chips.
+Material Symbols (Rounded). Always paired with a text label in navigation and status chips. Exception: the
+bottom bar shows the label only on the selected tab (§4); the other tabs name themselves on long-press and to
+screen readers.
 
 ---
 
@@ -87,7 +102,7 @@ Bottom navigation with 4 tabs:
 | **Family** | `group` | Patient profiles, each with history and follow-ups |
 | **Account** | `person` | Settings |
 
-Look (2026-11-16): a floating teal pill bar (`AppColors.primary`) above the bottom edge. The selected tab grows into a lighter pill (white at 18 %) showing its icon and label in white; the other tabs show the icon only (white at 70 %), with the label kept for screen readers.
+Look (2026-11-16): a floating teal pill bar (`AppColors.primary`) above the bottom edge. The selected tab grows into a white pill showing its icon and label in `primary` (5.5:1); the other tabs show the icon only (white at 85 %), with the label kept for screen readers and shown as a tooltip on long-press.
 
 Booking is a full-screen flow pushed on top of the tabs (no bottom bar), with a back arrow on each step.
 
@@ -301,12 +316,14 @@ Fields: Full name · Age (years, numeric) · Gender (Male / Female / Other segme
 ### S-16 Account
 - Name (editable), phone (read-only).
 - Notifications: status + "Open settings" if denied.
+- "Using a Xiaomi/Redmi phone?" Autostart tip: shown **only** on Xiaomi / Redmi / POCO phones.
 - Privacy Policy · Terms · Contact support · App version.
 - Log out · **Delete account** (danger, double confirmation: type "DELETE").
 
 ### S-17 Notification permission primer
 Shown once before booking the first token (not at app launch):
 "Get notified when your turn is near. We'll send at most 4 alerts per token." → [Allow notifications] / [Not now].
+The list on the page shows all four steps: 3 ahead, 2 ahead, 1 ahead (you're next), your turn.
 On iOS this precedes the system prompt; on Android 13+ it precedes `POST_NOTIFICATIONS`.
 
 ---

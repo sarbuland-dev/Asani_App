@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:patient_app/app.dart';
 import 'package:patient_app/core/router/app_router.dart';
+import 'package:patient_app/core/utils/device.dart';
 import 'package:asani_ui/asani_ui.dart';
 import 'package:patient_app/data/demo/demo_backend.dart';
 import 'package:patient_app/data/providers.dart';
@@ -74,7 +75,11 @@ void main() {
         await backend.update(backend.settings.copyWith(autoAdvanceQueue: false));
       });
 
-      final container = ProviderContainer(overrides: [backendProvider.overrideWithValue(backend)]);
+      final container = ProviderContainer(overrides: [
+        backendProvider.overrideWithValue(backend),
+        // Show the Xiaomi-only Autostart card so its guide is checked too.
+        isXiaomiPhoneProvider.overrideWith((ref) async => true),
+      ]);
       addTearDown(() {
         container.dispose();
         backend.dispose();

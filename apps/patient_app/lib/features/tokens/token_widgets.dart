@@ -70,7 +70,7 @@ class ActiveTokenBanner extends ConsumerWidget {
                   ]),
                   const SizedBox(height: Gap.xs),
                   Text('Token ${token.label}',
-                      style: AppText.displaySmall.copyWith(color: called ? AppColors.info : AppColors.primary, fontWeight: FontWeight.w800, fontSize: 34)),
+                      style: AppText.displaySmall.copyWith(color: called ? AppColors.info : AppColors.primary, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text('${doctor?.name ?? ''} · ${clinic?.name ?? ''}', style: AppText.bodyMedium, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: Gap.md),
@@ -161,7 +161,7 @@ class TokenListCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: Gap.md),
               decoration: BoxDecoration(color: tileBg, borderRadius: BorderRadius.circular(Radii.button)),
               child: Column(children: [
-                if (active) Text('TOKEN', style: AppText.overline.copyWith(fontSize: 9, color: tileFg)),
+                if (active) FittedBox(child: Text('TOKEN', style: AppText.overline.copyWith(color: tileFg))),
                 FittedBox(
                   child: Text(token.label, style: AppText.titleLarge.copyWith(color: tileFg, fontWeight: FontWeight.w800)),
                 ),
@@ -175,7 +175,7 @@ class TokenListCard extends ConsumerWidget {
                   Row(children: [
                     Expanded(
                       child: Text(token.patientSnapshot.name,
-                          style: AppText.titleMedium.copyWith(fontSize: 16), overflow: TextOverflow.ellipsis),
+                          style: AppText.titleSmall, overflow: TextOverflow.ellipsis),
                     ),
                     if (sessionOver)
                       const Pill(label: 'Session over', fg: AppColors.textSecondary, bg: AppColors.muted, dot: true)

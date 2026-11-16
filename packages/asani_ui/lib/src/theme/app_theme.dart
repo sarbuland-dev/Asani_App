@@ -37,7 +37,8 @@ ThemeData buildAppTheme() {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
         disabledBackgroundColor: AppColors.border,
-        disabledForegroundColor: AppColors.textMuted,
+        // Readable on the grey disabled fill; also colours ButtonSpinner.
+        disabledForegroundColor: AppColors.textSecondary,
         minimumSize: const Size.fromHeight(56),
         shape: const StadiumBorder(),
         textStyle: AppText.labelLarge,
@@ -64,7 +65,7 @@ ThemeData buildAppTheme() {
       filled: true,
       fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
-      hintStyle: AppText.bodyLarge.copyWith(color: AppColors.textMuted),
+      hintStyle: AppText.bodyLarge.copyWith(color: AppColors.textSecondary),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(Radii.button),
         borderSide: const BorderSide(color: AppColors.border),

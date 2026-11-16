@@ -51,10 +51,10 @@ class TokenSlip extends StatelessWidget {
             Padding(
               padding: EdgeInsets.symmetric(horizontal: Gap.lg, vertical: compact ? Gap.md : Gap.lg),
               child: Column(
-                crossAxisAlignment: compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text('TOKEN', style: AppText.overline),
-                  Text(token.label, style: AppText.tokenDisplay.copyWith(color: ink, fontSize: compact ? 40 : 64)),
+                  Text(token.label, style: (compact ? AppText.tokenDisplaySmall : AppText.tokenDisplayMedium).copyWith(color: ink)),
                   if (compact)
                     Text('${snap.name}${age == null ? '' : ' · $age / ${snap.gender.short}'}', style: AppText.labelMedium)
                   else ...[

@@ -1,5 +1,6 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
@@ -98,6 +99,54 @@ class GradientHeader extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.onPrimary.withValues(alpha: 0.07)),
+      );
+}
+
+/// Status bar styles. Light icons on teal / coloured headers, dark icons on
+/// white screens. Transparent bar so the page colour shows through.
+const kStatusBarLight = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.light, // Android
+  statusBarBrightness: Brightness.dark, // iOS
+  systemStatusBarContrastEnforced: false,
+);
+const kStatusBarDark = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.dark,
+  statusBarBrightness: Brightness.light,
+  systemStatusBarContrastEnforced: false,
+);
+
+/// For screens whose coloured header scrolls away: light status bar icons
+/// and a solid strip behind the status bar, so scrolled content never runs
+/// under the clock.
+class StatusBarScrim extends StatelessWidget {
+  const StatusBarScrim({super.key, required this.child, this.color = AppColors.primary});
+  final Widget child;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarLight,
+      child: Stack(children: [
+        child,
+        Positioned(top: 0, left: 0, right: 0, height: top, child: ColoredBox(color: color)),
+      ]),
+    );
+  }
+}
+
+/// Small spinner inside a button while it works. Takes the button's own
+/// foreground colour, so it stays visible when the button is disabled.
+class ButtonSpinner extends StatelessWidget {
+  const ButtonSpinner({super.key});
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+        dimension: 22,
+        child: CircularProgressIndicator(strokeWidth: 2.5, color: IconTheme.of(context).color),
       );
 }
 

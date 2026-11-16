@@ -25,7 +25,8 @@ class HomeScreen extends ConsumerWidget {
     final active = ref.watch(myActiveTokensProvider).value ?? const [];
     final followUps = ref.watch(upcomingFollowUpsProvider);
 
-    return Scaffold(
+    return StatusBarScrim(
+      child: Scaffold(
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(clinicsProvider(city)),
         child: CustomScrollView(
@@ -43,8 +44,9 @@ class HomeScreen extends ConsumerWidget {
                   if (recent.isNotEmpty) ...[
                     const SectionTitle('Recent clinics'),
                     SizedBox(
-                      // Grows with the user's text size (up to 1.3×).
-                      height: 52 + MediaQuery.textScalerOf(context).scale(84),
+                      // Grows with the user's text size (up to 1.3×). Uses the body-text
+                      // factor: Android 14+ scales big sizes less (non-linear).
+                      height: 44 + 80 * (MediaQuery.textScalerOf(context).scale(14) / 14),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
@@ -79,7 +81,7 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -109,7 +111,7 @@ class _Header extends ConsumerWidget {
                 ),
               ),
               Material(
-                color: AppColors.onPrimary.withValues(alpha: 0.18),
+                color: AppColors.headerChip,
                 shape: const StadiumBorder(),
                 child: InkWell(
                   customBorder: const StadiumBorder(),
@@ -123,16 +125,6 @@ class _Header extends ConsumerWidget {
                       const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.onPrimary),
                     ]),
                   ),
-                ),
-              ),
-              const SizedBox(width: Gap.sm),
-              Material(
-                color: AppColors.onPrimary.withValues(alpha: 0.18),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: 'My tokens',
-                  onPressed: () => context.go('/tokens'),
-                  icon: const Icon(Icons.notifications_none_rounded, color: AppColors.onPrimary),
                 ),
               ),
             ],
@@ -150,7 +142,7 @@ class _Header extends ConsumerWidget {
                 child: Row(children: [
                   const Icon(Icons.search_rounded, color: AppColors.textSecondary),
                   const SizedBox(width: Gap.md),
-                  Text('Search clinic or area', style: AppText.bodyLarge.copyWith(color: AppColors.textMuted)),
+                  Text('Search clinic or area', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
                 ]),
               ),
             ),
@@ -280,7 +272,7 @@ class _FollowUpCard extends ConsumerWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Upcoming follow-up', style: AppText.labelSmall.copyWith(color: AppColors.warning, fontWeight: FontWeight.w600)),
-              Text(patient?.name ?? '', style: AppText.titleMedium.copyWith(fontSize: 16)),
+              Text(patient?.name ?? '', style: AppText.titleSmall),
               Text('${doctor?.name ?? ''} · Due ${Fmt.shortDay(followUp.dueDate)}', style: AppText.bodyMedium),
             ]),
           ),
@@ -317,7 +309,7 @@ class _RecentClinicCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const IconBox(icon: Icons.local_hospital_outlined, size: 36),
-            const Spacer(),
+            const SizedBox(height: Gap.sm),
             Text(clinic.name, style: AppText.labelMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
             Text(clinic.area, style: AppText.labelSmall, maxLines: 1),
             const SizedBox(height: 2),

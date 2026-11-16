@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/net/connectivity.dart';
@@ -71,10 +72,15 @@ class AsaniApp extends ConsumerWidget {
       builder: (context, child) {
         // Support text scaling up to 1.3× (DESIGN.md §3.2).
         final mq = MediaQuery.of(context);
-        return MediaQuery(
-          data: mq.copyWith(textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
-          // Tapping anywhere outside a text field closes the keyboard, on every screen.
-          child: KeyboardDismisser(child: OfflineBanner(child: child!)),
+        // Default: light status bar icons (most screens start with a teal
+        // header). White screens override with kStatusBarDark.
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: kStatusBarLight,
+          child: MediaQuery(
+            data: mq.copyWith(textScaler: mq.textScaler.clamp(maxScaleFactor: 1.3)),
+            // Tapping anywhere outside a text field closes the keyboard, on every screen.
+            child: KeyboardDismisser(child: OfflineBanner(child: child!)),
+          ),
         );
       },
     );

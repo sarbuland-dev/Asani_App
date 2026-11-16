@@ -73,7 +73,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                 children: [
                   Text('Welcome', style: AppText.titleLarge),
                   const SizedBox(height: Gap.xs),
-                  Text('Sign in with your mobile number.', style: AppText.bodyMedium.copyWith(fontSize: 15)),
+                  Text('Sign in with your mobile number.', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
                   const SizedBox(height: Gap.xl),
                   Text('Mobile number', style: AppText.labelMedium),
                   const SizedBox(height: Gap.sm),
@@ -99,7 +99,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                           textInputAction: TextInputAction.done,
                           autofocus: true,
                           autofillHints: const [AutofillHints.telephoneNumberNational],
-                          style: AppText.bodyLarge.copyWith(fontSize: 18, letterSpacing: 0.5),
+                          style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w500, letterSpacing: 0.5),
                           inputFormatters: [_PkPhoneFormatter()],
                           decoration: const InputDecoration(hintText: '300 1234567'),
                           onChanged: (_) => setState(() {}),
@@ -112,7 +112,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                   FilledButton(
                     onPressed: _valid && !_sending ? _send : null,
                     child: _sending
-                        ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary))
+                        ? const ButtonSpinner()
                         : const Text('Send code'),
                   ),
                   const SizedBox(height: Gap.md),
@@ -154,7 +154,7 @@ class _DemoNote extends StatelessWidget {
           children: [
             const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.info),
             const SizedBox(width: Gap.sm),
-            Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.infoDark, fontSize: 13))),
+            Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.infoDark))),
           ],
         ),
       );

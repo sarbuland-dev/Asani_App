@@ -1,6 +1,7 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -61,7 +62,9 @@ class PrimerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarDark,
+      child: Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: FillScrollView(
@@ -99,7 +102,7 @@ class PrimerScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: Gap.xl),
-              Text('Never miss your turn', style: AppText.displaySmall.copyWith(fontSize: 28), textAlign: TextAlign.center),
+              Text('Never miss your turn', style: AppText.headline, textAlign: TextAlign.center),
               const SizedBox(height: Gap.md),
               Text(
                 "We'll alert you when 3, 2 and 1 patients are ahead, and when it's your turn.",
@@ -112,6 +115,7 @@ class PrimerScreen extends ConsumerWidget {
                 decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(Radii.card)),
                 child: Column(children: [
                   _step(const Text('3'), 'Start heading to the clinic'),
+                  _step(const Text('2'), '2 patients ahead of you'),
                   _step(const Text('1'), "You're next, be at reception"),
                   _step(const Icon(Icons.check_rounded, size: 16, color: AppColors.onPrimary), 'Your turn now', filled: true),
                 ]),
@@ -124,7 +128,7 @@ class PrimerScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _step(Widget leading, String text, {bool filled = false}) => Padding(

@@ -7,6 +7,7 @@ import '../../core/config/app_info.dart';
 import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import 'package:asani_ui/asani_ui.dart';
+import '../../core/utils/device.dart';
 import '../../core/utils/launch.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/repositories.dart';
@@ -23,10 +24,12 @@ class AccountScreen extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value;
     ref.watch(myTokensProvider); // refresh demo tools when tokens change
     final sim = ref.watch(queueSimulatorProvider);
+    final isXiaomi = ref.watch(isXiaomiPhoneProvider).value ?? false;
     final simDoctors = sim.doctorsWithMyActiveTokens();
     if (user == null) return const Scaffold(body: SizedBox());
 
-    return Scaffold(
+    return StatusBarScrim(
+      child: Scaffold(
       body: ListView(
         padding: const EdgeInsets.only(bottom: kNavBarClearance),
         children: [
@@ -36,7 +39,7 @@ class AccountScreen extends ConsumerWidget {
               const SizedBox(width: Gap.lg),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(user.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontSize: 24)),
+                  Text(user.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
                   Text(Fmt.phone(user.phone), style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
                 ]),
               ),
@@ -62,6 +65,8 @@ class AccountScreen extends ConsumerWidget {
                   const _Tile(icon: Icons.info_outline_rounded, label: 'App version', value: appVersion, last: true),
                 ]),
               ),
+              // Autostart tip: only Xiaomi/Redmi/POCO phones need it.
+              if (isXiaomi) ...[
               const SizedBox(height: Gap.lg),
               AppCard(
                 color: AppColors.warningContainer.withValues(alpha: 0.6),
@@ -84,6 +89,7 @@ class AccountScreen extends ConsumerWidget {
                   ),
                 ]),
               ),
+              ],
               // Demo mode only: in Firebase mode tools/queue-sim moves the real queue.
               if (Env.isDemo) ...[
               const SizedBox(height: Gap.lg),
@@ -146,7 +152,7 @@ class AccountScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 
   /// On = the account wants alerts (synced, D-18) AND this phone allows them.

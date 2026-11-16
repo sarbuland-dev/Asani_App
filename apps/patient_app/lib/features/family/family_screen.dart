@@ -16,14 +16,15 @@ class FamilyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final patients = ref.watch(myPatientsProvider);
     final tokens = ref.watch(myTokensProvider).value ?? const [];
-    return Scaffold(
+    return StatusBarScrim(
+      child: Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           GradientHeader(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const SizedBox(height: Gap.sm),
-              Text('Family', style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontSize: 28)),
+              Text('Family', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
               const SizedBox(height: Gap.xs),
               Text('Book tokens for anyone in your family.',
                   style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
@@ -50,7 +51,7 @@ class FamilyScreen extends ConsumerWidget {
                             const SizedBox(width: Gap.md),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(p.name, style: AppText.titleMedium.copyWith(fontSize: 17)),
+                                Text(p.name, style: AppText.titleMedium),
                                 Text(patientSubtitle(p, shortGender: true), style: AppText.bodyMedium),
                               ]),
                             ),
@@ -76,6 +77,6 @@ class FamilyScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
