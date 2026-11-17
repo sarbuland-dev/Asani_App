@@ -250,7 +250,8 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
 - **Clinic cards are tickets** (`ClinicCard`, also in search results): the stub colour shows the status, **green**
   when open (`successContainer` / `success`), **red** when closed (`dangerContainer` / `danger`), grey when online
   booking is paused; with the clinic initials and "● Open" (solid dot) / "○ Closed" (hollow ring), so it is not
-  colour alone. The Recent clinics initials follow the same colours. a dashed tear line with half-circle notches top and bottom
+  colour alone. A thin outline (1.2 px, following the notches) in the same status colour goes round the whole ticket.
+  The Recent clinics initials follow the same colours. a dashed tear line with half-circle notches top and bottom
   (`TicketBorder`), then the name, "area · N doctors" and today's hours or "Opens Wed, 18 Nov".
 
 ### S-06 Search results

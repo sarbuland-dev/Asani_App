@@ -100,7 +100,8 @@ class ClinicCard extends ConsumerWidget {
         excludeSemantics: true,
         child: Material(
           color: AppColors.surface,
-          shape: const TicketBorder(notchX: _stub, side: BorderSide(color: AppColors.border)),
+          // Thin outline in the status colour: green open, red closed, grey paused.
+          shape: TicketBorder(notchX: _stub, side: BorderSide(color: suspended ? AppColors.border : ink, width: 1.2)),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => context.push('/clinic/${clinic.id}'),
