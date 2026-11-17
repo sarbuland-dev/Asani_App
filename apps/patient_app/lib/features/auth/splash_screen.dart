@@ -6,7 +6,7 @@ import 'package:asani_ui/asani_ui.dart';
 
 import '../../core/router/app_router.dart' show splashMinDuration;
 
-/// S-01 (PRD D-25): logo, name and tagline on the teal header gradient,
+/// S-01 (PRD D-25): logo, name and tagline on the brand green,
 /// shown about 1.5 s on every launch. A spinner appears only if loading
 /// takes longer than that; after 10 s it also says to check the internet.
 class SplashScreen extends StatefulWidget {
@@ -40,8 +40,9 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primary,
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
+        decoration: const BoxDecoration(color: AppColors.primary),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(Gap.xl),
@@ -55,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 Text(
                   'Book your clinic token without the long wait.',
                   textAlign: TextAlign.center,
-                  style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9)),
+                  style: AppText.bodyLarge.copyWith(color: AppColors.primaryContainer),
                 ),
                 const SizedBox(height: Gap.xl),
                 // Same height either way, so the logo never jumps.

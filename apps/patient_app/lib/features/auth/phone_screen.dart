@@ -45,32 +45,55 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GradientHeader(
-              radius: 36,
-              padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xxxl, Gap.xl, Gap.xxxl),
-              child: Column(
-                children: [
-                  const AsaniLogoTile(size: 84),
-                  const SizedBox(height: Gap.md),
-                  Text('asani',
-                      style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: Gap.lg),
-                  Text('Book your clinic token without the long wait.',
-                      textAlign: TextAlign.center,
-                      style: AppText.titleMedium.copyWith(color: AppColors.onPrimary)),
-                ],
+            // Green header: logo, then the promise. The sign-in card overlaps its bottom edge.
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xxxl + Gap.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        const AsaniMark(size: 34, color: AppColors.onPrimary),
+                        const SizedBox(width: Gap.xs),
+                        Text('asani', style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
+                      ]),
+                      const SizedBox(height: Gap.xxl),
+                      Text('Skip the waiting room.', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
+                      const SizedBox(height: Gap.sm),
+                      Text('Book a token, watch the queue, arrive on time.',
+                          style: AppText.bodyLarge.copyWith(color: AppColors.primaryContainer)),
+                    ],
+                  ),
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(Gap.xl),
+            Transform.translate(
+              offset: const Offset(0, -Gap.xxxl),
+              child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Container(
+                  padding: const EdgeInsets.all(Gap.xl),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(Radii.card + 4),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   Text('Welcome', style: AppText.titleLarge),
                   const SizedBox(height: Gap.xs),
                   Text('Sign in with your mobile number.', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
@@ -117,11 +140,15 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                   ),
                   const SizedBox(height: Gap.md),
                   Text("We'll send a 6-digit code by SMS.", textAlign: TextAlign.center, style: AppText.bodyMedium),
-                  const SizedBox(height: Gap.xl),
+                  ],
+                  ),
+                  ),
+                  const SizedBox(height: Gap.lg),
                   if (Env.isDemo)
                     const _DemoNote(text: 'Demo mode: use 300 1234567 to see a sample family and visit history. Any 3XX number works.'),
                 ],
               ),
+            ),
             ),
           ],
         ),

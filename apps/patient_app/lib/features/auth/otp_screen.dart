@@ -108,7 +108,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kStatusBarDark,
       child: Scaffold(
-      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: FillScrollView(
           padding: const EdgeInsets.all(Gap.xl),
@@ -117,7 +116,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             children: [
               HeaderBackButton(dark: true, onPressed: _changeNumber),
               const SizedBox(height: Gap.xl),
-              const IconBox(icon: Icons.smartphone_rounded, size: 52),
+              const IconBox(icon: Icons.sms_outlined, size: 52),
               const SizedBox(height: Gap.lg),
               Text('Enter the code', style: AppText.headline),
               const SizedBox(height: Gap.sm),
@@ -220,7 +219,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: digit.isNotEmpty ? AppColors.primaryContainer.withValues(alpha: 0.5) : AppColors.surface,
+          color: digit.isNotEmpty ? AppColors.muted : AppColors.surface,
           borderRadius: BorderRadius.circular(Radii.button),
           border: Border.all(
             color: _error != null ? AppColors.danger : (active || digit.isNotEmpty ? AppColors.primary : AppColors.border),

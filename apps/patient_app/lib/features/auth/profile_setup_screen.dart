@@ -77,23 +77,21 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kStatusBarDark,
       child: Scaffold(
-      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: FillScrollView(
           padding: const EdgeInsets.all(Gap.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: HeaderBackButton(dark: true, onPressed: _saving ? () {} : _useAnotherNumber),
-              ),
+              Row(children: [
+                HeaderBackButton(dark: true, onPressed: _saving ? () {} : _useAnotherNumber),
+                const Spacer(),
+                Text('Last step', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
+              ]),
               const SizedBox(height: Gap.xl),
-              const Align(alignment: Alignment.centerLeft, child: IconBox(icon: Icons.person_outline_rounded, size: 52)),
-              const SizedBox(height: Gap.lg),
               Text('Tell us about you', style: AppText.headline),
               const SizedBox(height: Gap.sm),
-              Text('This is your own profile. Clinics will see this name on your token. You can add family members later.',
+              Text('Clinics see this name on your token. You can add family members later.',
                   style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
               const SizedBox(height: Gap.xl),
               _label('Full name'),
@@ -105,32 +103,56 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 autofillHints: const [AutofillHints.name],
                 inputFormatters: [LengthLimitingTextInputFormatter(_maxName)],
                 style: AppText.bodyLarge,
-                decoration: const InputDecoration(hintText: 'e.g. Ali Khan'),
+                decoration: const InputDecoration(hintText: 'Ali Khan'),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: Gap.lg),
-              _label('Age (years)'),
-              TextField(
-                controller: _age,
-                enabled: !_saving,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                style: AppText.bodyLarge,
-                decoration: InputDecoration(hintText: 'e.g. 28', errorText: ageInvalid ? 'Enter an age from 0 to 120' : null),
-                onChanged: (_) => setState(() {}),
-              ),
+              // Age and gender side by side when there is room; stacked on
+              // narrow phones or large text so "Female" never gets squeezed.
+              Builder(builder: (context) {
+                final age = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _label('Age (years)'),
+                  TextField(
+                    controller: _age,
+                    enabled: !_saving,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                    style: AppText.bodyLarge,
+                    decoration: InputDecoration(hintText: '28', errorText: ageInvalid ? 'Enter an age from 0 to 120' : null),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ]);
+                final gender = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _label('Gender'),
+                  _GenderPicker(value: _gender, enabled: !_saving, onChanged: (g) => setState(() => _gender = g)),
+                ]);
+                // (Screen width, not LayoutBuilder: FillScrollView measures intrinsic height.)
+                final width = MediaQuery.sizeOf(context).width - Gap.xl * 2;
+                final roomy = width >= 340 && MediaQuery.textScalerOf(context).scale(14) <= 15.5;
+                return roomy
+                    ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(child: age),
+                        const SizedBox(width: Gap.md),
+                        Expanded(flex: 2, child: gender),
+                      ])
+                    : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [age, const SizedBox(height: Gap.lg), gender]);
+              }),
               const SizedBox(height: Gap.lg),
-              _label('Gender'),
-              _GenderPicker(value: _gender, enabled: !_saving, onChanged: (g) => setState(() => _gender = g)),
-              const SizedBox(height: Gap.lg),
+              // The whole row is the tap target (48 dp+); the box lines up with the fields' left edge.
               InkWell(
                 onTap: _saving ? null : () => setState(() => _agreed = !_agreed),
                 borderRadius: BorderRadius.circular(Radii.button),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+                  padding: const EdgeInsets.symmetric(vertical: Gap.md),
                   child: Row(
                     children: [
-                      Checkbox(value: _agreed, onChanged: _saving ? null : (v) => setState(() => _agreed = v ?? false)),
+                      Checkbox(
+                        value: _agreed,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: _saving ? null : (v) => setState(() => _agreed = v ?? false),
+                      ),
+                      const SizedBox(width: Gap.sm),
                       Expanded(
                         child: Text.rich(TextSpan(style: AppText.bodyLarge, children: [
                           const TextSpan(text: 'I agree to the '),
