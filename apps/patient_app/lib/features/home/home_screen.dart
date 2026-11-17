@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -140,7 +142,7 @@ class _Header extends ConsumerWidget {
               ),
               if (tokens.isEmpty) ...[
                 const SizedBox(height: Gap.lg),
-                const _NoTokenSlip(),
+                const _HowItWorks(),
               ],
               if (tokens.isNotEmpty) ...[
                 const SizedBox(height: Gap.lg),
@@ -162,43 +164,113 @@ class _Header extends ConsumerWidget {
   }
 }
 
-/// What the token area shows when there is no active token: an outlined
-/// "ghost" slip that invites the first (or next) booking.
-class _NoTokenSlip extends ConsumerWidget {
-  const _NoTokenSlip();
+/// What the token area shows when there is no active token: "How Asani
+/// works" in three steps, with a gentle animation. The steps rise in one by
+/// one, then a highlight walks 1 → 2 → 3 (the step's icon gives a small hop)
+/// while a bar fills underneath, and starts again. Static when the OS asks
+/// for less motion. As soon as a token is active, the ticket cards replace it.
+class _HowItWorks extends ConsumerStatefulWidget {
+  const _HowItWorks();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HowItWorks> createState() => _HowItWorksState();
+}
+
+class _HowItWorksState extends ConsumerState<_HowItWorks> with TickerProviderStateMixin {
+  static const _steps = [
+    (Icons.search_rounded, 'Find a clinic'),
+    (Icons.confirmation_number_outlined, 'Book a token'),
+    (Icons.notifications_active_outlined, 'Come when called'),
+  ];
+
+  /// Steps rising in, once.
+  late final _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  /// Highlight walking over the steps, 2.2 s each, forever.
+  late final _loop = AnimationController(vsync: this, duration: const Duration(milliseconds: 6600));
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _intro.value = 1;
+      _loop.value = 0;
+    } else {
+      _intro.forward().whenComplete(() {
+        if (mounted) _loop.repeat();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    _loop.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final everBooked = (ref.watch(myTokensProvider).value ?? const []).isNotEmpty;
-    return Container(
-      padding: const EdgeInsets.all(Gap.lg),
-      decoration: BoxDecoration(
-        color: AppColors.headerChip,
-        borderRadius: BorderRadius.circular(Radii.card + 2),
-        border: Border.all(color: AppColors.primarySoft.withValues(alpha: 0.6), width: 1.2),
-      ),
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      container: true,
+      label: 'How Asani works: 1, find a clinic. 2, book a token. 3, come when you are called.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(Radii.button)),
-              child: const Icon(Icons.confirmation_number_outlined, color: AppColors.primaryContainer),
+          Text('How Asani works', style: AppText.labelLarge.copyWith(color: AppColors.onPrimary)),
+          const SizedBox(height: Gap.sm),
+          ExcludeSemantics(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_intro, _loop]),
+              builder: (context, _) {
+                // Which step is lit, and how far through it (0..1).
+                final t = _loop.value * _steps.length;
+                final active = still ? -1 : t.floor().clamp(0, _steps.length - 1);
+                final within = t - t.floor();
+                return Column(children: [
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < _steps.length; i++) ...[
+                          Expanded(child: _rise(i, _StepTile(n: i + 1, step: _steps[i], lit: i == active, hop: i == active ? within : 0))),
+                          if (i < _steps.length - 1)
+                            Center(
+                              child: Icon(Icons.chevron_right_rounded,
+                                  size: 18, color: i < active ? AppColors.onPrimary : AppColors.primarySoft),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Gap.md),
+                  // Progress bar: one segment per step, filling with the highlight.
+                  Row(children: [
+                    for (var i = 0; i < _steps.length; i++) ...[
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(Radii.pill),
+                          child: LinearProgressIndicator(
+                            value: still ? 1 : (i < active ? 1 : (i == active ? within : 0)),
+                            minHeight: 4,
+                            backgroundColor: AppColors.headerChip,
+                            valueColor: const AlwaysStoppedAnimation(AppColors.onPrimary),
+                          ),
+                        ),
+                      ),
+                      if (i < _steps.length - 1) const SizedBox(width: Gap.xs),
+                    ],
+                  ]),
+                ]);
+              },
             ),
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(everBooked ? 'No active token' : 'Book your first token',
-                    style: AppText.titleSmall.copyWith(color: AppColors.onPrimary)),
-                const SizedBox(height: 2),
-                Text('Find a clinic, pick a doctor and get your number in under a minute.',
-                    style: AppText.bodyMedium.copyWith(color: AppColors.primaryContainer)),
-              ]),
-            ),
-          ]),
-          const SizedBox(height: Gap.md),
+          ),
+          const SizedBox(height: Gap.lg),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.onPrimary,
@@ -207,10 +279,78 @@ class _NoTokenSlip extends ConsumerWidget {
             ),
             onPressed: () => context.push('/search'),
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Book a token'),
+            label: Text(everBooked ? 'Book a token' : 'Book your first token'),
           ),
         ],
       ),
+    );
+  }
+
+  /// Step [i] fades and slides up during the intro, one after another.
+  Widget _rise(int i, Widget child) {
+    final start = i * 0.2;
+    final v = Curves.easeOutCubic.transform(((_intro.value - start) / 0.6).clamp(0.0, 1.0));
+    return Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 18 * (1 - v)), child: child));
+  }
+}
+
+/// One step of "How Asani works": number, icon and a short label.
+class _StepTile extends StatelessWidget {
+  const _StepTile({required this.n, required this.step, required this.lit, required this.hop});
+  final int n;
+  final (IconData, String) step;
+  final bool lit;
+
+  /// 0..1 through the step's turn; the icon hops near the start.
+  final double hop;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, label) = step;
+    // A short up-and-down hop in the first third of the step's turn.
+    final lift = lit && hop < 0.33 ? -6 * math.sin(hop / 0.33 * math.pi) : 0.0;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: Gap.xs, vertical: Gap.md),
+      decoration: BoxDecoration(
+        color: lit ? AppColors.primaryLight : AppColors.headerChip,
+        borderRadius: BorderRadius.circular(Radii.card),
+        border: Border.all(color: lit ? AppColors.primarySoft : Colors.transparent),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Transform.translate(
+          offset: Offset(0, lift),
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(color: AppColors.onPrimary, shape: BoxShape.circle),
+              child: Icon(icon, color: AppColors.primary, size: 22),
+            ),
+            Positioned(
+              right: -6,
+              top: -4,
+              child: Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.onPrimary, width: 1.5),
+                ),
+                child: Text('$n', style: AppText.labelSmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: Gap.sm),
+        Text(label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: AppText.labelMedium.copyWith(color: AppColors.onPrimary)),
+      ]),
     );
   }
 }
