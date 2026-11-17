@@ -214,7 +214,6 @@ class _HowItWorksState extends ConsumerState<_HowItWorks> with TickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    final everBooked = (ref.watch(myTokensProvider).value ?? const []).isNotEmpty;
     final still = MediaQuery.disableAnimationsOf(context);
     return Semantics(
       container: true,
@@ -269,17 +268,6 @@ class _HowItWorksState extends ConsumerState<_HowItWorks> with TickerProviderSta
                 ]);
               },
             ),
-          ),
-          const SizedBox(height: Gap.lg),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.onPrimary,
-              foregroundColor: AppColors.primary,
-              minimumSize: const Size.fromHeight(48),
-            ),
-            onPressed: () => context.push('/search'),
-            icon: const Icon(Icons.add_rounded),
-            label: Text(everBooked ? 'Book a token' : 'Book your first token'),
           ),
         ],
       ),

@@ -240,8 +240,8 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
   code on the left and "3 ahead" + "~ 25 min · serving A-8" on the right. With more than one token, two paler
   slips peek out behind (`primaryLight`, `primarySoft`) and the slips swipe sideways, with stretching dots.
 - No active token → **"How Asani works"** in the same place: three step tiles (1 Find a clinic · 2 Book a token ·
-  3 Come when called, white icon circle with a number badge) and a white button **Book your first token** (never
-  booked) / **Book a token** (booked before) → search. Animation: the tiles rise in one after another, then a
+  3 Come when called, white icon circle with a number badge); no button (the search bar right below is the way in).
+  Animation: the tiles rise in one after another, then a
   highlight walks 1 → 2 → 3 (2.2 s each; the lit tile turns `primaryLight` and its icon hops), the arrows light up
   and a three-part bar fills underneath; it loops. Static (no highlight, bar full) with reduced motion. As soon as
   any token is active, today or a later date, the ticket cards replace it.
