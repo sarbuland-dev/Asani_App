@@ -9,6 +9,9 @@ abstract final class AppColors {
   /// Light end of the header gradient. Dark enough for white text (4.5:1).
   static const primaryMid = Color(0xFF0B5C55);
   static const primaryContainer = Color(0xFFD2E8E1);
+
+  /// Soft mid green: the back layers of the Home ticket stack, inactive dots on green.
+  static const primarySoft = Color(0xFF88B6AC);
   static const onPrimary = Color(0xFFFFFFFF);
   static const secondary = Color(0xFF0B5C55);
   static const surface = Color(0xFFFFFFFF);

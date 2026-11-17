@@ -233,6 +233,16 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
 ```
 - Multiple active tokens → banner becomes a horizontal carousel.
 
+**Design "ticket stack" (2026-11-17), replaces the wireframe above:**
+- Green header (`primary`, rounded bottom): initials avatar, greeting ("Good evening,") over the first name, city pill.
+- Active tokens sit inside the header as paper slips (`TokenTicket`): clinic + status chip (Live / Your turn /
+  Paused / Not started / the date for a later day), a dashed tear line, then "patient · doctor" and the big token
+  code on the left and "3 ahead" + "~ 25 min · serving A-8" on the right. With more than one token, two paler
+  slips peek out behind (`primaryLight`, `primarySoft`) and the slips swipe sideways, with stretching dots.
+- Below the header: search pill, follow-up cards (green tint, **Book**), **Recent clinics** as one card of rows
+  (clinic initials, name, area, Open/Closed), then **All clinics** (`ClinicCard`, now with clinic initials instead
+  of one shared hospital icon).
+
 ### S-06 Search results
 - Search field auto-focused; results filter as the user types (debounce 250 ms).
 - Empty result: "No clinic found for 'xyz'. Check the spelling or try the area name."

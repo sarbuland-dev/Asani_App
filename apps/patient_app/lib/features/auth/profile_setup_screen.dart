@@ -299,7 +299,7 @@ class _SlipPreview extends StatelessWidget {
                 Text('Preview', style: AppText.labelSmall),
               ]),
             ),
-            const _DashedLine(),
+            const DashedLine(),
             Padding(
               padding: const EdgeInsets.all(Gap.lg),
               child: Row(children: [
@@ -334,24 +334,6 @@ class _SlipPreview extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Dashed tear line, like on the real token slip.
-class _DashedLine extends StatelessWidget {
-  const _DashedLine();
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 1.5,
-        child: LayoutBuilder(
-          builder: (_, box) => Row(
-            children: List.generate(
-              (box.maxWidth / 9).floor(),
-              (_) => Container(width: 5, height: 1.5, margin: const EdgeInsets.only(right: 4), color: AppColors.border),
-            ),
-          ),
-        ),
-      );
 }
 
 /// Round − / + button next to the age field (56 dp, above the 48 dp minimum).

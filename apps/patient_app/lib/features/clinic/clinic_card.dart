@@ -35,6 +35,32 @@ import '../../data/providers.dart';
   return (open: open, label: label, hours: hours, nextOpen: nextOpen);
 }
 
+/// Clinic initials in a rounded square ("AS" for Al-Shifa Clinic): tells
+/// clinics apart at a glance, where one shared hospital icon could not.
+class ClinicInitials extends StatelessWidget {
+  const ClinicInitials({super.key, required this.name, this.active = true, this.size = 44});
+  final String name;
+  final bool active;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? AppColors.primaryContainer : AppColors.muted,
+          borderRadius: BorderRadius.circular(Radii.button),
+        ),
+        child: ExcludeSemantics(
+          child: Text(
+            Fmt.initials(name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' ')),
+            style: AppText.labelLarge.copyWith(color: active ? AppColors.primary : AppColors.textSecondary),
+          ),
+        ),
+      );
+}
+
 class ClinicCard extends ConsumerWidget {
   const ClinicCard({super.key, required this.clinic, this.highlight = ''});
   final Clinic clinic;
@@ -56,11 +82,7 @@ class ClinicCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                IconBox(
-                  icon: Icons.local_hospital_outlined,
-                  bg: info.open && !suspended ? AppColors.primaryContainer : AppColors.muted,
-                  fg: info.open && !suspended ? AppColors.primary : AppColors.textSecondary,
-                ),
+                ClinicInitials(name: clinic.name, active: info.open && !suspended),
                 const SizedBox(width: Gap.md),
                 Expanded(
                   child: Column(

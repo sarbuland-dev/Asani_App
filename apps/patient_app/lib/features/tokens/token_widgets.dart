@@ -24,6 +24,119 @@ String liveLine(Token token, QueueDay? day, int ahead) {
   }
 }
 
+/// Home ticket (DESIGN S-05, "ticket stack"): one active token drawn like a
+/// paper slip: clinic + status chip, a tear line, then the token code on the
+/// left and how far away the turn is on the right.
+class TokenTicket extends ConsumerWidget {
+  const TokenTicket({super.key, required this.token});
+  final Token token;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final doctor = ref.watch(doctorProvider(token.doctorId)).value;
+    final clinic = ref.watch(clinicProvider(token.clinicId)).value;
+    final pos = ref.watch(tokenPositionProvider(token.id)).value;
+    final called = token.status == TokenStatus.called;
+    final isToday = token.date == dayKey(pktNow());
+    final session = pos?.day.sessionStatus;
+    final running = isToday && session == SessionStatus.running;
+
+    final (chip, chipFg, chipBg, dot) = called
+        ? ('Your turn', AppColors.info, AppColors.infoContainer, true)
+        : !isToday
+            ? (Fmt.shortDay(token.date), AppColors.textSecondary, AppColors.muted, false)
+            : switch (session) {
+                SessionStatus.running => ('Live', AppColors.primary, AppColors.primaryContainer, true),
+                SessionStatus.paused => ('Paused', AppColors.warning, AppColors.warningContainer, false),
+                SessionStatus.notStarted => ('Not started', AppColors.textSecondary, AppColors.muted, false),
+                _ => ('Today', AppColors.textSecondary, AppColors.muted, false),
+              };
+
+    final serving = pos == null || pos.day.currentToken == 0 ? '—' : '${token.tokenPrefix}-${pos.day.currentToken}';
+    final String big;
+    final String small;
+    if (called) {
+      big = 'Go in now';
+      small = 'Show this at reception';
+    } else if (running) {
+      big = pos!.ahead == 0 ? "You're next" : '${pos.ahead} ahead';
+      small = '${Fmt.wait(pos.waitMinutes)} · serving $serving';
+    } else if (isToday) {
+      big = '';
+      small = liveLine(token, pos?.day, pos?.ahead ?? 0);
+    } else {
+      // A later day: the chip already shows the date.
+      big = '';
+      small = '';
+    }
+
+    final codeColor = called ? AppColors.info : AppColors.primary;
+    return Semantics(
+      button: true,
+      label: 'Token ${token.label} for ${token.patientSnapshot.name} with ${doctor?.name ?? 'the doctor'} '
+          'at ${clinic?.name ?? 'the clinic'}. $chip. $big $small',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(Radii.card + 2),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/token/${token.id}'),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(clinic?.name ?? '', style: AppText.labelLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(width: Gap.sm),
+                  Pill(label: chip, fg: chipFg, bg: chipBg, dot: dot),
+                ]),
+                const SizedBox(height: Gap.sm),
+                const DashedLine(),
+                const SizedBox(height: Gap.sm),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          '${token.patientSnapshot.name} · ${doctor?.name ?? ''}',
+                          style: AppText.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(token.label,
+                            style: AppText.displaySmall.copyWith(color: codeColor, fontWeight: FontWeight.w800, height: 1.05)),
+                      ]),
+                    ),
+                    // Only when there is something to say, so the name keeps the full width otherwise.
+                    if (big.isNotEmpty || small.isNotEmpty) ...[
+                    const SizedBox(width: Gap.sm),
+                    Flexible(
+                      flex: 2,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        if (big.isNotEmpty)
+                          Text(big, style: AppText.titleMedium.copyWith(color: called ? AppColors.info : AppColors.textPrimary), maxLines: 1),
+                        if (small.isNotEmpty)
+                          Text(small, style: AppText.bodyMedium, textAlign: TextAlign.right, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ]),
+                    ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Home banner for an active token (DESIGN S-05).
 class ActiveTokenBanner extends ConsumerWidget {
   const ActiveTokenBanner({super.key, required this.token});

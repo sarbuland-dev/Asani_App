@@ -157,6 +157,25 @@ class ButtonSpinner extends StatelessWidget {
       );
 }
 
+/// Dashed tear line, like on a paper token slip.
+class DashedLine extends StatelessWidget {
+  const DashedLine({super.key, this.color = AppColors.border});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 1.5,
+        child: LayoutBuilder(
+          builder: (_, box) => Row(
+            children: List.generate(
+              (box.maxWidth / 9).floor(),
+              (_) => Container(width: 5, height: 1.5, margin: const EdgeInsets.only(right: 4), color: color),
+            ),
+          ),
+        ),
+      );
+}
+
 /// Round translucent back button used on gradient headers.
 class HeaderBackButton extends StatelessWidget {
   const HeaderBackButton({super.key, this.onPressed, this.icon = Icons.chevron_left_rounded, this.dark = false});
