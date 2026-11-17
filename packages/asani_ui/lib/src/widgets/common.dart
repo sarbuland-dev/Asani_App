@@ -377,7 +377,12 @@ class StatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+          // One line, shrinking only if it must ("Now serving" never breaks in two).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(label, maxLines: 1, softWrap: false, style: AppText.labelSmall.copyWith(color: AppColors.textSecondary)),
+          ),
           const SizedBox(height: Gap.xs),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),

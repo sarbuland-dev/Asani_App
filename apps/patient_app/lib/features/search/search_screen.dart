@@ -146,7 +146,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: Gap.md),
                             child: Text(
-                              '${results.length} ${results.length == 1 ? 'clinic' : 'clinics'} found',
+                              '${results.length} ${results.length == 1 ? 'clinic' : 'clinics'} in $city',
                               style: AppText.bodyMedium,
                             ),
                           ),

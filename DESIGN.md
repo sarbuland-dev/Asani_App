@@ -278,6 +278,11 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
 └──────────────────────────────┘
 ```
 - Suspended clinic: banner "Online booking is not available for this clinic right now." All book buttons hidden.
+- Look (2026-11-17): flat green header with rounded bottom, clinic initials on a white tile, address in the green
+  tint, white **Call** / **Directions** pills. Doctor cards: initials avatar, name + letter badge, speciality,
+  availability pill, then three equal-height tiles (Now serving · Waiting · Est. wait; labels never wrap) and a
+  full-width **Book token** button; doctors who can't be booked today get an outlined **Book another day**.
+  No all-caps "LIVE QUEUE" label; a paused queue shows "Queue is paused for a moment".
 
 ### S-08 Booking: Who is the patient?
 - Title: "Who is the patient?"

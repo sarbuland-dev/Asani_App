@@ -50,7 +50,8 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
     }
     final now = nowFrom(ref);
 
-    return Scaffold(
+    return StatusBarScrim(
+      child: Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _ClinicHeader(clinic: clinic)),
@@ -75,7 +76,8 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
                 ),
               Row(children: [
                 Expanded(child: Text('Choose a doctor', style: AppText.titleLarge)),
-                Text(Fmt.relativeDay(dayKey(now)).replaceFirst('Today, ', 'Today, ${_weekday(now)} '), style: AppText.labelSmall),
+                Text(Fmt.relativeDay(dayKey(now)).replaceFirst('Today, ', 'Today, ${_weekday(now)} '),
+                    style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
               ]),
               const SizedBox(height: Gap.md),
               ...doctorsAsync.when(
@@ -89,7 +91,7 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   String _weekday(DateTime d) => const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d.weekday - 1];
@@ -101,8 +103,16 @@ class _ClinicHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GradientHeader(
-      child: Column(
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, Gap.xl),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const HeaderBackButton(),
@@ -111,8 +121,14 @@ class _ClinicHeader extends StatelessWidget {
             Container(
               width: 56,
               height: 56,
+              alignment: Alignment.center,
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(Radii.card)),
-              child: const Icon(Icons.local_hospital_outlined, color: AppColors.primary, size: 28),
+              child: ExcludeSemantics(
+                child: Text(
+                  Fmt.initials(clinic.name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' ')),
+                  style: AppText.titleMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
             const SizedBox(width: Gap.md),
             Expanded(
@@ -123,8 +139,7 @@ class _ClinicHeader extends StatelessWidget {
                   const Icon(Icons.location_on_outlined, size: 16, color: AppColors.onPrimary),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(clinic.address,
-                        style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
+                    child: Text(clinic.address, style: AppText.bodyMedium.copyWith(color: AppColors.primaryContainer)),
                   ),
                 ]),
               ]),
@@ -141,6 +156,8 @@ class _ClinicHeader extends StatelessWidget {
             ),
           ]),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -231,14 +248,12 @@ class _DoctorCard extends ConsumerWidget {
               ),
               if (availability == DoctorAvailability.available && running && day != null) ...[
                 const SizedBox(height: Gap.md),
-                Row(children: [
-                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text(day.sessionStatus == SessionStatus.paused ? 'QUEUE PAUSED' : 'LIVE QUEUE',
-                      style: AppText.overline.copyWith(color: AppColors.primary)),
-                ]),
-                const SizedBox(height: Gap.sm),
-                Row(children: [
+                if (day.sessionStatus == SessionStatus.paused) ...[
+                  Text('Queue is paused for a moment', style: AppText.labelMedium.copyWith(color: AppColors.warning)),
+                  const SizedBox(height: Gap.sm),
+                ],
+                // Equal-height tiles even when one value is longer ("Any moment").
+                IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Expanded(
                     child: StatTile(
                         label: 'Now serving',
@@ -254,24 +269,27 @@ class _DoctorCard extends ConsumerWidget {
                         value: Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes)),
                         big: false),
                   ),
-                ]),
+                ])),
               ],
               if (canBookClinic) ...[
+                if (availability == DoctorAvailability.notStarted && day != null && day.bookedCount > 0) ...[
+                  const SizedBox(height: Gap.sm),
+                  Text('${day.bookedCount} tokens booked so far', style: AppText.labelSmall),
+                ],
                 const SizedBox(height: Gap.md),
-                Row(children: [
-                  if (availability == DoctorAvailability.notStarted && day != null && day.bookedCount > 0)
-                    Expanded(child: Text('${day.bookedCount} tokens booked so far', style: AppText.labelSmall))
-                  else
-                    const Spacer(),
-                  if (availability.canBook)
-                    _BookButton(onTap: () => context.push('/book/${clinic.id}/${doctor.id}'))
-                  else
-                    OutlinedButton.icon(
-                      onPressed: () => context.push('/book/${clinic.id}/${doctor.id}'),
-                      icon: const Icon(Icons.event_outlined, size: 18),
-                      label: const Text('Book another day'),
-                    ),
-                ]),
+                if (availability.canBook)
+                  FilledButton(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: () => context.push('/book/${clinic.id}/${doctor.id}'),
+                    child: const Text('Book token'),
+                  )
+                else
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: () => context.push('/book/${clinic.id}/${doctor.id}'),
+                    icon: const Icon(Icons.event_outlined, size: 18),
+                    label: const Text('Book another day'),
+                  ),
               ],
             ],
           ),
@@ -279,28 +297,4 @@ class _DoctorCard extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _BookButton extends StatelessWidget {
-  const _BookButton({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.pill),
-        child: Padding(
-          padding: const EdgeInsets.only(left: Gap.md),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text('Book token', style: AppText.labelLarge.copyWith(color: AppColors.primary)),
-            const SizedBox(width: Gap.sm),
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-              child: const Icon(Icons.arrow_forward_rounded, color: AppColors.onPrimary),
-            ),
-          ]),
-        ),
-      );
 }
