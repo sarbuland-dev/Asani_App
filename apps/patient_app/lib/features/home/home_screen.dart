@@ -95,7 +95,7 @@ class _Header extends ConsumerWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, tokens.isEmpty ? Gap.xl : Gap.md),
+          padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, Gap.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -138,6 +138,10 @@ class _Header extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (tokens.isEmpty) ...[
+                const SizedBox(height: Gap.lg),
+                const _NoTokenSlip(),
+              ],
               if (tokens.isNotEmpty) ...[
                 const SizedBox(height: Gap.lg),
                 Row(children: [
@@ -153,6 +157,59 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// What the token area shows when there is no active token: an outlined
+/// "ghost" slip that invites the first (or next) booking.
+class _NoTokenSlip extends ConsumerWidget {
+  const _NoTokenSlip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final everBooked = (ref.watch(myTokensProvider).value ?? const []).isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: AppColors.headerChip,
+        borderRadius: BorderRadius.circular(Radii.card + 2),
+        border: Border.all(color: AppColors.primarySoft.withValues(alpha: 0.6), width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(Radii.button)),
+              child: const Icon(Icons.confirmation_number_outlined, color: AppColors.primaryContainer),
+            ),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(everBooked ? 'No active token' : 'Book your first token',
+                    style: AppText.titleSmall.copyWith(color: AppColors.onPrimary)),
+                const SizedBox(height: 2),
+                Text('Find a clinic, pick a doctor and get your number in under a minute.',
+                    style: AppText.bodyMedium.copyWith(color: AppColors.primaryContainer)),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: Gap.md),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.onPrimary,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            onPressed: () => context.push('/search'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Book a token'),
+          ),
+        ],
       ),
     );
   }
@@ -185,7 +242,9 @@ class _TicketStackState extends State<_TicketStack> {
     // Grows with the user's text size (body-text factor: Android 14+ scales
     // big sizes less, so a factor from a big size would come out too small).
     final f = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final ticketHeight = 64 + 84 * f;
+    // Matches the ticket's content (padding, chip row, tear line, name line,
+    // token code) so the slip hugs it with no empty band.
+    final ticketHeight = 50 + 76 * f;
     const peek = 20.0;
     final page = _page.clamp(0, tokens.length - 1);
 

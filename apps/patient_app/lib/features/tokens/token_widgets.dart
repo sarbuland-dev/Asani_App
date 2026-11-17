@@ -85,6 +85,8 @@ class TokenTicket extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.md),
             child: Column(
+              // Hug the content: no empty white band under the token code.
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(children: [
@@ -122,7 +124,7 @@ class TokenTicket extends ConsumerWidget {
                         if (big.isNotEmpty)
                           Text(big, style: AppText.titleMedium.copyWith(color: called ? AppColors.info : AppColors.textPrimary), maxLines: 1),
                         if (small.isNotEmpty)
-                          Text(small, style: AppText.bodyMedium, textAlign: TextAlign.right, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          Text(small, style: AppText.bodyMedium, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis),
                       ]),
                     ),
                     ],
