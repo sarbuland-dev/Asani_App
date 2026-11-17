@@ -192,7 +192,11 @@ Skip or Get started → S-02. Not shown again after sign-out.
 - "Wrong number? Change" link back to S-02.
 
 ### S-04 Tell us about you (first login only)
-- Full name, Age (years, 0–120), Gender (Male / Female / Other) — D-15.
+Design "Live slip preview" (2026-11-17): green header ("Last step" chip, "This is how clinics will see you."), and a
+token-slip card overlapping it that fills in as the user types (initials avatar, name, "Self · age · gender").
+- Full name (person icon), Age (years, 0–120) with round − / + buttons either side of the field, Gender as three big
+  icon tiles (Male / Female / Other) — D-15.
+- Consent and **Continue** stay pinned at the bottom; the form scrolls above them.
 - "Use another number" text button signs out.
 - Checkbox: "I agree to the **Terms** and **Privacy Policy**" (links open in-app browser).
 - [Continue] enabled when name ≥ 2 chars and checkbox ticked.
