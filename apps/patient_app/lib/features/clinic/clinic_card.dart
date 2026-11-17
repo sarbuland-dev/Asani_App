@@ -61,10 +61,16 @@ class ClinicInitials extends StatelessWidget {
       );
 }
 
+/// Clinic as a paper ticket (Home "All clinics", search results): a tinted
+/// stub with the clinic initials and Open / Closed, a dashed tear line with
+/// two notches, then name, area and doctors, and today's hours or when it
+/// next opens.
 class ClinicCard extends ConsumerWidget {
   const ClinicCard({super.key, required this.clinic, this.highlight = ''});
   final Clinic clinic;
   final String highlight;
+
+  static const _stub = 78.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,73 +78,106 @@ class ClinicCard extends ConsumerWidget {
     final doctors = ref.watch(doctorsByClinicProvider).value?[clinic.id] ?? const <Doctor>[];
     final info = clinicOpenInfo(doctors, now);
     final suspended = !clinic.status.acceptsBookings;
+    final open = info.open && !suspended;
+    final status = suspended ? 'Paused' : (open ? 'Open' : 'Closed');
+    final when = suspended ? 'Online booking not available' : (info.hours ?? info.nextOpen ?? info.label);
+    final doctorsText = '${clinic.doctorCount} ${clinic.doctorCount == 1 ? 'doctor' : 'doctors'}';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.md),
-      child: AppCard(
-        onTap: () => context.push('/clinic/${clinic.id}'),
-        padding: const EdgeInsets.all(Gap.md + 2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                ClinicInitials(name: clinic.name, active: info.open && !suspended),
-                const SizedBox(width: Gap.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _HighlightText(clinic.name, highlight, AppText.titleMedium),
-                      const SizedBox(height: 2),
-                      Row(children: [
-                        const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 2),
-                        Flexible(
-                          child: Text(
-                            '${clinic.area} · ${clinic.doctorCount} ${clinic.doctorCount == 1 ? 'doctor' : 'doctors'}',
-                            style: AppText.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
+      child: Semantics(
+        button: true,
+        label: '${clinic.name}, ${clinic.area}, $doctorsText. ${open ? info.label : status}. $when',
+        excludeSemantics: true,
+        child: Material(
+          color: AppColors.surface,
+          shape: const TicketBorder(notchX: _stub, side: BorderSide(color: AppColors.border)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => context.push('/clinic/${clinic.id}'),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Stub: initials + open state.
+                  Container(
+                    width: _stub,
+                    color: open ? AppColors.primaryContainer : AppColors.muted,
+                    padding: const EdgeInsets.symmetric(vertical: Gap.lg, horizontal: Gap.xs),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          Fmt.initials(clinic.name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' ')),
+                          style: AppText.titleLarge.copyWith(
+                              color: open ? AppColors.primary : AppColors.textSecondary, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: Gap.xs),
+                        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle, color: open ? AppColors.success : AppColors.textSecondary),
                           ),
-                        ),
-                      ]),
-                    ],
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(status,
+                                maxLines: 1,
+                                overflow: TextOverflow.fade,
+                                softWrap: false,
+                                style: AppText.labelSmall.copyWith(
+                                    color: open ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w700)),
+                          ),
+                        ]),
+                      ],
+                    ),
                   ),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-              ],
-            ),
-            const SizedBox(height: Gap.sm),
-            Row(
-              children: [
-                if (suspended)
-                  const Flexible(child: Pill(label: 'Online booking not available', fg: AppColors.textSecondary, bg: AppColors.muted))
-                else
-                  Text.rich(
-                    TextSpan(children: [
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle, color: info.open ? AppColors.success : AppColors.textMuted),
-                        ),
-                      ),
-                      TextSpan(text: info.label),
-                    ]),
-                    style: AppText.labelSmall.copyWith(
-                        color: info.open ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w600),
+                  // Tear line, between the two notches.
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: Gap.md),
+                    child: DashedLine(axis: Axis.vertical),
                   ),
-                const SizedBox(width: Gap.sm),
-                if (!suspended && (info.hours ?? info.nextOpen) != null)
                   Expanded(
-                    child: Text(info.hours ?? info.nextOpen!,
-                        style: AppText.labelSmall, textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.xs, Gap.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _HighlightText(clinic.name, highlight, AppText.titleMedium),
+                          const SizedBox(height: 2),
+                          Row(children: [
+                            const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text('${clinic.area} · $doctorsText',
+                                  style: AppText.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ]),
+                          const SizedBox(height: Gap.sm),
+                          Row(children: [
+                            Icon(open ? Icons.schedule_rounded : Icons.event_outlined, size: 14, color: AppColors.textSecondary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(when,
+                                  style: AppText.labelSmall.copyWith(color: AppColors.textPrimary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ]),
+                        ],
+                      ),
+                    ),
                   ),
-              ],
+                  const Padding(
+                    padding: EdgeInsets.only(right: Gap.sm),
+                    child: Center(child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted)),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

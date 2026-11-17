@@ -158,22 +158,77 @@ class ButtonSpinner extends StatelessWidget {
 }
 
 /// Dashed tear line, like on a paper token slip.
+/// Painted, so it also works inside IntrinsicHeight / IntrinsicWidth.
 class DashedLine extends StatelessWidget {
-  const DashedLine({super.key, this.color = AppColors.border});
+  const DashedLine({super.key, this.color = AppColors.border, this.axis = Axis.horizontal});
   final Color color;
+  final Axis axis;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: 1.5,
-        child: LayoutBuilder(
-          builder: (_, box) => Row(
-            children: List.generate(
-              (box.maxWidth / 9).floor(),
-              (_) => Container(width: 5, height: 1.5, margin: const EdgeInsets.only(right: 4), color: color),
-            ),
-          ),
-        ),
+        width: axis == Axis.horizontal ? double.infinity : 1.5,
+        height: axis == Axis.horizontal ? 1.5 : double.infinity,
+        child: CustomPaint(painter: _DashPainter(color, axis)),
       );
+}
+
+class _DashPainter extends CustomPainter {
+  _DashPainter(this.color, this.axis);
+  final Color color;
+  final Axis axis;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = color;
+    final length = axis == Axis.horizontal ? size.width : size.height;
+    for (double d = 0; d < length; d += 9) {
+      final rect = axis == Axis.horizontal
+          ? Rect.fromLTWH(d, 0, 5, size.height)
+          : Rect.fromLTWH(0, d, size.width, 5);
+      canvas.drawRect(rect, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashPainter old) => old.color != color || old.axis != axis;
+}
+
+/// A paper-ticket outline: rounded corners with two half-circle notches cut
+/// into the top and bottom edges at [notchX] (where the stub tears off).
+/// Use as a Material `shape` so ink splashes and clipping follow it.
+class TicketBorder extends ShapeBorder {
+  const TicketBorder({this.notchX = 76, this.notchRadius = 8, this.radius = Radii.card, this.side = BorderSide.none});
+  final double notchX;
+  final double notchRadius;
+  final double radius;
+  final BorderSide side;
+
+  Path _path(Rect r) {
+    final body = Path()..addRRect(RRect.fromRectAndRadius(r, Radius.circular(radius)));
+    final notches = Path()
+      ..addOval(Rect.fromCircle(center: Offset(r.left + notchX, r.top), radius: notchRadius))
+      ..addOval(Rect.fromCircle(center: Offset(r.left + notchX, r.bottom), radius: notchRadius));
+    return Path.combine(PathOperation.difference, body, notches);
+  }
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(side.width);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => _path(rect.deflate(side.width));
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) => _path(rect);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (side.style == BorderStyle.none) return;
+    canvas.drawPath(_path(rect.deflate(side.width / 2)), side.toPaint());
+  }
+
+  @override
+  ShapeBorder scale(double t) =>
+      TicketBorder(notchX: notchX * t, notchRadius: notchRadius * t, radius: radius * t, side: side.scale(t));
 }
 
 /// Round translucent back button used on gradient headers.

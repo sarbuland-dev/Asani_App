@@ -246,8 +246,10 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
   and a three-part bar fills underneath; it loops. Static (no highlight, bar full) with reduced motion. As soon as
   any token is active, today or a later date, the ticket cards replace it.
 - Below the header: search pill, follow-up cards (green tint, **Book**), **Recent clinics** as one card of rows
-  (clinic initials, name, area, Open/Closed), then **All clinics** (`ClinicCard`, now with clinic initials instead
-  of one shared hospital icon).
+  (clinic initials, name, area, Open/Closed), then **All clinics**.
+- **Clinic cards are tickets** (`ClinicCard`, also in search results): a tinted stub (green when open, grey when
+  closed) with the clinic initials and "Open" / "Closed", a dashed tear line with half-circle notches top and bottom
+  (`TicketBorder`), then the name, "area · N doctors" and today's hours or "Opens Wed, 18 Nov".
 
 ### S-06 Search results
 - Search field auto-focused; results filter as the user types (debounce 250 ms).
