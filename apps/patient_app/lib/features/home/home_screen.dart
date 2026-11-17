@@ -592,7 +592,7 @@ class _RecentRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
         child: Row(children: [
-          ClinicInitials(clinicId: clinic.id, name: clinic.name),
+          ClinicInitials(name: clinic.name, open: open, suspended: suspended),
           const SizedBox(width: Gap.md),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

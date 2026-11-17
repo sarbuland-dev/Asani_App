@@ -35,17 +35,13 @@ import '../../data/providers.dart';
   return (open: open, label: label, hours: hours, nextOpen: nextOpen);
 }
 
-/// The clinic's own tint + ink (stable: same clinic, same colour).
-/// FNV-1a over the id, kept in 32 bits so phones and web pick the same colour
-/// (the multiply is split so it never exceeds JavaScript's exact-integer range).
-(Color, Color) clinicTint(String clinicId) {
-  var h = 0x811c9dc5;
-  for (final c in clinicId.codeUnits) {
-    h = (h ^ c) & 0xffffffff;
-    h = (((h << 24) & 0xffffffff) + h * 0x193) & 0xffffffff;
-  }
-  return AppColors.clinicTints[h % AppColors.clinicTints.length];
-}
+/// Stub / initials colours by status: open = green, closed = red,
+/// online booking paused = grey. Text is the dark shade of the same colour.
+(Color, Color) clinicStatusColors({required bool open, bool suspended = false}) => suspended
+    ? (AppColors.muted, AppColors.textSecondary)
+    : open
+        ? (AppColors.successContainer, AppColors.success)
+        : (AppColors.dangerContainer, AppColors.danger);
 
 /// "AS" for Al-Shifa Clinic: initials without words like Clinic / Medical.
 String clinicInitials(String name) =>
@@ -54,14 +50,15 @@ String clinicInitials(String name) =>
 /// Clinic initials in a rounded square ("AS" for Al-Shifa Clinic): tells
 /// clinics apart at a glance, where one shared hospital icon could not.
 class ClinicInitials extends StatelessWidget {
-  const ClinicInitials({super.key, required this.clinicId, required this.name, this.size = 44});
-  final String clinicId;
+  const ClinicInitials({super.key, required this.name, required this.open, this.suspended = false, this.size = 44});
   final String name;
+  final bool open;
+  final bool suspended;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final (tint, ink) = clinicTint(clinicId);
+    final (tint, ink) = clinicStatusColors(open: open, suspended: suspended);
     return Container(
       width: size,
       height: size,
@@ -93,7 +90,7 @@ class ClinicCard extends ConsumerWidget {
     final status = suspended ? 'Paused' : (open ? 'Open' : 'Closed');
     final when = suspended ? 'Online booking not available' : (info.hours ?? info.nextOpen ?? info.label);
     final doctorsText = '${clinic.doctorCount} ${clinic.doctorCount == 1 ? 'doctor' : 'doctors'}';
-    final (tint, ink) = clinicTint(clinic.id);
+    final (tint, ink) = clinicStatusColors(open: open, suspended: suspended);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.md),
