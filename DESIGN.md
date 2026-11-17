@@ -247,8 +247,10 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
   any token is active, today or a later date, the ticket cards replace it.
 - Below the header: search pill, follow-up cards (green tint, **Book**), **Recent clinics** as one card of rows
   (clinic initials, name, area, Open/Closed), then **All clinics**.
-- **Clinic cards are tickets** (`ClinicCard`, also in search results): a tinted stub (green when open, grey when
-  closed) with the clinic initials and "Open" / "Closed", a dashed tear line with half-circle notches top and bottom
+- **Clinic cards are tickets** (`ClinicCard`, also in search results): a stub in the clinic's own soft colour
+  (`AppColors.clinicTints`: mint, sky, lavender, peach, sand, rose, teal; picked from the clinic id with FNV-1a, so a
+  clinic always gets the same colour; ink ≥ 4.5:1) with the clinic initials and "● Open" (solid dot) / "○ Closed"
+  (hollow ring). The same colour is used for that clinic's initials under Recent clinics. a dashed tear line with half-circle notches top and bottom
   (`TicketBorder`), then the name, "area · N doctors" and today's hours or "Opens Wed, 18 Nov".
 
 ### S-06 Search results

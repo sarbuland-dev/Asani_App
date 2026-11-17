@@ -40,6 +40,19 @@ abstract final class AppColors {
   /// (white text 7.8:1).
   static const headerChip = Color(0xFF0B5C55);
   static const avatarWarm = Color(0xFFFEF3C7);
+
+  /// Soft tint + dark ink pairs for clinic tickets / initials, one per clinic
+  /// (picked from the clinic id, so a clinic keeps its colour). Every ink is
+  /// at least 4.5:1 on its tint.
+  static const clinicTints = <(Color, Color)>[
+    (Color(0xFFD2E8E1), Color(0xFF004741)), // mint
+    (Color(0xFFDCEBF8), Color(0xFF0C447C)), // sky
+    (Color(0xFFE7E4FA), Color(0xFF3C3489)), // lavender
+    (Color(0xFFFBE1D3), Color(0xFF8A3E1A)), // peach
+    (Color(0xFFF6E9C9), Color(0xFF6B4A0B)), // sand
+    (Color(0xFFF9DDE6), Color(0xFF872C4C)), // rose
+    (Color(0xFFD7EEF0), Color(0xFF0E5560)), // teal
+  ];
   static const avatarCool = Color(0xFFE0E7FF);
 
   /// Header gradient used across screens (UI design).

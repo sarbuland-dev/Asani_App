@@ -35,30 +35,41 @@ import '../../data/providers.dart';
   return (open: open, label: label, hours: hours, nextOpen: nextOpen);
 }
 
+/// The clinic's own tint + ink (stable: same clinic, same colour).
+/// FNV-1a over the id, kept in 32 bits so phones and web pick the same colour
+/// (the multiply is split so it never exceeds JavaScript's exact-integer range).
+(Color, Color) clinicTint(String clinicId) {
+  var h = 0x811c9dc5;
+  for (final c in clinicId.codeUnits) {
+    h = (h ^ c) & 0xffffffff;
+    h = (((h << 24) & 0xffffffff) + h * 0x193) & 0xffffffff;
+  }
+  return AppColors.clinicTints[h % AppColors.clinicTints.length];
+}
+
+/// "AS" for Al-Shifa Clinic: initials without words like Clinic / Medical.
+String clinicInitials(String name) =>
+    Fmt.initials(name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' '));
+
 /// Clinic initials in a rounded square ("AS" for Al-Shifa Clinic): tells
 /// clinics apart at a glance, where one shared hospital icon could not.
 class ClinicInitials extends StatelessWidget {
-  const ClinicInitials({super.key, required this.name, this.active = true, this.size = 44});
+  const ClinicInitials({super.key, required this.clinicId, required this.name, this.size = 44});
+  final String clinicId;
   final String name;
-  final bool active;
   final double size;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? AppColors.primaryContainer : AppColors.muted,
-          borderRadius: BorderRadius.circular(Radii.button),
-        ),
-        child: ExcludeSemantics(
-          child: Text(
-            Fmt.initials(name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' ')),
-            style: AppText.labelLarge.copyWith(color: active ? AppColors.primary : AppColors.textSecondary),
-          ),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final (tint, ink) = clinicTint(clinicId);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(Radii.button)),
+      child: ExcludeSemantics(child: Text(clinicInitials(name), style: AppText.labelLarge.copyWith(color: ink))),
+    );
+  }
 }
 
 /// Clinic as a paper ticket (Home "All clinics", search results): a tinted
@@ -82,6 +93,7 @@ class ClinicCard extends ConsumerWidget {
     final status = suspended ? 'Paused' : (open ? 'Open' : 'Closed');
     final when = suspended ? 'Online booking not available' : (info.hours ?? info.nextOpen ?? info.label);
     final doctorsText = '${clinic.doctorCount} ${clinic.doctorCount == 1 ? 'doctor' : 'doctors'}';
+    final (tint, ink) = clinicTint(clinic.id);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.md),
@@ -102,23 +114,23 @@ class ClinicCard extends ConsumerWidget {
                   // Stub: initials + open state.
                   Container(
                     width: _stub,
-                    color: open ? AppColors.primaryContainer : AppColors.muted,
+                    color: tint,
                     padding: const EdgeInsets.symmetric(vertical: Gap.lg, horizontal: Gap.xs),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          Fmt.initials(clinic.name.replaceAll(RegExp(r'\b(Clinic|Medical|Hospital|Centre|Center)\b'), '').replaceAll('-', ' ')),
-                          style: AppText.titleLarge.copyWith(
-                              color: open ? AppColors.primary : AppColors.textSecondary, fontWeight: FontWeight.w800),
-                        ),
+                        Text(clinicInitials(clinic.name),
+                            style: AppText.titleLarge.copyWith(color: ink, fontWeight: FontWeight.w800)),
                         const SizedBox(height: Gap.xs),
                         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Container(
                             width: 7,
                             height: 7,
+                            // Open = solid dot, closed = hollow ring: not colour alone.
                             decoration: BoxDecoration(
-                                shape: BoxShape.circle, color: open ? AppColors.success : AppColors.textSecondary),
+                                shape: BoxShape.circle,
+                                color: open ? ink : null,
+                                border: open ? null : Border.all(color: ink, width: 1.5)),
                           ),
                           const SizedBox(width: 4),
                           Flexible(
@@ -126,8 +138,7 @@ class ClinicCard extends ConsumerWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.fade,
                                 softWrap: false,
-                                style: AppText.labelSmall.copyWith(
-                                    color: open ? AppColors.success : AppColors.textSecondary, fontWeight: FontWeight.w700)),
+                                style: AppText.labelSmall.copyWith(color: ink, fontWeight: FontWeight.w700)),
                           ),
                         ]),
                       ],
