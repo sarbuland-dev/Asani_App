@@ -65,7 +65,7 @@ Design for older and less tech-comfortable users: large text, few steps, clear s
 Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2** = later
 
 ### F-01 Phone OTP login (P0)
-- On the very first launch, three short intro pages explain the app before login; they can be skipped and are not shown again (D-16).
+- On the very first launch, three short intro pages explain the app before login; they can be skipped and are not shown again (D-29).
 - User enters a Pakistani mobile number (`+92` prefix fixed, 10 digits after it, starting with `3`).
 - Receives a 6-digit OTP via Firebase Phone Auth; auto-read on Android where possible.
 - Resend OTP after 60 seconds. Clear error messages for wrong code, expired code, too many attempts.
@@ -230,7 +230,9 @@ Rules:
 | D-25 | 2026-11-14 | **Splash on every launch.** S-01 (logo, "asani", tagline on teal) stays about **1.5 s** on every app start, longer only while login state loads. The Android system splash (before Flutter) is the same teal with the white "a" mark, also on Android 12+. A notification tap that opens a token is not held back. |
 | D-26 | 2026-11-14 | **Arrived only after the slip check.** On the clinic web every "Arrived" (board row, token panel, check-in by code) opens the check-in dialog with the patient's token slip; the token is marked Arrived and the form printed only when the receptionist confirms **"Slip matches · Arrived & Print"**. The row/panel button is called **Check in**. |
 | D-27 | 2026-11-14 | **Closed now + session over.** A clinic shows **"Closed now"** (not "Open today") once every doctor working today is past their session end time; "Open now" is the search filter. A today token leaves **Active** (Home banner, My Tokens) **1 hour after its doctor's session end time**, or when the clinic ended the session; it then shows under Past as **"Session over"** until the 3 AM job (D-21) closes it. |
-| D-28 | 2026-11-14 | **Intro pages removed** (replaces D-16). App start is Splash (S-01) → phone login, or Home when signed in. |
+| D-28 | 2026-11-14 | **Intro pages removed** (replaces D-16). App start is Splash (S-01) → phone login, or Home when signed in. *(Replaced by D-29.)* |
+| D-29 | 2026-11-17 | **Intro pages back** (replaces D-28), in the **"Bold type"** style: three skippable pages on the first launch only, before phone login ("Book your token." · "Wait at home." · "Go when called."). Stored on the device (`introSeen`). |
+| D-30 | 2026-11-17 | **New brand colours.** Logo is forest green `#004741` + cream; the app uses palette **"Monochrome green"** (shades of `#004741`). **Dark mode is approved** (closes Q-07); it follows the phone's setting, no in-app switch. Built screen by screen after the light palette. |
 
 ## 10. Open questions (confirm before building the related part)
 
@@ -242,4 +244,4 @@ Rules:
 | Q-04 | Should patients be allowed to book after the doctor's session has started? (Currently yes, until end time.) | F-04 |
 | Q-05 | Max active tokens per account: is 5 right? | F-04 |
 | Q-06 | Domain name for deep links and policy pages (`asani.app` is a placeholder) | F-11, store release |
-| Q-07 | Dark mode in Phase 1? (Currently light only.) | DESIGN |
+| ~~Q-07~~ | ~~Dark mode in Phase 1?~~ **Closed**: yes, follows the phone setting (D-30). | DESIGN |

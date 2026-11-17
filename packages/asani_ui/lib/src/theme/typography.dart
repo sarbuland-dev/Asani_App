@@ -18,6 +18,8 @@ abstract final class AppText {
   static TextStyle get tokenDisplayMedium => _inter(64, FontWeight.w800, color: AppColors.primary, height: 1.0);
   static TextStyle get tokenDisplaySmall => _inter(48, FontWeight.w800, color: AppColors.primary, height: 1.0);
   /// Big page title on full-screen steps ("Enter the code", "Pick a date").
+  /// Intro pages: one big idea per page ("Book your token.").
+  static TextStyle get displayLarge => _inter(46, FontWeight.w800, height: 1.04).copyWith(letterSpacing: -1.2);
   static TextStyle get headline => _inter(28, FontWeight.w700, height: 1.15);
   static TextStyle get displaySmall => _inter(32, FontWeight.w700, height: 1.1);
   static TextStyle get titleLarge => _inter(22, FontWeight.w700, height: 1.2);

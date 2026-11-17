@@ -18,7 +18,10 @@ UI/UX specification for the patient app (Android + iOS). Behaviour rules live in
 
 - **Name:** Asani (Urdu: "ease"). Wordmark: "asani" in lowercase, bold.
 - **Tone of copy:** short, polite, direct. "Your turn now", not "It is now your turn to be seen by the doctor."
-- **App icon:** the lowercase "a" monogram with a small plus in its counter, white on primary (D-12). Source: `branding/logo-06/`.
+- **Logo (2026-11-17):** a one-colour lowercase "a" (open bowl, stem, tail swinging up) + "asani" wordmark, in forest
+  green `#004741` on cream `#F0EDE4`, or cream on green. No plus in the bowl any more. In the app it is drawn by
+  `AsaniMark` (`packages/asani_ui`). The launcher icon and Android system splash still use the old mark and teal:
+  they need new image files (open item).
 
 ---
 
@@ -30,23 +33,30 @@ All values live in `lib/core/theme/`. Widgets must use tokens, never raw values.
 
 | Token | Hex | Use |
 |---|---|---|
-| `primary` | `#0F766E` | Buttons, active states, token number |
-| `primaryContainer` | `#CCFBF1` | Selected chips, active token banner background |
+Palette **6 · Monochrome green** (2026-11-17): only shades of the logo green, plus red/amber/blue kept for
+status meaning. Dark mode values are agreed (mockups, D-30) and get their own tokens when dark mode is built.
+
+| `primary` | `#004741` | Logo green: headers, buttons, active states, token number |
+| `primaryContainer` | `#D2E8E1` | Selected chips, active token banner background |
 | `onPrimary` | `#FFFFFF` | Text on primary |
-| `secondary` | `#1E3A8A` | Links, secondary actions |
+| `secondary` | `#0B5C55` | Links, secondary actions |
 | `surface` | `#FFFFFF` | Cards |
-| `background` | `#F6F8F7` | Screen background |
-| `textPrimary` | `#0F172A` | Headings, body |
-| `textSecondary` | `#475569` | Captions, labels |
-| `border` | `#E2E8F0` | Card borders, dividers |
-| `success` | `#15803D` | Completed, Available |
+| `background` | `#F2F7F5` | Screen background (soft green-white) |
+| `textPrimary` | `#0C2522` | Headings, body |
+| `textSecondary` | `#4F6662` | Captions, labels |
+| `border` | `#D9E7E2` | Card borders, dividers |
+| `muted` | `#E4EFEB` | Quiet fills (segmented track, disabled chips) |
+| `success` | `#00754F` | Completed, Available |
 | `warning` | `#B45309` | On hold, Not started, Grace |
 | `danger` | `#B91C1C` | Cancelled, errors, On leave |
 | `info` | `#0369A1` | Called / Your turn (with animation) |
-| `primaryMid` | `#0E847A` | Light end of the teal header gradient (`primary` → `primaryMid`) |
-| `slate` | `#64748B` | Light end of the finished-token header (`textSecondary` → `slate`) |
-| `headerChip` | `#134E4A` at 45 % | Chips and switches with white text on a teal header (city pill, Active/Past, date chip) |
-| `textMuted` | `#94A3B8` | Decoration only (chevrons). **Never for text** (fails 4.5:1) |
+| `primaryMid` | `#0B5C55` | Second green of the header (`primary` → `primaryMid`) |
+| `slate` | `#66807A` | Light end of the finished-token header (`textSecondary` → `slate`) |
+| `headerChip` | `#0B5C55` | Chips and switches with white text on the green header (city pill, Active/Past, date chip) |
+| `textMuted` | `#8FA39E` | Decoration only (chevrons). **Never for text** (fails 4.5:1) |
+
+Dark mode (agreed, not built yet): page `#071A18`, card `#0D2522`, line `#173632`, text `#E3F1ED`, muted text
+`#8FB0A8`, header `#00332E`, accent and buttons mint `#6BD1B5` with `#02211C` text.
 
 All text/background pairs must meet **WCAG AA** (4.5:1 for body text). Placeholders use `textSecondary`.
 
@@ -61,6 +71,7 @@ Font: **Inter** (via `google_fonts`, bundled for offline).
 | Style | Size / Weight | Use |
 |---|---|---|
 | `tokenDisplay` | 72 / 800 | Token number on live screen |
+| `displayLarge` | 46 / 800 | Intro pages: one word per line ("Book / your / token.") |
 | `tokenDisplayMedium` | 64 / 800 | Token number on the full slip |
 | `tokenDisplaySmall` | 48 / 800 | Token number on the compact slip (booking success) |
 | `displaySmall` | 32 / 700 | "Now serving #7" |
@@ -107,7 +118,8 @@ Look (2026-11-16): a floating teal pill bar (`AppColors.primary`) above the bott
 Booking is a full-screen flow pushed on top of the tabs (no bottom bar), with a back arrow on each step.
 
 ```
-Splash → (not logged in) Phone → OTP → Name & Consent → Home   (no intro pages, D-28)
+Splash → (first launch) Intro pages → Phone → OTP → Name & Consent → Home   (D-29)
+Splash → (not logged in, intro seen) Phone → OTP → Name & Consent → Home
 Splash → (logged in) Home
 
 Home ─┬─ Search results ─┐
@@ -145,10 +157,12 @@ small spinner; after 10 s "Still connecting… Please check your internet."). Be
 system splash is the same teal with the white "a" mark (Android 12+: `values-v31` theme; older: `launch_background`).
 A notification tap that opens a token skips the wait.
 
-### S-00 Intro pages (removed, PRD D-28)
-Three swipeable pages on `surface`, shown once before S-02 (D-16): "Find your clinic", "Skip the waiting room",
-"We'll tell you when to go". Each page: large icon in `primaryContainer` circles, title, one line of body text.
-Logo top-left, **Skip** top-right (hidden on the last page), page dots, primary button **Next** / **Get started**.
+### S-00 Intro pages ("Bold type", PRD D-29)
+Three swipeable pages on `background`, shown once on the first launch, before S-02. Big words, one idea per page
+(`displayLarge`, one word per line, the last word in `primary`), then one line of body text:
+"Book / your / token." · "Wait / at / home." · "Go / when / called." On each page the words rise in one after
+another (fade + slide up), then the body; off when the OS asks for reduced motion. Logo top-left, **Skip**
+top-right (hidden on the last page), stretching page dots, primary button **Next** / **Get started**.
 Skip or Get started → S-02. Not shown again after sign-out.
 
 ### S-02 Phone entry
@@ -378,4 +392,4 @@ Android notification channels: `queue_alerts` (high importance, sound + vibratio
 
 ## 10. Out of scope (Phase 1)
 
-Dark mode (pending Q-07), tablet layouts, Urdu, illustrations beyond simple empty-state icons.
+Tablet layouts, Urdu, illustrations beyond simple empty-state icons. (Dark mode is approved, D-30, and built screen by screen.)

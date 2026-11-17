@@ -4,22 +4,25 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
-/// The "a" monogram mark (logo 06): ring + stem + small plus in the counter.
+/// The "a" mark of the 2026-11-17 logo: an open bowl, a stem and a tail
+/// that swings up to the right. One colour.
 class AsaniMark extends StatelessWidget {
   const AsaniMark({super.key, this.size = 48, this.color = AppColors.primary, this.plusColor = AppColors.secondary});
   final double size;
   final Color color;
+
+  /// Unused: the old mark had a plus in the bowl; the new logo has none.
+  /// Kept so existing callers keep compiling.
   final Color plusColor;
 
   @override
   Widget build(BuildContext context) =>
-      CustomPaint(size: Size.square(size), painter: _MarkPainter(color, plusColor));
+      CustomPaint(size: Size.square(size), painter: _MarkPainter(color));
 }
 
 class _MarkPainter extends CustomPainter {
-  _MarkPainter(this.color, this.plusColor);
+  _MarkPainter(this.color);
   final Color color;
-  final Color plusColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -27,25 +30,29 @@ class _MarkPainter extends CustomPainter {
     final s = size.width / 100;
     canvas.save();
     canvas.scale(s);
-    canvas.translate(6, -4);
+    canvas.translate(2, -4);
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(const Offset(44, 54), 22, stroke);
-    canvas.drawLine(const Offset(66, 31), const Offset(66, 77), stroke);
-    final plus = Paint()
-      ..color = plusColor
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(44, 47), const Offset(44, 61), plus);
-    canvas.drawLine(const Offset(37, 54), const Offset(51, 54), plus);
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    // Bowl: open at the top right, from just right of 12 o'clock round the
+    // left and bottom to where it meets the stem.
+    const deg = 3.14159265 / 180;
+    canvas.drawArc(Rect.fromCircle(center: const Offset(40, 56), radius: 22), -80 * deg, -262 * deg, false, stroke);
+    // Stem, then the tail swinging up to the right.
+    final tail = Path()
+      ..moveTo(62, 34)
+      ..lineTo(62, 64)
+      ..quadraticBezierTo(62, 80, 75, 74)
+      ..lineTo(86, 62);
+    canvas.drawPath(tail, stroke);
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.color != color || old.plusColor != plusColor;
+  bool shouldRepaint(_MarkPainter old) => old.color != color;
 }
 
 /// Logo tile: white rounded square with the teal mark.

@@ -105,7 +105,10 @@ void main() {
         await settle();
       }
 
-      // Login screens (no intro pages since D-28)
+      // First launch: intro pages (D-29), then the login screens.
+      await visit('intro', '/intro');
+      await tester.runAsync(() => backend.update(backend.settings.copyWith(introSeen: true)));
+      await settle();
       await visit('phone', '/login/phone');
       await tester.runAsync(() => backend.sendCode('+923001234567'));
       await settle();
