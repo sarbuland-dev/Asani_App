@@ -29,6 +29,7 @@ It uses the **same Firebase project** as the patient app (same Auth, Firestore, 
 | D-07 (updated) | The clinic logs in with the **clinic's email + password**. The manager/senior doctor **sets the password** through an emailed link. (Was: phone/username + password.) |
 | D-18 | **One login per clinic.** Only the manager/senior doctor's clinic login (clinic email) exists; the **receptionist uses that same login** at reception. **No separate receptionist or doctor accounts.** Super Admin registers the clinic and its login. |
 | D-19 | **The clinic adds and manages its own doctors.** The Super Admin can see every clinic's doctors and is shown when a **new doctor is added** (dashboard + activity log). |
+| D-31..D-33 | Confirmed 2026-11-19, full text in PRD.md §9 (D-33: one speciality, PMDC admin-only, Unlink = Not the same, same city only): patients search doctors by **speciality** (fixed list, nearest clinic first, `clinics.location` required) (D-31); the same doctor at two clinics is shown as one card once the **Super Admin links** the records, from system suggestions (D-32). |
 | D-21..D-24 | Confirmed 2026-11-14, full text in PRD.md §9: old tokens auto-closed at 3:00 AM (D-21), full-phone lookup to link walk-ins to app accounts (D-22), push on clinic cancel (D-23), Next in strict token order (D-24). |
 | D-15 | **Super admin panel lives inside the clinic web app**; access is decided by role after login. |
 | D-16 | **Check-in:** receptionist types the **token code** (e.g. A-11); the **same token slip the patient generated** appears on screen so the receptionist can match it with the slip the patient shows. |
@@ -254,6 +255,10 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 
 ### C-11 Doctors management (P0, clinic login) (D-19)
 - List of doctors with letter (A, B, C…), speciality, active/inactive.
+- **Speciality** is a **picker** (**one** per doctor, D-33) with the fixed list from PRD F-13 (patient label shown, e.g. "Heart (Cardiologist)"); no free text (D-31).
+- **PMDC number** (optional, D-32): loose format check only (digits, optional `-` + letter, e.g. `12345-P`); "Not a valid PMDC number" otherwise. It is stored **admin-only** (D-33): after saving, the clinic sees "PMDC number on file · Change", never the number itself. Helper text: "Helps patients find this doctor at all their clinics."
+- A doctor the migration set to **Other** (`specialityFlagged`) shows an amber "Please pick a speciality" chip in the list and the form until the clinic saves one (D-33).
+- The doctor is **active and bookable immediately** after saving; a possible match with another clinic never blocks or delays anything and is **not shown to the clinic** (it goes to the Super Admin, A-09).
 - Add / edit doctor: name, qualification, speciality, **weekly schedule** (per day start–end or off), **average consultation minutes**, **max tokens per day**, **booking window days**.
 - **Leave dates**: add/remove (patients see "On leave"; existing tokens on that date get a warning and can be cancelled in bulk with a reason).
 - Letter is assigned automatically and never reused within the clinic.
@@ -269,6 +274,7 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 
 ### C-13 Clinic settings (P0, clinic login)
 - Clinic name (read-only; changed by Super Admin), address, area, phone, map location.
+- **Map location is required** (D-31): pick on a map or paste a Google Maps link / "lat, lng"; Save is disabled without it. Used for Directions and for "nearest first" in the patient app's Doctors tab.
 - Print format (Thermal 80 / A5 / None).
 - **Clinic QR standee**: download/print a poster with the clinic QR ("Scan to book your token with Asani").
 
@@ -287,7 +293,7 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 
 ## 7. Super Admin features (inside the same web app)
 
-Visible only with the `superAdmin` role. Left navigation: **Dashboard · Clinics · Payments · Activity · Settings**.
+Visible only with the `superAdmin` role. Left navigation: **Dashboard · Clinics · Doctors · Payments · Activity · Settings** (Doctors = A-09, D-32).
 
 ### A-01 Admin Dashboard (P0)
 - Clinics by status: **Pilot / Active / Grace / Suspended / Cancelled**
@@ -304,14 +310,14 @@ Visible only with the `superAdmin` role. Left navigation: **Dashboard · Clinics
 ### A-03 Clinic detail (P0)
 Tabs:
 - **Info**: details, owner name/phone, **clinic email (login)** with status + **Resend invite** / **Disable login**, pilot end date, plan, monthly fee
-- **Doctors** (view): list with letter, speciality, timings, active status, **when added/changed** (by the clinic). New ones marked **New**.
+- **Doctors** (view): list with letter, speciality, timings, active status, **when added/changed** (by the clinic). New ones marked **New**. PMDC number, and a **Linked** chip with the other clinic(s) for linked doctors, with **Unlink** (D-32).
 - **Payments**: invoices and payment history
 - **Activity**: this clinic's activity log
 - **Usage**: tokens per day, app vs walk-in, average wait
 - **Actions**: Suspend, Reactivate, Change plan/fee, Extend pilot, Resend clinic admin invite, View queue (read-only)
 
 ### A-04 New clinic wizard (P0)
-1. Clinic: name, area, city, address, phone, location, print format
+1. Clinic: name, area, city, address, phone, **location (required, D-31)**, print format
 2. Clinic login: manager/senior doctor name + phone, **clinic email** → "Set your Asani password" email sent
 3. Plan: pilot length (default 30 days), plan after pilot, monthly fee, billing day
 4. Review → **Create**
@@ -341,9 +347,24 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 
 ### A-07 Activity log (P0)
 - Recorded automatically by the backend (cannot be edited or skipped by clinics).
-- Events: clinic created/updated/suspended/reactivated, doctor added/updated/deactivated, leave added, clinic login invited/disabled/password changed, settings changed, payment recorded, invoice waived, export done.
+- Events: clinic created/updated/suspended/reactivated, doctor added/updated/deactivated, **doctors linked / marked not the same / unlinked (D-32)**, leave added, clinic login invited/disabled/password changed, settings changed, payment recorded, invoice waived, export done.
 - Each row: time, clinic, who (**Super Admin** or **<Clinic> (clinic login)**), action, target.
 - Filters: clinic, action type, date range, person.
+
+### A-09 Possible same doctor (P0) (D-32)
+- Left navigation gets **Doctors** with a count badge of open suggestions; the Dashboard (A-01) shows a "Possible same doctor: N" card.
+- The system **never links on its own**. Suggestions are made when a clinic adds a doctor or changes its name, speciality or PMDC number:
+  - Only doctors in the **same city** (D-33).
+  - **Strong**: same PMDC number at different clinics.
+  - **Weak**: same normalised name (no "Dr.", case, punctuation) + same speciality at different clinics.
+- List, strong first, newest first. Each row shows the **two records side by side**: name, speciality, clinic (+ area, city), PMDC number, weekly timings, added on; plus a Strong / Weak chip and the reason ("Same PMDC 12345-P" / "Same name and speciality").
+- Buttons: **Link** and **Not the same** (both with a short confirm).
+  - **Link**: the two records share one group; the patient app shows one card with "Also sits at". If one record is already linked, the other joins that group.
+  - **Not the same**: remembered; that pair is **never suggested again**.
+  - **Unlink** counts as Not the same: that pair is never suggested again (D-33).
+- **Unlink**: from A-03 Doctors or a "Linked doctors" tab on this screen; removes one record from its group.
+- Each Link / Not the same / Unlink writes an activity log entry (A-07).
+- Each clinic still keeps its own record, queue, timings and letter; linking changes nothing at the clinic.
 
 ### A-08 Settings (P1)
 - Plans and default prices (Pilot, Basic, Premium), default pilot days, billing day default, payment instructions text shown to clinics, grace and suspension days.
@@ -364,6 +385,8 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | BW-8 | A suspended clinic is **read-only**: no new tokens (app or walk-in), no Next; the clinic can still view and export. Patients see "Online booking isn't available right now." |
 | BW-9 | Billing data is only visible to the clinic login (own clinic) and Super Admin. |
 | BW-10 | Every clinic/admin action that changes data creates an activity log entry (actor = Super Admin or the clinic login). |
+| BW-11 | Doctor records are linked **only** by the Super Admin (D-32). Linking or a pending suggestion never blocks adding, editing or booking a doctor. Clinics never see suggestions or other clinics' doctors. |
+| BW-12 | A clinic cannot be created or its settings saved without a **map location** (D-31). |
 
 ---
 
@@ -404,6 +427,7 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | A-15 | Defaulters |
 | A-16 | Activity log |
 | A-17 | Admin settings |
+| A-18 | Possible same doctor (suggestions + linked doctors) (A-09) |
 
 Design: same brand as the patient app (teal `#0F766E`, navy `#1E3A8A`, mint `#CCFBF1`, Inter), adapted for desktop: left sidebar navigation, wide tables, large "Now serving" and "Next" for quick use at a busy desk. Minimum screen width **1280 px**.
 
@@ -441,8 +465,12 @@ Design: same brand as the patient app (teal `#0F766E`, navy `#1E3A8A`, mint `#CC
 | `activityLogs/{id}` | clinicId, actor (uid, name, role), action, target, time; written only by backend |
 | `clinics/{id}/stats/{yyyy-MM}` | Monthly counters for dashboards |
 | `settings/billing` | Plans, prices, grace/suspension days, payment instructions |
+| `doctors.speciality` (one fixed key), `city`, `nameKey`, `doctorGroupId`, `specialityFlagged` | Doctor search + linking (D-31..D-33) |
+| `doctors/{id}/private/admin.pmdcNumber` | PMDC number, Super Admin read only (D-33) |
+| `clinics.location` (required) | Nearest first + Directions (D-31) |
+| `doctorLinkSuggestions/{pairId}` | Possible same doctor list; `notSame` remembered (D-32) |
 
-Backend functions needed (names indicative): `queueAction`, `clinicCreateWalkIn`, `clinicSearchPatients`, `setFollowUp`, `updateDoctorSchedule`, `inviteClinicLogin`, `disableClinicLogin`, `adminCreateClinic`, `adminUpdateClinic`, `recordPayment`, `waiveInvoice`, `generateInvoices` (scheduled), `defaulterCheck` (scheduled), activity-log triggers.
+Backend functions needed (names indicative): `queueAction`, `clinicCreateWalkIn`, `clinicSearchPatients`, `setFollowUp`, `updateDoctorSchedule`, `inviteClinicLogin`, `disableClinicLogin`, `adminCreateClinic`, `adminUpdateClinic`, `recordPayment`, `waiveInvoice`, `adminLinkDoctors`, `adminMarkNotSame`, `adminUnlinkDoctor` (D-32; `saveDoctor` also builds the suggestions), `generateInvoices` (scheduled), `defaulterCheck` (scheduled), activity-log triggers.
 
 ---
 

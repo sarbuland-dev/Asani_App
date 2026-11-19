@@ -281,7 +281,8 @@ each callable also recomputes `day.activeNumbers` and calls `evaluateQueue` itse
 | `clinicLookupPhone` | clinic | D-22: profiles on a **full** phone number from any clinic, returning only `id, name, relation, gender, age, atThisClinic`. Rate limit 30 lookups / 10 min per clinic (`rateLimits/phoneLookup_{clinicId}`) |
 | `clinicUpdatePatient` | clinic | Name/age/gender typo fix (Q-W07) |
 | `setFollowUp` | clinic | Follow-up from a visit (C-09) |
-| `saveDoctor`, `setDoctorActive`, `setDoctorLeave`, `cancelDoctorTokens` | clinic | The clinic manages its own doctors (D-19); letters never reused (BW-7) |
+| `saveDoctor`, `setDoctorActive`, `setDoctorLeave`, `cancelDoctorTokens` | clinic | The clinic manages its own doctors (D-19); letters never reused (BW-7). `saveDoctor` checks `speciality` is one fixed key and the PMDC format, writes the PMDC number only to `doctors/{id}/private/admin` (D-33), copies `city`, sets `nameKey`, clears `specialityFlagged`, and creates/updates same-city `doctorLinkSuggestions` (D-31..D-33; never links) |
+| `adminLinkDoctors`, `adminMarkNotSame`, `adminUnlinkDoctor` | super admin | D-32: set/clear `doctorGroupId`, update the pair's suggestion status, write the activity log. Transactions, so a pair is decided once |
 | `updateClinicSettings`, `logExport` | clinic | C-13, C-14 |
 | `clinicLoginTouch`, `clinicPasswordChanged` | clinic | Last login / invite accepted; revoke other sessions after a password change (C-12) |
 | `adminCreateClinic` | super admin | Clinic + `private/billing` + the clinic's single Auth login + claims; the web then sends the set-password email |

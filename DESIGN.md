@@ -100,6 +100,10 @@ Material Symbols (Rounded). Always paired with a text label in navigation and st
 bottom bar shows the label only on the selected tab (§4); the other tabs name themselves on long-press and to
 screen readers.
 
+Speciality icons (PRD F-13 table) use Material Symbols names such as `cardiology`, `dentistry`, `orthopedics`.
+Most of them are **not** in Flutter's built-in `Icons` set, so they need the Material Symbols icon font package
+(a new dependency, to be approved). Until then each chip falls back to `medical_services`.
+
 ---
 
 ## 4. Navigation
@@ -122,9 +126,10 @@ Splash → (first launch) Intro pages → Phone → OTP → Name & Consent → H
 Splash → (not logged in, intro seen) Phone → OTP → Name & Consent → Home
 Splash → (logged in) Home
 
-Home ─┬─ Search results ─┐
-      ├─ Recent clinic ──┼─→ Clinic page ─→ [Book flow] ─→ Token live screen
-      └─ Active banner ──────────────────────────────────→ Token live screen
+Home ─┬─ Search: Clinics tab ─┐
+      ├─ Recent clinic ───────┼─→ Clinic page ─→ [Book flow] ─→ Token live screen
+      ├─ Search: Doctors tab ─→ (first time: Location primer S-18) → speciality → doctor card ─→ [Book flow]
+      └─ Active banner ───────────────────────────────────────→ Token live screen
 
 [Book flow] = Who is the patient? → Pick date → Confirm
 ```
@@ -136,7 +141,9 @@ Routes (go_router):
 | `/splash` | Splash |
 | `/login/phone`, `/login/otp`, `/login/profile` | Auth |
 | `/home` | Home tab |
-| `/search?q=` | Search results |
+| `/search?q=` | Search, Clinics tab |
+| `/search?tab=doctors&speciality=` | Search, Doctors tab (D-31); `speciality` = key from PRD F-13 |
+| `/location` | Location permission primer (S-18), `?next=` like `/notifications` |
 | `/clinic/:clinicId` | Clinic page (also deep link `/c/:clinicId`) |
 | `/book/:clinicId/:doctorId` | Booking flow (steps as sub-routes `patient`, `date`, `confirm`) |
 | `/token/:tokenId` | Live token screen (notification target) |
@@ -255,8 +262,57 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
   (`TicketBorder`), then the name, "area · N doctors" and today's hours or "Opens Wed, 18 Nov".
 
 ### S-06 Search results
-- Search field auto-focused; results filter as the user types (debounce 250 ms).
+- Two tabs under the header (D-31): **Clinics** | **Doctors** (segmented control, `primary` fill on the selected
+  one). Both use the selected city. The Home search pill opens the Clinics tab; the last-used tab is not remembered.
+- **Clinics tab** (unchanged): search field auto-focused; results filter as the user types (debounce 250 ms).
 - Empty result: "No clinic found for 'xyz'. Check the spelling or try the area name."
+
+### S-06b Search: Doctors tab (PRD F-13, F-14)
+```
+┌──────────────────────────────┐
+│ ←  Search            Lahore▾ │
+│ [ Clinics ][■ Doctors ■]     │
+│ (🩺 General) (👶 Child)  →   │  ← speciality chips, wrap in a grid
+│ (❤ Heart)  (🦷 Teeth) ...    │     before one is picked
+│                              │
+│ Heart (Cardiologist) · 4     │
+│ ┌──────────────────────────┐ │
+│ │ (AK) Dr. Asif Khan    [B]│ │
+│ │ Heart (Cardiologist)     │ │
+│ │ City Care · DHA · 2.4 km │ │
+│ │ ● Available · 5–9 PM     │ │
+│ │ [Serving B-7][18/40][~25m]│ │
+│ │ Also sits at:            │ │
+│ │  Al-Shifa · Mon Wed 10–1 ›│ │
+│ │ [      Book token      ] │ │
+│ └──────────────────────────┘ │
+└──────────────────────────────┘
+```
+- **No speciality picked yet:** the chips fill the page as a 2-column grid of tiles (icon in a `primaryContainer`
+  circle + the patient label, e.g. "Heart" over "Cardiologist" in `textSecondary`). After a pick they collapse into
+  one horizontally scrolling row with the picked chip selected, and the list appears below.
+- List title: "{label} · {count}". Order (D-33): bookable today, nearest first → clinics without a location
+  (no km) → **not available today**, greyed (`textMuted` text, no tiles), with an outlined **Book another day**
+  that opens booking on the date step. Sorted nearest first; without location, a small note "Turn on location to see
+  the nearest first" [Turn on] above the list.
+- **Doctor card** reuses the S-07 doctor card (initials avatar, name + letter badge, availability pill, the three
+  tiles, full-width **Book token**), plus a line with the clinic name, area and distance (`textSecondary`;
+  distance hidden without location). The middle tile shows **"18 of 40"** (booked / max) instead of "Waiting".
+  Tap the card body → clinic page; **Book token** → booking for that clinic + doctor.
+- **"Also sits at"** (only for linked doctors, F-14): a divider, the label "Also sits at" (`labelSmall`,
+  `textSecondary`), then one row per other **same-city** clinic (D-33): clinic name · area · days and timing, chevron. Tap → booking
+  for that clinic + doctor. Max 2 rows, then "+1 more".
+- Loading: 3 skeleton doctor cards. Empty: icon + "No {label} doctors on Asani in {city} yet." [Search clinics]
+  (switches to the Clinics tab). Offline: standard banner, cached list stays.
+
+### S-18 Location permission primer (D-31)
+Shown once, the first time the Doctors tab is opened (before the system prompt, like S-17):
+icon `location_on` in a `primaryContainer` circle, title "Find doctors near you", body "We use your location
+only to show the nearest clinics first. It is never saved or shared." → [Allow location] / [Not now].
+The phone's own permission popup uses the approved text (D-33): "Asani uses your location to show clinics and
+doctors near you." (Android has no custom text; iOS `NSLocationWhenInUseUsageDescription`.) Foreground only.
+"Not now" or a refusal → the list shows same area first, then the rest of the city; the "Turn on location" note
+stays above the list (opens the phone's settings if the phone already refused).
 
 ### S-07 Clinic page
 ```
@@ -287,6 +343,8 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
   tint, white **Call** / **Directions** pills. Doctor cards: initials avatar, name + letter badge, speciality,
   availability pill, then three equal-height tiles (Now serving · Waiting · Est. wait; labels never wrap) and a
   full-width **Book token** button; doctors who can't be booked today get an outlined **Book another day**.
+  The speciality shows its patient label ("Heart (Cardiologist)", PRD F-13). A linked doctor (F-14) shows the
+  same **"Also sits at"** rows as S-06b above the button.
   No all-caps "LIVE QUEUE" label; a paused queue shows "Queue is paused for a moment".
 
 ### S-08 Booking: Who is the patient?

@@ -25,7 +25,7 @@ In small private clinics in Pakistan, the queue is managed with a register or pa
 
 A **patient mobile app** that lets a patient:
 
-1. Find a clinic → pick a doctor at that clinic
+1. Find a clinic → pick a doctor at that clinic, **or** pick a speciality → pick a doctor near them (D-31)
 2. Book a token for themselves or a family member
 3. See the live queue ("Now serving #7 · You are #11")
 4. Get notified when their turn is near, so they can arrive on time
@@ -46,7 +46,7 @@ The clinic side (desktop app) comes next. Until then the queue is moved by a dev
 - Super admin panel, invoices, subscriptions, activity logs (Phase 3)
 - Payments inside the app (patients never pay)
 - Medical records, prescriptions, diagnosis (Stage 3, needs consent and legal review)
-- Direct doctor search across clinics (**will not be built**, decided)
+- ~~Direct doctor search across clinics~~: now **in scope** as search by speciality (D-31, F-13). Free-text doctor-name search is still not built.
 - Urdu UI (decided: English only)
 - SMS/WhatsApp tokens, AI features
 
@@ -77,6 +77,7 @@ Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2**
 **Acceptance:** valid number + correct OTP → Home. Wrong OTP → error, can retry. Returning user is not asked for name again.
 
 ### F-02 Clinic search and discovery (P0)
+- Search has two tabs: **Clinics** | **Doctors** (D-31). Both use the selected city. This feature (F-02) is the **Clinics** tab and stays exactly as it is; the Doctors tab is F-13.
 - Home shows: search bar, **active token banner** (if any), **Recent clinics** (where the user booked before, latest first, max 5), then **All clinics** in the user's city.
 - City: default **Lahore**; user can change the city from a selector (only cities that have clinics).
 - Search matches clinic **name** or **area** (case-insensitive, partial match).
@@ -90,7 +91,9 @@ Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2**
 - Each doctor card shows: name, speciality, today's timing, availability badge and **live queue** (now serving, number waiting, estimated wait).
 - Availability states: `Available today`, `Not started yet` (session later today), `On leave today`, `Not available today` (no schedule), `Tokens full`.
 - If the clinic has **exactly one doctor**, skip the list and go straight to booking for that doctor.
-- No direct doctor search across clinics.
+- Speciality is shown with its patient label, e.g. "Heart (Cardiologist)" (fixed list, F-13).
+- If the doctor is linked to the same doctor at another Asani clinic (F-14), the card shows "Also sits at: {clinic} · {days/timing}", tappable.
+- Patients can also find doctors across clinics by **speciality** (F-13, D-31).
 
 ### F-04 Book a token (P0)
 Flow: **Doctor → Who is the patient? → Date → Confirm → Token**
@@ -116,7 +119,7 @@ Flow: **Doctor → Who is the patient? → Date → Confirm → Token**
 - Live: **Now serving #N**, **patients ahead of you**, **estimated wait** (= patients ahead × doctor's `avgConsultMinutes`, shown as "about 25 min").
 - Status chip: Booked · Arrived · Called (your turn) · Completed · Cancelled · No-show · Skipped · On hold.
 - **QR code** of the token ID (the receptionist will scan it in the desktop phase).
-- Actions: **Cancel token** (only while `booked` or `arrived`, with confirmation), **Call clinic**, **Directions** (opens maps if clinic location exists).
+- Actions: **Cancel token** (only while `booked` or `arrived`, with confirmation), **Call clinic**, **Directions** (opens maps at the clinic location, which every clinic now has, D-31).
 - Session states: "Doctor has not started yet", "Queue paused", "Session ended".
 - Updates in real time via Firestore streams.
 
@@ -169,7 +172,54 @@ Rules:
 - `https://asani.app/c/{clinicId}` opens the clinic page directly (after login if needed). Clinics will display this QR at reception.
 
 ### F-12 Crash reporting and basic analytics (P0)
-- Crashlytics on. Analytics events: `login_success`, `token_booked`, `token_cancelled`, `notification_opened`. No personal data in events.
+- Crashlytics on. Analytics events: `login_success`, `token_booked`, `token_cancelled`, `notification_opened`, `doctor_search` (speciality key only). No personal data in events.
+
+### F-13 Search by doctor speciality (P0) (D-31)
+Flow: **Search → Doctors tab → speciality chip → doctor card → booking for that clinic + doctor** → the same steps as F-04 (patient, date, confirm) with the same rules (BR-1..BR-7).
+
+- The **Doctors** tab shows speciality **chips** only; there is **no free-text** doctor search.
+- Only doctors who are `active`, at clinics with status `active`, `pilot` or `grace`, in the **selected city**, are shown. Each doctor has **one** speciality (D-33).
+- Doctors **not available today** (no schedule, on leave, full, session ended) are shown **greyed at the end** with **Book another day** (D-33).
+- Doctors at clinics **without a location** are shown after the others, without distance (D-33).
+- **Fixed speciality list** (the clinic picks one from a picker, never free text):
+
+| Key | Patient label | Icon (Material Symbols) |
+|---|---|---|
+| `generalPhysician` | General Physician | `stethoscope` |
+| `child` | Child Specialist | `child_care` |
+| `heart` | Heart (Cardiologist) | `cardiology` |
+| `teeth` | Teeth (Dentist) | `dentistry` |
+| `skin` | Skin (Dermatologist) | `dermatology` |
+| `womensHealth` | Women's Health (Gynecologist) | `gynecology` |
+| `eye` | Eye (Eye Specialist) | `ophthalmology` |
+| `ent` | Ear Nose Throat (ENT) | `hearing` |
+| `bones` | Bones & Joints (Orthopedic) | `orthopedics` |
+| `diabetes` | Diabetes & Hormones (Endocrinologist) | `glucose` |
+| `stomach` | Stomach & Liver (Gastro) | `gastroenterology` |
+| `chest` | Chest & Lungs (Pulmonologist) | `pulmonology` |
+| `kidney` | Kidney (Nephrologist) | `nephrology` |
+| `brain` | Brain & Nerves (Neurologist) | `neurology` |
+| `mentalHealth` | Mental Health (Psychiatrist) | `psychology` |
+| `physio` | Physiotherapy | `physical_therapy` |
+| `other` | Other | `medical_services` |
+
+- **Order: nearest clinic first**, by the distance from the patient's location to `clinics.location`. Distance is calculated **in the app** for the selected city's doctors (no server geo-query).
+- **Location permission** is asked the **first time** the Doctors tab is opened, after a short primer (DESIGN S-18). If it is denied or unavailable: doctors in the **same area** as the patient's last-used area come first, then the rest of the city (A–Z by area); no distance is shown.
+- **Doctor card** shows: name, speciality label, clinic name + area + **distance** ("2.4 km"), **available today** or not, today's timing, **tokens booked / max** ("18 of 40"), **now serving** and **estimated wait** (same numbers as F-03).
+- The patient can book for **today or a future date** (same date rules as F-04).
+- One card per doctor **group** (F-14): the nearest clinic is the main card.
+- Empty: "No {label} doctors on Asani in {city} yet." + [Search clinics].
+
+**Acceptance:** with location on, picking "Heart (Cardiologist)" lists heart doctors in Lahore, nearest clinic first; tapping a card opens booking for that clinic and doctor.
+
+### F-14 Same doctor at two clinics (P0) (D-32)
+- If one doctor works at two (or more) Asani clinics **in the same city** and the records are **linked** by the Super Admin, the Doctors tab shows **one card**. The nearest clinic is the main one; below it: **"Also sits at: {clinic} · {days/timing}"**, one line per other **same-city** clinic (D-33), each **tappable to book there**.
+- The same "Also sits at" line appears on the doctor card of the clinic page (F-03).
+- Each clinic keeps its **own** doctor record, queue, timings, token letter and numbering; linking only groups the cards (`doctorGroupId`).
+- Until linked, the doctor shows as **separate cards**. Linking never blocks booking.
+- How records get linked (Super Admin, clinic web A-09): the system **suggests**, it never links on its own.
+
+**Acceptance:** after the Super Admin links Dr. X at Clinic A and Clinic B, the Doctors tab shows one Dr. X card with "Also sits at: Clinic B"; after Unlink it shows two cards again.
 
 ## 6. Non-functional requirements
 
@@ -205,7 +255,7 @@ Rules:
 |---|---|---|
 | D-01 | 2026-11-07 | Product name is **Asani** (was ClinicQ). |
 | D-02 | 2026-11-07 | Patient app in Flutter for **Android and iOS**. |
-| D-03 | 2026-11-07 | Flow is clinic first → doctor. **No direct doctor search.** |
+| D-03 | 2026-11-07 | Flow is clinic first → doctor. **No direct doctor search.** *(Replaced by D-31.)* |
 | D-04 | 2026-11-07 | Queue notifications: **3, 2, 1 ahead + "Your turn now"** (4 total). |
 | D-05 | 2026-11-07 | English only. |
 | D-06 | 2026-11-07 | Clinic side will be a **Windows .exe**. Exact technology **not confirmed** (FlutterFire on Windows is development-only). Build order: app → desktop → super admin. |
@@ -233,6 +283,9 @@ Rules:
 | D-28 | 2026-11-14 | **Intro pages removed** (replaces D-16). App start is Splash (S-01) → phone login, or Home when signed in. *(Replaced by D-29.)* |
 | D-29 | 2026-11-17 | **Intro pages back** (replaces D-28), in the **"Bold type"** style: three skippable pages on the first launch only, before phone login ("Book your token." · "Wait at home." · "Go when called."). Stored on the device (`introSeen`). |
 | D-30 | 2026-11-17 | **New brand colours.** Logo is forest green `#004741` + cream; the app uses palette **"Monochrome green"** (shades of `#004741`). **Dark mode is approved** (closes Q-07); it follows the phone's setting, no in-app switch. Built screen by screen after the light palette. |
+| D-31 | 2026-11-19 | **Search by doctor speciality** (replaces D-03). Search has two tabs, **Clinics** \| **Doctors**, both for the selected city. Doctors tab: **speciality chips only** (no free text), from a **fixed list** with patient labels + icons (F-13); the clinic web picks speciality from a picker. Only doctors at Asani clinics. **Nearest clinic first** (patient's location, distance computed in the app); location permission is asked the first time the Doctors tab is used; if denied, same area first, then the rest of the city. Card: name, speciality, clinic + area + distance, available today, timing, booked/max, now serving, estimated wait; book today or a future date with the normal flow. Search by Clinic is unchanged. `clinics.location` becomes **required** (onboarding + clinic settings). |
+| D-32 | 2026-11-19 | **Same doctor at two clinics = one card.** Linked doctor records share `doctors.doctorGroupId`; the nearest clinic is the main card, others show as "Also sits at: {clinic} · {timing}" (tappable). Each clinic keeps its own record, queue, timings and letter. Clinic web "Add doctor" gets an **optional PMDC number** (loose format check, e.g. `12345-P`; admin-only storage, D-33). A doctor is bookable **immediately**; linking never blocks. The system **never links automatically**: it creates **suggestions** for the Super Admin (strong = same PMDC at different clinics; weak = same normalised name + same speciality at different clinics). Super Admin: "Possible same doctor" list, side by side, **Link** / **Not the same** (remembered, never suggested again); linked records can be **Unlinked**. Link, Not the same and Unlink go into the activity log. |
+| D-33 | 2026-11-19 | **Doctor search details** (closes Q-08..Q-14). **One** speciality per doctor. Doctors **not available today** are shown **greyed at the end** with "Book another day". Old free-text specialities are **mapped by a script**; unknown → `other`, flagged for the clinic. Clinics **without a location**: their doctors come **last, without distance**. "Also sits at" lists **same-city** clinics only. **PMDC number** lives in `doctors/{id}/private/admin`: the clinic writes it through `saveDoctor`, **only the Super Admin can read it**, patients never receive it. **Unlink = Not the same**: that pair is never suggested again. Approved dependencies: `geolocator` (permission text: "Asani uses your location to show clinics and doctors near you.") and Material Symbols icons. Roles: UI by Claude; backend (functions, rules, indexes, migration, native permission setup) by the integration side, task list in `docs/09-doctor-search-integration.md`. |
 
 ## 10. Open questions (confirm before building the related part)
 
@@ -245,3 +298,10 @@ Rules:
 | Q-05 | Max active tokens per account: is 5 right? | F-04 |
 | Q-06 | Domain name for deep links and policy pages (`asani.app` is a placeholder) | F-11, store release |
 | ~~Q-07~~ | ~~Dark mode in Phase 1?~~ **Closed**: yes, follows the phone setting (D-30). | DESIGN |
+| ~~Q-08~~ | ~~One or two specialities?~~ **Closed**: **one** speciality per doctor (D-33). | F-13, C-11 |
+| ~~Q-09~~ | ~~Doctors not available today?~~ **Closed**: shown **greyed, at the end**, with "Book another day" (D-33). | F-13 |
+| ~~Q-10~~ | ~~Old free-text specialities?~~ **Closed**: mapped by a script; unknown → `other`, flagged for the clinic (D-33). | Migration |
+| ~~Q-11~~ | ~~Clinics without a location?~~ **Closed**: their doctors are shown **last, without distance**, until the location is added (D-33). | F-13 |
+| ~~Q-12~~ | ~~"Also sits at" city?~~ **Closed**: **same city only** (D-33). | F-14 |
+| ~~Q-13~~ | ~~PMDC visible to patients?~~ **Closed**: stored in an **admin-only** place, `doctors/{id}/private/admin`; the clinic can write it (through `saveDoctor`), only the Super Admin can read it; patients never receive it (D-33). | F-14, DATABASE, rules |
+| ~~Q-14~~ | ~~Re-suggest after Unlink?~~ **Closed**: Unlink counts as "Not the same": that pair is **never suggested again** (D-33). | F-14, A-09 |

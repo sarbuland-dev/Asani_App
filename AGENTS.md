@@ -6,7 +6,7 @@ This file is for **Codex, Claude Code and any other AI agent** working on Asani.
 
 ## 1. Project in one paragraph
 
-Asani is a clinic token and live-queue system for small and medium private clinics in Pakistan. Patients use a Flutter app (Android + iOS) to search a clinic, pick a doctor at that clinic, book a token for themselves or a family member, watch the live queue and get notified when their turn is near. The backend is Firebase (Auth with phone OTP, Firestore, Cloud Functions in TypeScript, FCM). The owner is **Sarbuland**.
+Asani is a clinic token and live-queue system for small and medium private clinics in Pakistan. Patients use a Flutter app (Android + iOS) to search a clinic and pick a doctor there (or pick a speciality and a doctor near them), book a token for themselves or a family member, watch the live queue and get notified when their turn is near. The backend is Firebase (Auth with phone OTP, Firestore, Cloud Functions in TypeScript, FCM). The owner is **Sarbuland**.
 
 ---
 
@@ -57,7 +57,7 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
    - when **1** is ahead → "You're next"
    - when the patient is **called** → "Your turn now"
    - Never send the same step twice. If the queue jumps (skip/cancel), send only the latest step that applies. Never more than 4 queue notifications per token.
-2. **Flow:** search **clinic** first → pick a **doctor at that clinic**. There is **no direct doctor search**.
+2. **Flow:** search a **clinic** → pick a **doctor at that clinic**, **or** (D-31) pick a **speciality** in the Doctors tab → doctor card (nearest clinic first) → booking. Specialities come from a **fixed list** (chips, no free-text doctor search). The same doctor at two clinics is **one card** only after the Super Admin links the records (D-32); the system never links on its own.
 3. **Platforms:** patient app is Flutter for **Android and iOS**.
 4. **Language:** English UI only.
 5. **Patient identity:** the phone number identifies the *family account*; each patient is a *profile* (`patients` collection). Tokens point to `patientId`.

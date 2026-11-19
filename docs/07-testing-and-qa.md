@@ -27,6 +27,22 @@ Coverage goals: `asani_core` ≥ 90%, functions business logic ≥ 85%. UI cover
 - `patientsAhead(activeNumbers, myNumber)`: empty list, I'm first, gaps from cancellations.
 - `estimatedWait(ahead, avgMinutes)` formatting ("about 25 min", "less than 5 min").
 - `ageFromBirthYear`, phone validation (`+923XXXXXXXXX`).
+- Specialities (D-31): every key has a label and icon; unknown key → `other`; old free-text values map to the right key.
+- `distanceKm(a, b)` (haversine): same point = 0; Johar Town ↔ DHA Lahore ≈ 14 km (±1).
+- Doctor search order: with location → nearest first; without → same area first, then the rest A–Z by area.
+- Grouping (D-32): two records with the same `doctorGroupId` → one card, nearest as main, other in "Also sits at"; inactive or other-city members left out; no group → separate cards.
+- PMDC format check: `12345`, `12345-P`, ` 12345-p ` (normalised to `12345-P`) ✅; `abc`, `12-34-5`, empty string when typed ❌.
+- `nameKey`: "Dr. Ayesha Malik", "dr ayesha  malik", "Ayesha Malik." → `ayesha malik`.
+
+### Doctor linking functions (D-32)
+- `saveDoctor`: same PMDC at another clinic → `strong` suggestion; same `nameKey` + speciality → `weak`; weak upgraded to strong when PMDC matches later; **no** suggestion for the same clinic, or for a pair that is `notSame` / `unlinked`; the doctor is saved and active either way.
+- `saveDoctor` rejects a free-text speciality and a badly formatted PMDC number.
+- `adminLinkDoctors`: both get one `doctorGroupId`; linking into an existing group reuses it; second call on the same pair is a no-op; activity log entry written.
+- `adminMarkNotSame`: status `notSame`; re-saving either doctor never recreates the pair.
+- `adminUnlinkDoctor`: clears the record's group (and the last member's); pair status `unlinked`; re-saving never re-suggests it; activity log entry written.
+- `saveDoctor` never writes `pmdcNumber` to the public doctor document; doctor list responses carry `hasPmdc` only.
+- No suggestion for doctors in different cities.
+- All three: clinic login → `permission-denied`.
 
 ### `bookToken`
 - ✅ Happy path returns number 1, then 2.
@@ -60,6 +76,9 @@ Coverage goals: `asani_core` ≥ 90%, functions business logic ≥ 85%. UI cover
 - clinics/doctors/days: read signed-in ✅; unauthenticated ❌; any write ❌; `clinics/*/private/*` read ❌.
 - tokens: read own (`bookedByUserId`) ✅; read via `patientOwnerUid` ✅; read other ❌; any client write ❌; query without owner filter ❌.
 - followUps: own ✅ / other ❌ / write ❌.
+- doctors/{id}/private/admin: super admin read ✅; clinic login read ❌ (even its own doctor); patient read ❌; any client write ❌.
+- doctorLinkSuggestions: super admin read ✅; clinic login read ❌; patient read ❌; any client write ❌.
+- doctors: patient query `city + speciality + active` ✅; clinic login writing `doctorGroupId` ❌.
 
 ### Widget tests
 - Token screen: booked / called / completed / cancelled / not started / offline.
@@ -120,6 +139,25 @@ Run on Redmi and iPhone before every release. Use `asani-dev` + queue-sim.
 3. Clinic with one doctor → goes straight to booking.
 4. Doctor on leave / full / not started labels are correct.
 5. Suspended clinic → banner, no book buttons.
+
+### QA-2b Search by doctor (D-31)
+1. Search shows **Clinics | Doctors** tabs; the Clinics tab works exactly as before.
+2. First open of Doctors → location primer → Allow → system popup. Pick "Heart (Cardiologist)" → heart doctors in Lahore, nearest first, with km.
+3. Deny location → same area first, then the rest; no km; "Turn on location" note shown.
+4. Doctors not available today come last, greyed, with **Book another day**; clinics without a location come after the others without km.
+5. Card shows clinic + area, available today, timing, booked / max, now serving, wait; numbers match the clinic page.
+6. Book token from the card → booking for that clinic + doctor; book for a future date too.
+7. Speciality with no doctors in the city → empty state → [Search clinics] switches tab.
+8. Change city → list follows the city. Suspended clinic's doctors are not shown.
+9. Clinic web: Add doctor offers only the speciality picker; Save clinic settings without a location is blocked.
+
+### QA-2c Same doctor at two clinics (D-32)
+1. Add "Dr. Test Same" with PMDC `12345-P` at Clinic A and at Clinic B → both bookable at once; app shows **two** cards.
+2. Super Admin → Doctors → strong suggestion with both records side by side → **Link** → app shows **one** card, nearest clinic main, "Also sits at: Clinic B"; tap it → booking at Clinic B.
+3. Same name + speciality, no PMDC → **weak** suggestion → **Not the same** → edit and re-save either doctor → never suggested again.
+4. **Unlink** → two cards again. Activity log shows Link, Not the same and Unlink.
+5. Clinic login never sees suggestions, the other clinic's doctor, or any PMDC number (its own shows "on file").
+6. Patient app: the doctor documents it reads contain no `pmdcNumber` (check in the network tab / emulator UI).
 
 ### QA-3 Booking
 1. Book for Self today → token screen with number.

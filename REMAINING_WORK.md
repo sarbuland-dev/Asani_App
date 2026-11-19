@@ -144,3 +144,11 @@ Original findings:
 - [ ] A new clinic from the wizard is visible in the patient app at once with 0 doctors.
 - [ ] Billing "How to pay" shows placeholder bank/IBAN details.
 - [ ] Undo last Next: the patient already got "Your turn now"; after undo the app goes back to waiting.
+
+## 9. Search by doctor + same doctor at two clinics (D-31..D-33, 2026-11-19)
+Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINIC-WEB C-11/C-13/A-09; docs/07).
+- [ ] **Integration side:** functions, rules, indexes, migration, native permission + dependencies and the app data
+      layer: full task list in `docs/09-doctor-search-integration.md`.
+- [ ] **UI (Claude):** patient app Search tabs, Doctors tab, doctor card with "Also sits at", location primer (S-18),
+      "Also sits at" on the clinic page; clinic web speciality picker, PMDC field ("on file · Change"), required
+      location (wizard + settings), "Please pick a speciality" chip, Super Admin A-09 screen + Linked chip in A-03.
