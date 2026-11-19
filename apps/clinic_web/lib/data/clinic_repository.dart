@@ -167,7 +167,10 @@ abstract interface class ClinicRepository {
   Future<void> updatePatient(String clinicId, String patientId, {required String name, int? birthYear, required Gender gender});
 
   // ---- Clinic admin ----
-  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false});
+  /// [pmdcNumber]: null keeps the saved number; it is stored admin-only (D-33).
+  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false, String? pmdcNumber});
+  /// The clinic may only know whether a PMDC number is on file, never the number (D-33).
+  bool hasPmdc(String doctorId);
   Future<int> addLeave(String doctorId, String date);
   Future<void> removeLeave(String doctorId, String date);
   Future<int> cancelTokensOn(String doctorId, String date, String reason);
@@ -188,4 +191,12 @@ abstract interface class ClinicRepository {
   Future<void> waiveInvoice(String invoiceId, String reason);
   Future<void> giveExtension(String invoiceId, DateTime newDueDate);
   Future<void> saveSettings(AdminSettings settings);
+
+  // ---- Super admin: same doctor at two clinics (D-32, A-09) ----
+  List<LinkSuggestion> linkSuggestions();
+  /// Any doctor (all clinics), for the side-by-side view.
+  Doctor? doctorById(String doctorId);
+  Future<void> linkDoctors(String pairId);
+  Future<void> markNotSame(String pairId);
+  Future<void> unlinkDoctor(String doctorId);
 }

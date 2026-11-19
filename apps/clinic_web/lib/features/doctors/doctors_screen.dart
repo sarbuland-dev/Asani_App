@@ -31,9 +31,10 @@ class DoctorsScreen extends ConsumerWidget {
 
 /// Opens the doctor form and saves a new doctor (clinic login only).
 Future<void> addDoctor(BuildContext context, WidgetRef ref, String clinicId) async {
-  final d = await showDoctorForm(context, clinicId: clinicId);
-  if (d != null && context.mounted) {
-    await runAction(context, () => ref.read(repositoryProvider).saveDoctor(clinicId, d, isNew: true), success: '${d.name} added.');
+  final r = await showDoctorForm(context, clinicId: clinicId);
+  if (r != null && context.mounted) {
+    await runAction(context, () => ref.read(repositoryProvider).saveDoctor(clinicId, r.doctor, isNew: true, pmdcNumber: r.pmdc),
+        success: '${r.doctor.name} added.');
   }
 }
 
@@ -116,7 +117,8 @@ class _DoctorCard extends ConsumerWidget {
                 const Pill(label: 'New', fg: AppColors.onPrimary, bg: AppColors.primaryLight),
               ],
             ]),
-            Text([d.speciality, ?d.qualification].join(' · '), style: AppText.bodyMedium),
+            Text([d.specialityEnum.display, ?d.qualification].join(' · '), style: AppText.bodyMedium),
+            if (d.specialityFlagged) const Text('Please pick a speciality (Edit).', style: TextStyle(color: AppColors.warning)),
             const SizedBox(height: Gap.sm),
             Text(_scheduleText(), style: AppText.labelSmall),
             const SizedBox(height: Gap.sm),
@@ -156,8 +158,10 @@ class _DoctorCard extends ConsumerWidget {
           const SizedBox(width: Gap.sm),
           OutlinedButton.icon(
             onPressed: () async {
-              final edited = await showDoctorForm(context, initial: d, clinicId: clinicId);
-              if (edited != null && context.mounted) await runAction(context, () => repo.saveDoctor(clinicId, edited), success: 'Changes saved.');
+              final r = await showDoctorForm(context, initial: d, clinicId: clinicId, hasPmdc: repo.hasPmdc(d.id));
+              if (r != null && context.mounted) {
+                await runAction(context, () => repo.saveDoctor(clinicId, r.doctor, pmdcNumber: r.pmdc), success: 'Changes saved.');
+              }
             },
             icon: const Icon(Icons.edit_outlined, size: 18),
             label: const Text('Edit'),

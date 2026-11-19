@@ -377,7 +377,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(d.name, style: AppText.labelLarge.copyWith(color: AppColors.onPrimary), overflow: TextOverflow.ellipsis),
-                  Text(schedule == null ? 'Not scheduled today' : '${d.speciality} · ${Fmt.timeRange(schedule)}',
+                  Text(schedule == null ? 'Not scheduled today' : '${d.specialityEnum.display} · ${Fmt.timeRange(schedule)}',
                       style: AppText.labelSmall.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.85)), overflow: TextOverflow.ellipsis),
                 ]),
               ),

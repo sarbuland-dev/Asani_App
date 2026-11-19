@@ -913,8 +913,9 @@ class FirebaseClinicRepository implements ClinicRepository {
   // ===================================================================
 
   @override
-  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false}) async {
+  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false, String? pmdcNumber}) async {
     final r = await _call('saveDoctor', {
+      'pmdcNumber': ?pmdcNumber, // D-33: server stores it admin-only
       if (!isNew) 'doctorId': doctor.id,
       'name': doctor.name.trim(),
       'speciality': doctor.speciality.trim(),
@@ -1031,6 +1032,25 @@ class FirebaseClinicRepository implements ClinicRepository {
 
   @override
   Future<void> waiveInvoice(String invoiceId, String reason) => _call('waiveInvoice', {'invoiceId': invoiceId, 'reason': reason});
+
+  // ---- D-31..D-33: placeholders until the integration side lands docs/09 §1–§6 ----
+  @override
+  bool hasPmdc(String doctorId) => false; // TODO(integration): `hasPmdc` from saveDoctor / the doctor list
+
+  @override
+  List<LinkSuggestion> linkSuggestions() => const []; // TODO(integration): doctorLinkSuggestions listener
+
+  @override
+  Doctor? doctorById(String doctorId) => _doctors[doctorId];
+
+  @override
+  Future<void> linkDoctors(String pairId) => _call('adminLinkDoctors', {'pairId': pairId});
+
+  @override
+  Future<void> markNotSame(String pairId) => _call('adminMarkNotSame', {'pairId': pairId});
+
+  @override
+  Future<void> unlinkDoctor(String doctorId) => _call('adminUnlinkDoctor', {'doctorId': doctorId});
 
   @override
   Future<void> giveExtension(String invoiceId, DateTime newDueDate) =>

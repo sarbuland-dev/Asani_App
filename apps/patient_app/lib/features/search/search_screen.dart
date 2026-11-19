@@ -12,8 +12,11 @@ import '../../core/widgets/error_state.dart';
 
 /// S-06 search: clinic name or area, filters as you type (250 ms debounce).
 class SearchScreen extends ConsumerStatefulWidget {
-  const SearchScreen({super.key, this.initialQuery = ''});
+  const SearchScreen({super.key, this.initialQuery = '', this.embedded = false});
   final String initialQuery;
+
+  /// Inside the Clinics | Doctors tabs (D-31): the tab screen has the back button.
+  final bool embedded;
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -72,8 +75,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.screen, Gap.sm),
               child: Row(children: [
-                const HeaderBackButton(dark: true),
-                const SizedBox(width: Gap.sm),
+                if (!widget.embedded) ...[
+                  const HeaderBackButton(dark: true),
+                  const SizedBox(width: Gap.sm),
+                ],
                 Expanded(
                   child: TextField(
                     controller: _controller,

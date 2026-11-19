@@ -42,7 +42,7 @@ class DemoSeed {
   List<Doctor> doctors() {
     const evening = DaySchedule('17:00', '21:00');
     return [
-      Doctor(id: 'd_ayesha', clinicId: 'c_alshifa', name: 'Dr. Ayesha Malik', speciality: 'General Physician', qualification: 'MBBS, FCPS', tokenPrefix: 'A', schedule: _week(evening, today: _runningNow), sortOrder: 1),
+      Doctor(id: 'd_ayesha', clinicId: 'c_alshifa', name: 'Dr. Ayesha Malik', speciality: 'General Physician', qualification: 'MBBS, FCPS', tokenPrefix: 'A', schedule: _week(evening, today: _runningNow), sortOrder: 1, doctorGroupId: 'g_ayesha'),
       Doctor(id: 'd_kamran', clinicId: 'c_alshifa', name: 'Dr. Kamran Ahmed', speciality: 'Child Specialist', qualification: 'MBBS, DCH', tokenPrefix: 'B', schedule: _week(const DaySchedule('10:00', '14:00')), onLeaveDates: [today], sortOrder: 2),
       Doctor(id: 'd_sana', clinicId: 'c_alshifa', name: 'Dr. Sana Riaz', speciality: 'Gynecologist', qualification: 'MBBS, FCPS', tokenPrefix: 'C', avgConsultMinutes: 15, maxTokensPerDay: 30, schedule: _week(const DaySchedule('18:00', '21:00'), today: _laterToday, todayOff: _laterToday == null), sortOrder: 3),
       Doctor(id: 'd_imran', clinicId: 'c_citycare', name: 'Dr. Imran Qureshi', speciality: 'General Physician', tokenPrefix: 'A', schedule: _week(const DaySchedule('16:00', '22:00'), today: _runningNow), sortOrder: 1),
@@ -50,6 +50,9 @@ class DemoSeed {
       Doctor(id: 'd_usman', clinicId: 'c_modeltown', name: 'Dr. Usman Tariq', speciality: 'ENT Specialist', tokenPrefix: 'A', schedule: _week(const DaySchedule('16:00', '20:00'), off: {'sat', 'sun'}), sortOrder: 1),
       Doctor(id: 'd_hina', clinicId: 'c_dha', name: 'Dr. Hina Shah', speciality: 'Pediatrician', tokenPrefix: 'A', schedule: _week(const DaySchedule('09:00', '13:00'), off: {}), sortOrder: 1),
       Doctor(id: 'd_bilal', clinicId: 'c_dha', name: 'Dr. Bilal Ahmed', speciality: 'General Physician', tokenPrefix: 'B', schedule: _week(evening, today: _runningNow), sortOrder: 2),
+      // D-32 demo: Dr. Ayesha also sits at DHA (linked by the Super Admin), and a heart doctor for the Doctors tab.
+      Doctor(id: 'd_ayesha_dha', clinicId: 'c_dha', name: 'Dr. Ayesha Malik', speciality: 'generalPhysician', qualification: 'MBBS, FCPS', tokenPrefix: 'C', schedule: _week(const DaySchedule('10:00', '13:00')), sortOrder: 3, doctorGroupId: 'g_ayesha'),
+      Doctor(id: 'd_asif', clinicId: 'c_citycare', name: 'Dr. Asif Khan', speciality: 'heart', qualification: 'MBBS, FCPS (Cardiology)', tokenPrefix: 'C', avgConsultMinutes: 15, schedule: _week(evening, today: _runningNow), sortOrder: 3),
       Doctor(id: 'd_nadia', clinicId: 'c_shifafamily', name: 'Dr. Nadia Karim', speciality: 'General Physician', tokenPrefix: 'A', schedule: _week(evening, todayOff: true), sortOrder: 1),
       Doctor(id: 'd_rehman', clinicId: 'c_rehman', name: 'Dr. Abdul Rehman', speciality: 'General Physician', tokenPrefix: 'A', schedule: _week(evening), sortOrder: 1),
       Doctor(id: 'd_zara', clinicId: 'c_clifton', name: 'Dr. Zara Hussain', speciality: 'General Physician', tokenPrefix: 'A', schedule: _week(evening, today: _runningNow), sortOrder: 1),

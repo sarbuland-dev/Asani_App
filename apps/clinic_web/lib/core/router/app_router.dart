@@ -13,6 +13,7 @@ import '../../features/admin/dashboard_screen.dart';
 import '../../features/admin/defaulters_screen.dart';
 import '../../features/admin/new_clinic_screen.dart';
 import '../../features/admin/payments_screen.dart';
+import '../../features/admin/same_doctor_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/billing/billing_screen.dart';
 import '../../features/doctors/doctors_screen.dart';
@@ -86,6 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/admin/payments', pageBuilder: (c, s) => page(const PaymentsScreen())),
           GoRoute(path: '/admin/defaulters', pageBuilder: (c, s) => page(const DefaultersScreen())),
           GoRoute(path: '/admin/activity', pageBuilder: (c, s) => page(const ActivityScreen())),
+          GoRoute(path: '/admin/doctors', pageBuilder: (c, s) => page(const SameDoctorScreen())), // A-09, D-32
           GoRoute(path: '/admin/settings', pageBuilder: (c, s) => page(const AdminSettingsScreen())),
         ],
       ),

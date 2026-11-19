@@ -90,3 +90,6 @@ final doctorAddedAtProvider = Provider<Map<String, DateTime>>((ref) => _live(ref
 
 /// A doctor counts as "new" for 7 days after the clinic adds it (A-01).
 bool isNewDoctor(DateTime? addedAt) => addedAt != null && pktNow().difference(addedAt).inDays < 7;
+
+/// D-32 / A-09: same-doctor suggestions (Super Admin only).
+final linkSuggestionsProvider = Provider<List<LinkSuggestion>>((ref) => _live(ref, (r) => r.linkSuggestions()));

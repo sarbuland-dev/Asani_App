@@ -1,4 +1,5 @@
 import 'dates.dart';
+import 'speciality.dart';
 import 'enums.dart';
 
 // Timestamps are serialised as epoch milliseconds in these maps. The Firestore
@@ -242,11 +243,16 @@ class Doctor {
     this.onLeaveDates = const [],
     this.active = true,
     this.sortOrder = 0,
+    this.doctorGroupId,
+    this.specialityFlagged = false,
   });
 
   final String id;
   final String clinicId;
   final String name;
+
+  /// Key from the fixed list (D-31); old data may still hold free text, so
+  /// read it through [specialityEnum].
   final String speciality;
   final String? qualification;
 
@@ -261,6 +267,14 @@ class Doctor {
   final List<String> onLeaveDates;
   final bool active;
   final int sortOrder;
+
+  /// Same doctor at other clinics shares this ID once the Super Admin links them (D-32).
+  final String? doctorGroupId;
+
+  /// Migration could not map an old speciality and set `other` (D-33).
+  final bool specialityFlagged;
+
+  Speciality get specialityEnum => Speciality.resolve(speciality);
 
   DaySchedule? scheduleOn(DateTime date) => schedule[weekdayKey(date)];
   bool onLeave(DateTime date) => onLeaveDates.contains(dayKey(date));
@@ -280,6 +294,8 @@ class Doctor {
         'onLeaveDates': onLeaveDates,
         'active': active,
         'sortOrder': sortOrder,
+        'doctorGroupId': doctorGroupId,
+        if (specialityFlagged) 'specialityFlagged': true,
       };
 
   factory Doctor.fromMap(Map<String, Object?> m) => Doctor(
@@ -298,6 +314,8 @@ class Doctor {
         onLeaveDates: _strings(m['onLeaveDates']),
         active: (m['active'] as bool?) ?? true,
         sortOrder: (m['sortOrder'] as int?) ?? 0,
+        doctorGroupId: m['doctorGroupId'] as String?,
+        specialityFlagged: (m['specialityFlagged'] as bool?) ?? false,
       );
 }
 

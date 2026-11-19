@@ -20,7 +20,9 @@ import '../../features/family/profile_detail_screen.dart';
 import '../../features/family/profile_form_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/notifications/primer_screen.dart';
-import '../../features/search/search_screen.dart';
+import 'package:asani_core/asani_core.dart';
+
+import '../../features/search/search_tabs_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/token/token_screen.dart';
 import '../../features/token/token_slip_screen.dart';
@@ -97,7 +99,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: '/account', builder: (_, _) => const AccountScreen())]),
         ],
       ),
-      GoRoute(path: '/search', builder: (_, s) => SearchScreen(initialQuery: s.uri.queryParameters['q'] ?? '')),
+      // Clinics | Doctors tabs (D-31): /search?q=… or /search?tab=doctors&speciality=heart
+      GoRoute(
+        path: '/search',
+        builder: (_, s) => SearchTabsScreen(
+          initialQuery: s.uri.queryParameters['q'] ?? '',
+          doctors: s.uri.queryParameters['tab'] == 'doctors',
+          speciality: Speciality.fromKey(s.uri.queryParameters['speciality']),
+        ),
+      ),
       GoRoute(path: '/clinic/:clinicId', builder: (_, s) => ClinicScreen(clinicId: s.pathParameters['clinicId']!)),
       // Clinic QR deep link (PRD F-11).
       GoRoute(path: '/c/:clinicId', redirect: (_, s) => '/clinic/${s.pathParameters['clinicId']}'),

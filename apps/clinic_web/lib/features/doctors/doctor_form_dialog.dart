@@ -9,15 +9,19 @@ const _dayNames = {'mon': 'Monday', 'tue': 'Tuesday', 'wed': 'Wednesday', 'thu':
 /// Times in 30-minute steps for the schedule dropdowns.
 final _times = [for (var m = 6 * 60; m <= 23 * 60 + 30; m += 30) minutesToHhmm(m)];
 
+/// What the form returns: the doctor, plus a PMDC number typed now (null = keep the saved one, D-33).
+typedef DoctorFormResult = ({Doctor doctor, String? pmdc});
+
 /// W-17 doctor form (C-11). Returns the edited doctor; the caller saves it.
 /// The clinic adds and edits its own doctors (D-19).
-Future<Doctor?> showDoctorForm(BuildContext context, {Doctor? initial, required String clinicId}) =>
-    showDialog<Doctor>(context: context, builder: (_) => _DoctorForm(initial: initial, clinicId: clinicId));
+Future<DoctorFormResult?> showDoctorForm(BuildContext context, {Doctor? initial, required String clinicId, bool hasPmdc = false}) =>
+    showDialog<DoctorFormResult>(context: context, builder: (_) => _DoctorForm(initial: initial, clinicId: clinicId, hasPmdc: hasPmdc));
 
 class _DoctorForm extends StatefulWidget {
-  const _DoctorForm({this.initial, required this.clinicId});
+  const _DoctorForm({this.initial, required this.clinicId, this.hasPmdc = false});
   final Doctor? initial;
   final String clinicId;
+  final bool hasPmdc;
 
   @override
   State<_DoctorForm> createState() => _DoctorFormState();
@@ -27,7 +31,11 @@ class _DoctorFormState extends State<_DoctorForm> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.initial?.name ?? 'Dr. ');
   late final _qual = TextEditingController(text: widget.initial?.qualification ?? '');
-  late final _spec = TextEditingController(text: widget.initial?.speciality ?? '');
+  // D-31: one key from the fixed list. Old free text is mapped; unknown stays empty so the clinic picks.
+  late Speciality? _spec = widget.initial == null || widget.initial!.specialityFlagged
+      ? null
+      : Speciality.fromKey(widget.initial!.speciality) ?? Speciality.fromLegacy(widget.initial!.speciality);
+  final _pmdc = TextEditingController();
   late final _avg = TextEditingController(text: '${widget.initial?.avgConsultMinutes ?? 10}');
   late final _max = TextEditingController(text: '${widget.initial?.maxTokensPerDay ?? 40}');
   late final _window = TextEditingController(text: '${widget.initial?.bookingWindowDays ?? 7}');
@@ -37,7 +45,7 @@ class _DoctorFormState extends State<_DoctorForm> {
 
   @override
   void dispose() {
-    for (final c in [_name, _qual, _spec, _avg, _max, _window]) {
+    for (final c in [_name, _qual, _pmdc, _avg, _max, _window]) {
       c.dispose();
     }
     super.dispose();
@@ -67,13 +75,13 @@ class _DoctorFormState extends State<_DoctorForm> {
       return;
     }
     final i = widget.initial;
-    Navigator.pop(
-      context,
-      Doctor(
+    Navigator.pop(context, (
+      pmdc: _pmdc.text.trim().isEmpty ? null : _pmdc.text.trim(),
+      doctor: Doctor(
         id: i?.id ?? 'new',
         clinicId: widget.clinicId,
         name: _name.text.trim(),
-        speciality: _spec.text.trim(),
+        speciality: _spec!.key,
         qualification: _qual.text.trim().isEmpty ? null : _qual.text.trim(),
         tokenPrefix: i?.tokenPrefix ?? '?',
         avgConsultMinutes: int.parse(_avg.text),
@@ -83,8 +91,9 @@ class _DoctorFormState extends State<_DoctorForm> {
         onLeaveDates: i?.onLeaveDates ?? const [],
         active: i?.active ?? true,
         sortOrder: i?.sortOrder ?? 0,
+        doctorGroupId: i?.doctorGroupId,
       ),
-    );
+    ));
   }
 
   Widget _numField(String label, TextEditingController c, int min, int max, String suffix) => Expanded(
@@ -138,12 +147,32 @@ class _DoctorFormState extends State<_DoctorForm> {
             Expanded(
               child: FieldLabel(
                 'Speciality',
-                child: TextFormField(controller: _spec, decoration: const InputDecoration(hintText: 'General Physician'), validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null),
+                child: DropdownButtonFormField<Speciality>(
+                  initialValue: _spec,
+                  hint: const Text('Pick a speciality'),
+                  items: [for (final s in Speciality.values) DropdownMenuItem(value: s, child: Text(s.display))],
+                  onChanged: (v) => setState(() => _spec = v),
+                  validator: (v) => v == null ? 'Required' : null,
+                ),
               ),
             ),
             const SizedBox(width: Gap.md),
             Expanded(child: FieldLabel('Qualification (optional)', child: TextFormField(controller: _qual, decoration: const InputDecoration(hintText: 'MBBS, FCPS')))),
           ]),
+          // D-32 / D-33: optional, stored admin-only; the clinic never sees it again.
+          FieldLabel(
+            'PMDC number (optional)',
+            child: TextFormField(
+              controller: _pmdc,
+              decoration: InputDecoration(
+                hintText: '12345-P',
+                helperText: widget.hasPmdc
+                    ? 'PMDC number on file. Type a new one to change it.'
+                    : 'Helps patients find this doctor at all their clinics.',
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty || isValidPmdc(v!) ? null : 'Not a valid PMDC number',
+            ),
+          ),
           Row(children: [
             _numField('Avg consultation', _avg, 2, 120, 'min'),
             const SizedBox(width: Gap.md),

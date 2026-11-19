@@ -36,6 +36,8 @@ class DemoClinicRepository implements ClinicRepository {
   final _staff = <String, UserAccount>{};
   final _passwords = <String, String>{}; // email -> password (demo only)
   final _addedAt = <String, DateTime>{}; // doctorId -> added (D-19)
+  final _pmdc = <String, String>{}; // doctorId -> PMDC number, admin-only (D-33)
+  final _suggestions = <String, LinkSuggestion>{}; // pairId -> suggestion (D-32)
   final _invoices = <String, Invoice>{};
   final _activity = <ActivityLog>[];
   final _failedLogins = <String, int>{};
@@ -569,7 +571,7 @@ class DemoClinicRepository implements ClinicRepository {
   // ===================================================================
 
   @override
-  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false}) async {
+  Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false, String? pmdcNumber}) async {
     // D-19: the clinic manages its own doctors; the Super Admin only views.
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     await _latency();
@@ -592,14 +594,126 @@ class DemoClinicRepository implements ClinicRepository {
         sortOrder: doctors(clinicId, includeInactive: true).length + 1,
       );
       _addedAt[d.id] = _now;
-      _log(clinicId, 'added doctor', '${d.name} · ${d.speciality}');
+      _log(clinicId, 'added doctor', '${d.name} · ${d.specialityEnum.display}');
     } else {
+      // Linking is the Super Admin's (D-32): an edit never changes the group.
+      d = _copyDoctor(d, group: _doctors[d.id]?.doctorGroupId);
       _log(clinicId, 'updated doctor', d.name);
     }
+    if (pmdcNumber != null && pmdcNumber.trim().isNotEmpty) {
+      if (!isValidPmdc(pmdcNumber)) throw const AppException('invalid-pmdc', 'Not a valid PMDC number.');
+      _pmdc[d.id] = normalisePmdc(pmdcNumber);
+    }
     _doctors[d.id] = d;
+    _suggestFor(d); // never blocks, never links (D-32)
     _syncDoctorCount(clinicId);
     _notify();
     return d;
+  }
+
+  @override
+  bool hasPmdc(String doctorId) => _pmdc.containsKey(doctorId);
+
+  // ---- D-32: same doctor at two clinics (mirrors saveDoctor's suggestion builder, docs/09 §1) ----
+
+  String? _cityOf(Doctor d) => _clinics[d.clinicId]?.clinic.city;
+
+  void _suggestFor(Doctor d) {
+    for (final o in _doctors.values) {
+      if (o.id == d.id || o.clinicId == d.clinicId || _cityOf(o) != _cityOf(d)) continue;
+      final strong = _pmdc[d.id] != null && _pmdc[d.id] == _pmdc[o.id];
+      final weak = doctorNameKey(o.name) == doctorNameKey(d.name) && o.specialityEnum == d.specialityEnum;
+      if (!strong && !weak) continue;
+      final id = LinkSuggestion.pairIdOf(d.id, o.id);
+      final old = _suggestions[id];
+      if (old != null && (old.status != LinkStatus.open || old.strength == LinkStrength.strong || !strong)) continue;
+      final ids = [d.id, o.id]..sort();
+      _suggestions[id] = LinkSuggestion(
+        pairId: id,
+        doctorIds: ids,
+        clinicIds: [for (final x in ids) x == d.id ? d.clinicId : o.clinicId],
+        strength: strong ? LinkStrength.strong : LinkStrength.weak,
+        status: LinkStatus.open,
+        createdAt: old?.createdAt ?? _now,
+      );
+    }
+  }
+
+  LinkSuggestion _decide(LinkSuggestion s, LinkStatus status) => LinkSuggestion(
+        pairId: s.pairId,
+        doctorIds: s.doctorIds,
+        clinicIds: s.clinicIds,
+        strength: s.strength,
+        status: status,
+        createdAt: s.createdAt,
+      );
+
+  void _requireAdmin() {
+    if (_requireUser().role != UserRole.superAdmin) throw AppException.notAllowed;
+  }
+
+  String _pairLabel(LinkSuggestion s) =>
+      s.doctorIds.map((id) => '${_doctors[id]?.name} (${_clinics[_doctors[id]?.clinicId]?.clinic.name})').join(' + ');
+
+  @override
+  List<LinkSuggestion> linkSuggestions() => [
+        for (final s in _suggestions.values)
+          LinkSuggestion(
+            pairId: s.pairId,
+            doctorIds: s.doctorIds,
+            clinicIds: s.clinicIds,
+            strength: s.strength,
+            status: s.status,
+            createdAt: s.createdAt,
+            pmdcNumbers: [for (final id in s.doctorIds) _pmdc[id]],
+          ),
+      ]..sort((a, b) => a.strength != b.strength ? a.strength.index.compareTo(b.strength.index) : b.createdAt.compareTo(a.createdAt));
+
+  @override
+  Doctor? doctorById(String doctorId) => _doctors[doctorId];
+
+  @override
+  Future<void> linkDoctors(String pairId) async {
+    _requireAdmin();
+    final s = _suggestions[pairId] ?? (throw AppException.generic);
+    if (s.status != LinkStatus.open) return;
+    await _latency();
+    final a = _doctors[s.doctorIds[0]]!, b = _doctors[s.doctorIds[1]]!;
+    final group = a.doctorGroupId ?? b.doctorGroupId ?? 'g_$pairId';
+    for (final x in [a, b]) {
+      _doctors[x.id] = _copyDoctor(x, group: group);
+    }
+    _suggestions[pairId] = _decide(s, LinkStatus.linked);
+    _log(null, 'linked doctors', _pairLabel(s));
+    _notify();
+  }
+
+  @override
+  Future<void> markNotSame(String pairId) async {
+    _requireAdmin();
+    final s = _suggestions[pairId] ?? (throw AppException.generic);
+    await _latency();
+    _suggestions[pairId] = _decide(s, LinkStatus.notSame);
+    _log(null, 'marked doctors not the same', _pairLabel(s));
+    _notify();
+  }
+
+  @override
+  Future<void> unlinkDoctor(String doctorId) async {
+    _requireAdmin();
+    final d = _doctors[doctorId] ?? (throw AppException.generic);
+    final group = d.doctorGroupId;
+    if (group == null) return;
+    await _latency();
+    _doctors[doctorId] = _copyDoctor(d, group: null);
+    final rest = _doctors.values.where((x) => x.doctorGroupId == group).toList();
+    if (rest.length == 1) _doctors[rest.first.id] = _copyDoctor(rest.first, group: null);
+    // D-33: Unlink counts as Not the same: never suggested again.
+    for (final s in _suggestions.values.toList()) {
+      if (s.doctorIds.contains(doctorId) && s.status == LinkStatus.linked) _suggestions[s.pairId] = _decide(s, LinkStatus.unlinked);
+    }
+    _log(null, 'unlinked doctor', '${d.name} (${_clinics[d.clinicId]?.clinic.name})');
+    _notify();
   }
 
   void _syncDoctorCount(String clinicId) {
@@ -608,7 +722,9 @@ class DemoClinicRepository implements ClinicRepository {
     _clinics[clinicId] = c.copyWith(clinic: clinicWith(c.clinic, doctorCount: doctors(clinicId).length));
   }
 
-  Doctor _copyDoctor(Doctor d, {List<String>? onLeaveDates, bool? active}) => Doctor(
+  static const _keep = Object();
+
+  Doctor _copyDoctor(Doctor d, {List<String>? onLeaveDates, bool? active, Object? group = _keep}) => Doctor(
         id: d.id,
         clinicId: d.clinicId,
         name: d.name,
@@ -622,6 +738,8 @@ class DemoClinicRepository implements ClinicRepository {
         onLeaveDates: onLeaveDates ?? d.onLeaveDates,
         active: active ?? d.active,
         sortOrder: d.sortOrder,
+        doctorGroupId: identical(group, _keep) ? d.doctorGroupId : group as String?,
+        specialityFlagged: d.specialityFlagged,
       );
 
   @override
@@ -991,11 +1109,23 @@ class DemoClinicRepository implements ClinicRepository {
       Doctor(id: 'd_bilal', clinicId: 'c_dha', name: 'Dr. Bilal Ahmed', speciality: 'General Physician', tokenPrefix: 'B', schedule: week(evening, today: runningNow), sortOrder: 2),
       Doctor(id: 'd_nida', clinicId: 'c_dha', name: 'Dr. Nida Farooq', speciality: 'Dermatologist', qualification: 'MBBS, FCPS', tokenPrefix: 'C', avgConsultMinutes: 12, schedule: week(const DaySchedule('11:00', '14:00'), off: {'fri', 'sun'}), sortOrder: 3),
       Doctor(id: 'd_rehman', clinicId: 'c_rehman', name: 'Dr. Abdul Rehman', speciality: 'General Physician', tokenPrefix: 'A', schedule: week(evening), sortOrder: 1),
+      // D-32 demo: the same Dr. Ayesha at DHA (same PMDC: strong) and Dr. Imran at Model Town (same name: weak).
+      Doctor(id: 'd_ayesha_dha', clinicId: 'c_dha', name: 'Dr. Ayesha Malik', speciality: 'generalPhysician', qualification: 'MBBS, FCPS', tokenPrefix: 'D', schedule: week(const DaySchedule('10:00', '13:00')), sortOrder: 4),
+      Doctor(id: 'd_imran_mt', clinicId: 'c_modeltown', name: 'Dr. Imran Qureshi', speciality: 'generalPhysician', tokenPrefix: 'B', schedule: week(const DaySchedule('09:00', '12:00')), sortOrder: 2),
       Doctor(id: 'd_zara', clinicId: 'c_clifton', name: 'Dr. Zara Hussain', speciality: 'General Physician', tokenPrefix: 'A', schedule: week(evening, today: runningNow), sortOrder: 1),
     ];
     for (final d in docs) {
       _doctors[d.id] = d;
       _addedAt[d.id] = _clinics[d.clinicId]!.createdAt;
+    }
+    for (final c in _clinics.values.toList()) {
+      final used = docs.where((d) => d.clinicId == c.clinic.id).map((d) => _letters.indexOf(d.tokenPrefix) + 1);
+      if (used.isNotEmpty) _clinics[c.clinic.id] = c.copyWith(nextDoctorLetter: used.reduce(max));
+    }
+    _pmdc['d_ayesha'] = '12345-P';
+    _pmdc['d_ayesha_dha'] = '12345-P';
+    for (final d in docs) {
+      _suggestFor(d);
     }
 
     // ---- Patients (families on one phone) ----

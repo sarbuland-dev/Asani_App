@@ -138,6 +138,8 @@ void main() {
         ('search', '/search'),
         ('search shifa', '/search?q=shifa'),
         ('search empty', '/search?q=xyz'),
+        ('search doctors GP', '/search?tab=doctors&speciality=generalPhysician'),
+        ('search doctors none', '/search?tab=doctors&speciality=kidney'),
         ('clinic', '/clinic/c_alshifa'),
         ('clinic suspended', '/clinic/c_rehman'),
         ('booking', '/book/c_alshifa/d_sana'),

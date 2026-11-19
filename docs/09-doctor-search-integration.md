@@ -14,7 +14,8 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
 - [ ] **`saveDoctor`** (clinic):
   - `speciality` must be **one** key of the fixed list (share the list with `asani_core`, see §6); reject free text.
   - Optional `pmdcNumber`: normalise (trim, upper case, no spaces), loose check `^\d{3,7}(-[A-Z]{1,2})?$`;
-    `invalid-argument` "Not a valid PMDC number" otherwise. Empty = remove.
+    `invalid-argument` "Not a valid PMDC number" otherwise. Field **absent = keep** the saved number (the clinic
+    can't read it back, so the form sends it only when typed).
   - Write `pmdcNumber` **only** to `doctors/{id}/private/admin` (`{pmdcNumber, clinicId, updatedAt}`), never to
     the public doctor document. Return `hasPmdc: bool`, never the number.
   - Copy `city` from the clinic; set `nameKey` (lower case, strip `dr`/`dr.`/`doctor`, punctuation, extra spaces);
@@ -77,6 +78,12 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
   API without asking).
 
 ## 6. App data layer the UI needs (patient app + clinic web)
+
+**Done on 2026-11-19 for the demo backend** (asani_core helpers, demo data, patient `doctorCardsProvider`,
+`LocationService` with a fixed demo spot, clinic web demo repository + `linkSuggestionsProvider`). Still open for
+Firebase: the `TODO(integration)` stubs in `apps/clinic_web/lib/data/firebase_clinic_repository.dart`
+(`hasPmdc`, `linkSuggestions`), reading `doctorGroupId` / `specialityFlagged` in the clinic web's Firestore doctor
+parser, and a real `LocationService` with geolocator in `apps/patient_app/lib/data/location_service.dart`.
 
 The UI reads these; names are the contract. **Pure helpers** go in `asani_core`, providers/repositories in each app.
 

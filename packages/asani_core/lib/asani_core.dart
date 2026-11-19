@@ -10,3 +10,5 @@ export 'src/dates.dart';
 export 'src/formatters.dart'; // Fmt (dates, times, phone display), PhoneUtils
 export 'src/logger.dart'; // AppLogger (AGENTS.md §6: no print)
 export 'src/token_code.dart';
+export 'src/speciality.dart'; // fixed list, D-31
+export 'src/doctor_search.dart'; // distance, PMDC, Doctors tab cards (D-31..D-33)

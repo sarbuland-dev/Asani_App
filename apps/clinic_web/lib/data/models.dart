@@ -405,3 +405,38 @@ class DaySummary {
     );
   }
 }
+
+/// D-32: why two doctor records may be the same person.
+enum LinkStrength {
+  strong,
+  weak;
+
+  String get label => switch (this) { strong => 'Strong (same PMDC)', weak => 'Weak (same name + speciality)' };
+}
+
+enum LinkStatus { open, linked, notSame, unlinked }
+
+/// doctorLinkSuggestions/{pairId} (DATABASE §8b, D-32). Super Admin only.
+class LinkSuggestion {
+  const LinkSuggestion({
+    required this.pairId,
+    required this.doctorIds,
+    required this.clinicIds,
+    required this.strength,
+    required this.status,
+    required this.createdAt,
+    this.pmdcNumbers = const [null, null],
+  });
+
+  final String pairId;
+
+  /// Two doctor IDs, sorted; [clinicIds] and [pmdcNumbers] in the same order.
+  final List<String> doctorIds;
+  final List<String> clinicIds;
+  final LinkStrength strength;
+  final LinkStatus status;
+  final DateTime createdAt;
+  final List<String?> pmdcNumbers;
+
+  static String pairIdOf(String a, String b) => ([a, b]..sort()).join('_');
+}

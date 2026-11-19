@@ -21,6 +21,7 @@ List<_NavItem> _itemsFor(UserRole role) => switch (role) {
       UserRole.superAdmin => const [
           _NavItem('Dashboard', Icons.space_dashboard_outlined, '/admin', exact: true),
           _NavItem('Clinics', Icons.local_hospital_outlined, '/admin/clinics'),
+          _NavItem('Same doctor', Icons.people_alt_outlined, '/admin/doctors'),
           _NavItem('Payments', Icons.receipt_long_outlined, '/admin/payments'),
           _NavItem('Defaulters', Icons.warning_amber_rounded, '/admin/defaulters'),
           _NavItem('Activity', Icons.history_rounded, '/admin/activity'),

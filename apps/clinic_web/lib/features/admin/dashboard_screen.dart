@@ -221,7 +221,7 @@ class NewDoctorsCard extends ConsumerWidget {
                 child: Row(children: [
                   LetterBadge(d.tokenPrefix, size: 32),
                   const SizedBox(width: Gap.md),
-                  Expanded(child: TwoLine('${d.name} · ${d.speciality}', c.clinic.name)),
+                  Expanded(child: TwoLine('${d.name} · ${d.specialityEnum.display}', c.clinic.name)),
                   if (seen == null || at.isAfter(seen)) ...[
                     Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
                     const SizedBox(width: Gap.sm),
