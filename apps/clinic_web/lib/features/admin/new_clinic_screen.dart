@@ -135,6 +135,20 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
             Expanded(child: FieldLabel('City', child: TextFormField(initialValue: _d.city, onChanged: (v) => _d.city = v, validator: _req))),
           ]),
           FieldLabel('Address', child: TextFormField(onChanged: (v) => _d.address = v, validator: _req)),
+          // D-31 / BW-12: required.
+          FieldLabel(
+            'Map location (required)',
+            child: TextFormField(
+              onChanged: (v) => _d.location = parseLatLng(v),
+              decoration: const InputDecoration(hintText: '31.4697, 74.2728', helperText: 'Paste a Google Maps link or type "lat, lng".'),
+              validator: (v) {
+                final p = parseLatLng(v ?? '');
+                if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
+                if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
+                return null;
+              },
+            ),
+          ),
           FieldLabel(
             'Clinic phone',
             child: TextFormField(onChanged: (v) => _d.phone = v, validator: (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
@@ -241,6 +255,7 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       row('Clinic', '${_d.name}, ${_d.area}, ${_d.city}'),
       row('Address', _d.address),
+      row('Map location', _d.location == null ? '—' : formatLatLng(_d.location!)),
       row('Phone', _d.phone),
       row('Print format', _d.printFormat.label),
       row('Clinic login', '${_d.email} (manager: ${_d.ownerName})'),

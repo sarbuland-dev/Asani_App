@@ -48,3 +48,19 @@ final specialityCountsProvider = Provider<Map<Speciality, int>>((ref) {
   }
   return counts;
 });
+
+/// "Also sits at" on the clinic page (D-32, D-33): the same doctor's other
+/// records, active, at visible clinics in the selected city.
+/// Keyed by (groupId, doctorId) so a rebuilt Doctor object reuses the same provider.
+final alsoSitsAtProvider = Provider.family<List<({Doctor doctor, Clinic clinic})>, (String?, String)>((ref, key) {
+  final (group, selfId) = key;
+  if (group == null) return const [];
+  final city = ref.watch(selectedCityProvider);
+  final clinics = ref.watch(clinicsProvider(city)).value ?? const <Clinic>[];
+  final byClinic = ref.watch(doctorsByClinicProvider).value ?? const {};
+  return [
+    for (final c in clinics)
+      for (final d in byClinic[c.id] ?? const <Doctor>[])
+        if (d.active && d.doctorGroupId == group && d.id != selfId) (doctor: d, clinic: c),
+  ];
+});

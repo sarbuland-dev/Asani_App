@@ -830,12 +830,13 @@ class DemoClinicRepository implements ClinicRepository {
   }
 
   @override
-  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name}) async {
+  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name, GeoPoint? location}) async {
     _requireUser();
     final c = _clinics[clinicId] ?? (throw AppException.generic);
+    if ((location ?? c.clinic.location) == null) throw _noLocation; // D-31, BW-12
     await _latency();
     _clinics[clinicId] = c.copyWith(
-      clinic: clinicWith(c.clinic, address: address, area: area, phone: phone, name: name),
+      clinic: clinicWith(c.clinic, address: address, area: area, phone: phone, name: name, location: location),
       printFormat: printFormat,
     );
     _log(clinicId, 'updated clinic settings', c.clinic.name);
@@ -852,9 +853,12 @@ class DemoClinicRepository implements ClinicRepository {
   // Super admin
   // ===================================================================
 
+  static const _noLocation = AppException('no-location', 'Add the clinic location on the map.');
+
   @override
   Future<ClinicAccount> createClinic(NewClinicDraft draft) async {
     _requireUser();
+    if (draft.location == null) throw _noLocation; // D-31, BW-12
     final email = draft.email.trim().toLowerCase();
     if (_staff.values.any((s) => s.email.toLowerCase() == email)) {
       throw const AppException('email-taken', 'An account with this email already exists.');
@@ -869,6 +873,7 @@ class DemoClinicRepository implements ClinicRepository {
         city: draft.city.trim(),
         address: draft.address.trim(),
         phone: draft.phone.trim(),
+        location: draft.location,
         status: ClinicStatus.pilot,
         doctorCount: 0,
       ),
@@ -1082,17 +1087,17 @@ class DemoClinicRepository implements ClinicRepository {
           nextDoctorLetter: letters,
         );
     final list = [
-      acc(const Clinic(id: 'c_alshifa', name: 'Al-Shifa Clinic', area: 'Johar Town', city: 'Lahore', address: 'Main Boulevard, Johar Town', phone: '042-1234567', status: ClinicStatus.active, doctorCount: 3),
+      acc(const Clinic(id: 'c_alshifa', name: 'Al-Shifa Clinic', area: 'Johar Town', city: 'Lahore', address: 'Main Boulevard, Johar Town', phone: '042-1234567', location: GeoPoint(31.4697, 74.2728), status: ClinicStatus.active, doctorCount: 3),
           'clinic@alshifa.pk', 'Dr. Tariq Mehmood', '+923004567890', paidMonths: 1, letters: 3, ageDays: 150),
-      acc(const Clinic(id: 'c_citycare', name: 'City Care Clinic', area: 'Gulberg', city: 'Lahore', address: 'MM Alam Road, Gulberg III', phone: '042-3576543', status: ClinicStatus.pilot, doctorCount: 2),
+      acc(const Clinic(id: 'c_citycare', name: 'City Care Clinic', area: 'Gulberg', city: 'Lahore', address: 'MM Alam Road, Gulberg III', phone: '042-3576543', location: GeoPoint(31.5102, 74.3511), status: ClinicStatus.pilot, doctorCount: 2),
           'clinic@citycare.pk', 'Nasir Ali', '+923214567812', plan: Plan.pilot, pilotDaysLeft: 12, ageDays: 18, letters: 2),
-      acc(const Clinic(id: 'c_modeltown', name: 'Model Town Medical', area: 'Model Town', city: 'Lahore', address: 'Link Road, Model Town', phone: '042-3588812', status: ClinicStatus.grace, doctorCount: 1),
+      acc(const Clinic(id: 'c_modeltown', name: 'Model Town Medical', area: 'Model Town', city: 'Lahore', address: 'Link Road, Model Town', phone: '042-3588812', location: GeoPoint(31.4835, 74.3239), status: ClinicStatus.grace, doctorCount: 1),
           'clinic@modeltownmedical.pk', 'Dr. Usman Tariq', '+923335551234', ageDays: 100),
-      acc(const Clinic(id: 'c_dha', name: 'DHA Family Clinic', area: 'DHA Phase 5', city: 'Lahore', address: 'Sector C, DHA Phase 5', phone: '042-3712990', status: ClinicStatus.active, doctorCount: 2),
+      acc(const Clinic(id: 'c_dha', name: 'DHA Family Clinic', area: 'DHA Phase 5', city: 'Lahore', address: 'Sector C, DHA Phase 5', phone: '042-3712990', location: GeoPoint(31.4625, 74.4086), status: ClinicStatus.active, doctorCount: 2),
           'clinic@dhafamily.pk', 'Mrs. Rubina Shah', '+923008889911', plan: Plan.premium, fee: 5000, paidMonths: 1, letters: 3, ageDays: 95),
-      acc(const Clinic(id: 'c_rehman', name: 'Rehman Clinic', area: 'Iqbal Town', city: 'Lahore', address: 'Moon Market, Iqbal Town', phone: '042-3781100', status: ClinicStatus.suspended, doctorCount: 1),
+      acc(const Clinic(id: 'c_rehman', name: 'Rehman Clinic', area: 'Iqbal Town', city: 'Lahore', address: 'Moon Market, Iqbal Town', phone: '042-3781100', location: GeoPoint(31.489, 74.301), status: ClinicStatus.suspended, doctorCount: 1),
           'clinic@rehmanclinic.pk', 'Dr. Abdul Rehman', '+923451112233', ageDays: 110),
-      acc(const Clinic(id: 'c_clifton', name: 'Clifton Care Clinic', area: 'Clifton', city: 'Karachi', address: 'Block 5, Clifton', phone: '021-35871234', status: ClinicStatus.pilot, doctorCount: 1),
+      acc(const Clinic(id: 'c_clifton', name: 'Clifton Care Clinic', area: 'Clifton', city: 'Karachi', address: 'Block 5, Clifton', phone: '021-35871234', location: GeoPoint(24.8138, 67.03), status: ClinicStatus.pilot, doctorCount: 1),
           'clinic@cliftoncare.pk', 'Zara Hussain', '+923009998877', plan: Plan.pilot, pilotDaysLeft: 25, ageDays: 5),
     ];
     for (final c in list) {

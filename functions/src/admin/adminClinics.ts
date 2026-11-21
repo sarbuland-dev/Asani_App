@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { FieldValue, Firestore, getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, Firestore, GeoPoint, getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { logger } from 'firebase-functions/v2';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -8,6 +8,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 import { Actor, id, input, int, logActivity, optStr, requireSuperAdmin, str } from '../lib/access';
 import { pktNow } from '../lib/dates';
+import { readLocation } from '../lib/location';
 import { REGION, callableOptions } from '../lib/options';
 
 const PLANS = ['pilot', 'basic', 'premium'];
@@ -67,6 +68,7 @@ export function readNewClinic(d: Record<string, unknown>) {
     city: str(d, 'city', 40),
     address: str(d, 'address', 120),
     phone: str(d, 'phone', 20),
+    location: readLocation(d), // required (D-31, BW-12)
     printFormat,
     planAfterPilot,
     pilotDays: int(d, 'pilotDays', 0, 365),
@@ -106,7 +108,7 @@ export const adminCreateClinic = onCall(callableOptions, async (request) => {
       city: c.city,
       address: c.address,
       phone: c.phone,
-      location: null,
+      location: new GeoPoint(c.location.lat, c.location.lng),
       searchKeywords: searchKeywords(c.name, c.area),
       status: 'pilot',
       doctorCount: 0,

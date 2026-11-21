@@ -25,9 +25,13 @@ class _DoctorsTabState extends ConsumerState<DoctorsTab> {
   @override
   Widget build(BuildContext context) {
     final counts = ref.watch(specialityCountsProvider);
+    final seen = ref.watch(locationPrimerSeenProvider).value ?? true;
+    final access = ref.watch(locationAccessProvider).value;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // S-18 (D-31): asked once, the first time the Doctors tab is used.
+        if (!seen && access != null && access != LocationAccess.granted) const _LocationPrimer(),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -65,7 +69,11 @@ class _Results extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('${speciality.display} · ${cards.length} in $city'),
-              if (location == null) const Text('Location is off: same area first, then the rest of the city.'),
+              if (location == null)
+                Row(children: [
+                  const Expanded(child: Text('Turn on location to see the nearest first.')),
+                  TextButton(onPressed: () => askForLocation(ref), child: const Text('Turn on')),
+                ]),
               const SizedBox(height: 8),
               if (cards.isEmpty) Text('No ${speciality.display} doctors on Asani in $city yet.'),
               for (final c in cards) _DoctorCardView(card: c),
@@ -148,4 +156,27 @@ String weeklyTimings(Doctor d) {
   if (on.isEmpty) return 'No timings';
   final names = on.map((k) => k[0].toUpperCase() + k.substring(1)).join(' ');
   return '$names · ${Fmt.timeRange(d.schedule[on.first]!)}';
+}
+
+/// S-18 location primer, as a plain card above the chips.
+class _LocationPrimer extends ConsumerWidget {
+  const _LocationPrimer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Find doctors near you', style: Theme.of(context).textTheme.titleMedium),
+          const Text('We use your location only to show the nearest clinics first. It is never saved or shared.'),
+          Row(children: [
+            TextButton(onPressed: () => ref.read(locationPrimerSeenProvider.notifier).markSeen(), child: const Text('Not now')),
+            const Spacer(),
+            FilledButton(onPressed: () => askForLocation(ref), child: const Text('Allow location')),
+          ]),
+        ]),
+      ),
+    );
+  }
 }

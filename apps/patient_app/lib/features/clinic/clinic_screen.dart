@@ -7,6 +7,8 @@ import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/launch.dart';
 import '../../data/providers.dart';
 import '../../core/widgets/error_state.dart';
+import '../doctor_search/doctor_search_providers.dart';
+import '../doctor_search/doctors_tab.dart' show weeklyTimings;
 
 /// S-07 Clinic page: choose a doctor (PRD F-03).
 class ClinicScreen extends ConsumerStatefulWidget {
@@ -271,6 +273,16 @@ class _DoctorCard extends ConsumerWidget {
                   ),
                 ])),
               ],
+              // D-32: the same doctor at other clinics in this city (linked by the Super Admin).
+              for (final o in ref.watch(alsoSitsAtProvider((doctor.doctorGroupId, doctor.id))))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Also sits at: ${o.clinic.name} · ${o.clinic.area}'),
+                  subtitle: Text(weeklyTimings(o.doctor)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/book/${o.clinic.id}/${o.doctor.id}'),
+                ),
               if (canBookClinic) ...[
                 if (availability == DoctorAvailability.notStarted && day != null && day.bookedCount > 0) ...[
                   const SizedBox(height: Gap.sm),

@@ -212,7 +212,7 @@ class ClinicAccount {
 }
 
 /// Copy of a [Clinic] with some fields changed (core has no copyWith).
-Clinic clinicWith(Clinic c, {String? name, String? area, String? city, String? address, String? phone, ClinicStatus? status, int? doctorCount}) =>
+Clinic clinicWith(Clinic c, {String? name, String? area, String? city, String? address, String? phone, GeoPoint? location, ClinicStatus? status, int? doctorCount}) =>
     Clinic(
       id: c.id,
       name: name ?? c.name,
@@ -220,7 +220,7 @@ Clinic clinicWith(Clinic c, {String? name, String? area, String? city, String? a
       city: city ?? c.city,
       address: address ?? c.address,
       phone: phone ?? c.phone,
-      location: c.location,
+      location: location ?? c.location,
       status: status ?? c.status,
       doctorCount: doctorCount ?? c.doctorCount,
     );

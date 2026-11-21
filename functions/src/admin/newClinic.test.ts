@@ -10,6 +10,7 @@ const ok = {
   city: 'Lahore',
   address: 'Main Market, Gulberg II',
   phone: '042-35761234',
+  location: { lat: 31.5204, lng: 74.3587 },
   printFormat: 'thermal80',
   planAfterPilot: 'basic',
   pilotDays: 30,

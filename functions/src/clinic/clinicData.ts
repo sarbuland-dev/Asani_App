@@ -1,4 +1,4 @@
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, GeoPoint, getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import { logger } from 'firebase-functions/v2';
@@ -12,6 +12,7 @@ import { notifyClinicCancel } from '../queue/cancelNotice';
 import { evaluateQueue } from '../queue/notify';
 import { doctorNameKey, isSpecialityKey, isValidPmdc, normalisePmdc } from '../doctors/linking';
 import { buildSuggestions, pmdcRef } from '../doctors/suggest';
+import { readLocation } from '../lib/location';
 import { historyEntry, syncDay } from './queueAction';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -379,7 +380,9 @@ export const updateClinicSettings = onCall(callableOptions, async (request) => {
   const actor = await requireClinic(db, request);
   const printFormat = str(d, 'printFormat', 12);
   if (!PRINT_FORMATS.includes(printFormat)) throw new HttpsError('invalid-argument', 'Unknown print format.');
+  const loc = readLocation(d); // required (D-31, BW-12)
   await db.collection('clinics').doc(actor.clinicId).update({
+    location: new GeoPoint(loc.lat, loc.lng),
     address: str(d, 'address', 120),
     area: str(d, 'area', 60),
     phone: str(d, 'phone', 20),

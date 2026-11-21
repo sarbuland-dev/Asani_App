@@ -992,9 +992,11 @@ class FirebaseClinicRepository implements ClinicRepository {
   Future<void> setDoctorActive(String doctorId, bool active) => _call('setDoctorActive', {'doctorId': doctorId, 'active': active});
 
   @override
-  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name}) {
+  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name, GeoPoint? location}) {
     final c = _account(clinicId);
+    final loc = location ?? c?.clinic.location;
     return _call('updateClinicSettings', {
+      'location': loc == null ? null : {'lat': loc.lat, 'lng': loc.lng},
       'address': address ?? c?.clinic.address,
       'area': area ?? c?.clinic.area,
       'phone': phone ?? c?.clinic.phone,
@@ -1017,6 +1019,7 @@ class FirebaseClinicRepository implements ClinicRepository {
       'city': draft.city.trim(),
       'address': draft.address.trim(),
       'phone': draft.phone.trim(),
+      'location': draft.location == null ? null : {'lat': draft.location!.lat, 'lng': draft.location!.lng},
       'printFormat': draft.printFormat.name,
       'ownerName': draft.ownerName.trim(),
       'ownerPhone': draft.ownerPhone.trim(),

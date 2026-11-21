@@ -1,7 +1,8 @@
 # 09 — Doctor search + same-doctor linking: integration tasks
 
 > **2026-11-21:** §1–§4 (functions, rules, indexes, migration) and the Firebase data code are **done** (step 1).
-> Left: §5 native/location + the location items in §1 and §6 (step 2). The migration has only been dry-run on dev.
+> **2026-11-22:** step 2 done too (§5 location, required clinic location, "Also sits at" on the clinic page).
+> Material Symbols icons are still not added. Migration ran on dev on 2026-11-21.
 
 PRD D-31, D-32, D-33 (2026-11-19). **Roles:** UI (patient app screens, clinic web screens, `asani_ui`) is done by
 Claude. Everything below is for the **integration side**. Tick items here as they land; the UI is built against
@@ -37,7 +38,7 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
   activity log `doctorUnlinked`.
 - [x] **Doctor list for the clinic web** (whatever the web reads today) gets `hasPmdc`, and for the super admin the
   real number (read from `private/admin`).
-- [ ] **`adminCreateClinic`** / **`updateClinicSettings`**: `location` `{lat, lng}` **required** and in range
+- [x] **`adminCreateClinic`** / **`updateClinicSettings`**: `location` `{lat, lng}` **required** and in range
   (Pakistan bounds are enough); when a clinic's `city` changes, update `city` on its doctors.
 - [x] Unit tests: docs/07 §2 "Doctor linking functions".
 
@@ -71,13 +72,13 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
 
 ## 5. Native + dependencies (patient app)
 
-- [ ] Add **`geolocator`** to `apps/patient_app/pubspec.yaml` (approved, D-33).
-- [ ] Android `AndroidManifest.xml`: `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` (foreground only, no
+- [x] Add **`geolocator`** (its Android/iOS/web parts; see REMAINING_WORK §9) to `apps/patient_app/pubspec.yaml` (approved, D-33).
+- [x] Android `AndroidManifest.xml`: `ACCESS_COARSE_LOCATION` + `ACCESS_FINE_LOCATION` (foreground only, no
   background location).
-- [ ] iOS `Info.plist`: `NSLocationWhenInUseUsageDescription` = **"Asani uses your location to show clinics and
+- [x] iOS `Info.plist`: `NSLocationWhenInUseUsageDescription` = **"Asani uses your location to show clinics and
   doctors near you."**
 - [ ] Add the **Material Symbols** icon package (approved) — to `packages/asani_ui` so both apps share it.
-- [ ] Clinic web: a map picker or "paste Google Maps link / lat, lng" parser for the location field (no new paid
+- [x] Clinic web: a map picker or "paste Google Maps link / lat, lng" parser for the location field (no new paid
   API without asking).
 
 ## 6. App data layer the UI needs (patient app + clinic web)
@@ -102,8 +103,8 @@ The UI reads these; names are the contract. **Pure helpers** go in `asani_core`,
 
 Patient app (`lib/data/**`, demo backend **and** Firebase):
 - [x] `doctorsBySpecialityProvider((city, speciality))` → active doctors at visible clinics in that city.
-- [ ] `doctorGroupProvider(groupId)` → active doctors in the group (for "Also sits at" on the clinic page).
-- [ ] `userLocationProvider` → `AsyncValue<GeoPoint?>` + `requestLocationPermission()` returning
+- [x] `doctorGroupProvider(groupId)` → active doctors in the group (for "Also sits at" on the clinic page).
+- [x] `userLocationProvider` → `AsyncValue<GeoPoint?>` + `requestLocationPermission()` returning
   `granted / denied / deniedForever`; `openLocationSettings()`; `locationPrimerShown` stored on the device
   (like `primerShown`).
 - [x] Demo backend: give demo clinics a `location`, demo doctors fixed speciality keys, one demo doctor linked at
@@ -114,4 +115,4 @@ Clinic web (`lib/data/**`):
   `specialityFlagged`, `doctorGroupId`.
 - [x] Super Admin: `linkSuggestionsProvider(status)`, `linkedGroupsProvider`, and `link` / `notSame` / `unlink`
   actions (callables above); suggestion rows include both doctors, clinics, timings and PMDC numbers.
-- [ ] Clinic settings / wizard: `location` in the save calls.
+- [x] Clinic settings / wizard: `location` in the save calls.

@@ -73,6 +73,8 @@ class NewClinicDraft {
   String city = 'Lahore';
   String address = '';
   String phone = '';
+  /// Required (D-31, BW-12).
+  GeoPoint? location;
   PrintFormat printFormat = PrintFormat.thermal80;
   String ownerName = '';
   String ownerPhone = '';
@@ -177,7 +179,8 @@ abstract interface class ClinicRepository {
   Future<void> setDoctorActive(String doctorId, bool active);
   /// Clinic login: new password; signs out every other computer (C-12).
   Future<void> changePassword(String current, String next);
-  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name});
+  /// [location] is required on the server (D-31, BW-12); null keeps the saved one.
+  Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name, GeoPoint? location});
   Future<void> logExport(String clinicId, String range);
 
   // ---- Super admin ----

@@ -157,7 +157,12 @@ Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINI
       Unlink functions, rules + rules tests (14/14), indexes, `migrate-doctor-search.js`, Firebase code in the web.
 - [x] 2026-11-21 `migrate-doctor-search.js --project dev` run: 20 doctors updated, 2 "Dr. Test (24h)" flagged as Other,
       1 suggestion (the two test doctors). Clinics still without a location: Noor, Care Plus, Rehman, Shifa Family (step 2).
-- [ ] Step 2: location (geolocator, permission screen, clinic location required, "Also sits at" on the clinic page): `docs/09` §5.
+- [x] 2026-11-22 Step 2 location: geolocator (Android/iOS/web parts only: the Linux part clashes with
+      connectivity_plus over dbus), permission text, real `DeviceLocationService` (demo keeps a fixed Johar Town spot),
+      S-18 as a plain card on the Doctors tab + "Turn on" note, clinic location required in `adminCreateClinic` /
+      `updateClinicSettings` and both web forms (paste a Google Maps link or "lat, lng"), "Also sits at" on the clinic page.
+- [ ] Dev data: Noor, Care Plus, Rehman and Shifa Family have no location; add it in Clinic settings (or the Super Admin)
+      before their doctors show distance. Their settings can't be saved without it now.
 - [x] 2026-11-19 **Basic placeholder UI on demo data** (plain Material, real design later in its own chat):
       patient app Search tabs (Clinics | Doctors), speciality chips, doctor list with distance and "Also sits at";
       clinic web speciality picker + PMDC field, Super Admin "Same doctor" screen (Link / Not the same / Unlink).

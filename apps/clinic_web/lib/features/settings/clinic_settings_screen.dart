@@ -1,3 +1,4 @@
+import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,7 +20,7 @@ class ClinicSettingsScreen extends ConsumerStatefulWidget {
 
 class _ClinicSettingsScreenState extends ConsumerState<ClinicSettingsScreen> {
   final _form = GlobalKey<FormState>();
-  TextEditingController? _address, _area, _phone;
+  TextEditingController? _address, _area, _phone, _location;
   PrintFormat? _format;
 
   @override
@@ -27,6 +28,7 @@ class _ClinicSettingsScreenState extends ConsumerState<ClinicSettingsScreen> {
     _address?.dispose();
     _area?.dispose();
     _phone?.dispose();
+    _location?.dispose();
     super.dispose();
   }
 
@@ -34,7 +36,7 @@ class _ClinicSettingsScreenState extends ConsumerState<ClinicSettingsScreen> {
     if (!(_form.currentState?.validate() ?? false)) return;
     await runAction(
       context,
-      () => ref.read(repositoryProvider).updateClinicSettings(widget.clinicId, address: _address!.text.trim(), area: _area!.text.trim(), phone: _phone!.text.trim(), printFormat: _format),
+      () => ref.read(repositoryProvider).updateClinicSettings(widget.clinicId, address: _address!.text.trim(), area: _area!.text.trim(), phone: _phone!.text.trim(), printFormat: _format, location: parseLatLng(_location!.text)),
       success: 'Settings saved.',
     );
   }
@@ -62,6 +64,7 @@ h1 { font-size: 40px; margin: 0 0 8px; } h2 { font-size: 22px; margin: 0 0 28px;
     _address ??= TextEditingController(text: c.clinic.address);
     _area ??= TextEditingController(text: c.clinic.area);
     _phone ??= TextEditingController(text: c.clinic.phone);
+    _location ??= TextEditingController(text: c.clinic.location == null ? '' : formatLatLng(c.clinic.location!));
     _format ??= c.printFormat;
 
     return PageScaffold(
@@ -88,6 +91,20 @@ h1 { font-size: 40px; margin: 0 0 8px; } h2 { font-size: 22px; margin: 0 0 28px;
                     const SizedBox(width: Gap.md),
                     Expanded(child: FieldLabel('City', child: TextFormField(initialValue: c.clinic.city, enabled: false))),
                   ]),
+                  // D-31 / BW-12: required, for Directions and "nearest first" in the app.
+                  FieldLabel(
+                    'Map location (required)',
+                    child: TextFormField(
+                      controller: _location,
+                      decoration: const InputDecoration(hintText: '31.4697, 74.2728', helperText: 'Paste a Google Maps link or type "lat, lng".'),
+                      validator: (v) {
+                        final p = parseLatLng(v ?? '');
+                        if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
+                        if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
+                        return null;
+                      },
+                    ),
+                  ),
                   FieldLabel(
                     'Phone (shown to patients)',
                     child: TextFormField(controller: _phone, validator: (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
