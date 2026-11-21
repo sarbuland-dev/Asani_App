@@ -491,9 +491,14 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     bool done(QueueToken t) => t.status == TokenStatus.completed || t.status == TokenStatus.cancelled || t.status == TokenStatus.noShow;
     final active = list.where((t) => !done(t)).toList()
       ..sort((a, b) {
-        // Called first, then in queue order.
+        // Called first, then re-checked-in Skipped patients (D-24/D-35, the
+        // order Next calls them: oldest check-in first), then queue order.
         if (a.status == TokenStatus.called) return -1;
         if (b.status == TokenStatus.called) return 1;
+        final an = a.token.isNextUp, bn = b.token.isNextUp;
+        if (an && bn) return a.token.priorityAt!.compareTo(b.token.priorityAt!);
+        if (an) return -1;
+        if (bn) return 1;
         return a.number.compareTo(b.number);
       });
     final finished = list.where(done).toList()..sort((a, b) => b.number.compareTo(a.number));
@@ -583,7 +588,10 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
               flex: 2,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Text(t.label, style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w800, color: isCalled ? AppColors.info : AppColors.primary)),
-                if (isNewBooking(t)) const Pill(label: 'New', fg: AppColors.onPrimary, bg: AppColors.primaryLight),
+                if (t.token.isNextUp)
+                  const Pill(label: 'Next up', fg: AppColors.onPrimary, bg: AppColors.warning)
+                else if (isNewBooking(t))
+                  const Pill(label: 'New', fg: AppColors.onPrimary, bg: AppColors.primaryLight),
               ]),
             ),
             Expanded(flex: 5, child: TwoLine(s.name, '${age ?? '—'} / ${s.gender.short} · ${Fmt.phone(s.phone)}')),

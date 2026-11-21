@@ -10,6 +10,8 @@ import '../../data/providers.dart';
 String liveLine(Token token, QueueDay? day, int ahead) {
   if (day == null) return '';
   if (token.status == TokenStatus.called) return 'Your turn now';
+  // D-35: Skipped is paused, not finished: the clinic can still call them.
+  if (token.status == TokenStatus.skipped) return 'Your turn passed · go to reception';
   switch (day.sessionStatus) {
     case SessionStatus.notStarted:
       return "Doctor hasn't started yet";
@@ -19,7 +21,7 @@ String liveLine(Token token, QueueDay? day, int ahead) {
       return 'Session ended';
     case SessionStatus.running:
       final serving = day.currentToken == 0 ? '—' : '${token.tokenPrefix}-${day.currentToken}';
-      final aheadText = ahead == 0 ? "You're next" : '$ahead ahead';
+      final aheadText = token.isNextUp ? "You're next · called right after the current patient" : ahead == 0 ? "You're next" : '$ahead ahead';
       return 'Now serving $serving · $aheadText';
   }
 }
@@ -37,13 +39,16 @@ class TokenTicket extends ConsumerWidget {
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     final pos = ref.watch(tokenPositionProvider(token.id)).value;
     final called = token.status == TokenStatus.called;
+    final skipped = token.status == TokenStatus.skipped;
     final isToday = token.date == dayKey(pktNow());
     final session = pos?.day.sessionStatus;
     final running = isToday && session == SessionStatus.running;
 
     final (chip, chipFg, chipBg, dot) = called
         ? ('Your turn', AppColors.info, AppColors.infoContainer, true)
-        : !isToday
+        : skipped
+            ? ('Turn passed', AppColors.warning, AppColors.warningContainer, false)
+            : !isToday
             ? (Fmt.shortDay(token.date), AppColors.textSecondary, AppColors.muted, false)
             : switch (session) {
                 SessionStatus.running => ('Live', AppColors.primary, AppColors.primaryContainer, true),
@@ -58,9 +63,13 @@ class TokenTicket extends ConsumerWidget {
     if (called) {
       big = 'Go in now';
       small = 'Show this at reception';
+    } else if (skipped) {
+      // D-35: paused, not finished.
+      big = 'Go to reception';
+      small = "You'll be called after the current patient";
     } else if (running) {
       big = pos!.ahead == 0 ? "You're next" : '${pos.ahead} ahead';
-      small = '${Fmt.wait(pos.waitMinutes)} · serving $serving';
+      small = token.isNextUp ? 'Called right after the current patient' : '${Fmt.wait(pos.waitMinutes)} · serving $serving';
     } else if (isToday) {
       big = '';
       small = liveLine(token, pos?.day, pos?.ahead ?? 0);
@@ -189,7 +198,7 @@ class ActiveTokenBanner extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text('${doctor?.name ?? ''} · ${clinic?.name ?? ''}', style: AppText.bodyMedium, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: Gap.md),
-                  if (isToday && running && !called)
+                  if (isToday && running && !called && token.status != TokenStatus.skipped)
                     Row(children: [
                       Expanded(
                         child: StatTile(
@@ -254,12 +263,13 @@ class TokenListCard extends ConsumerWidget {
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     // D-27: an active token whose session is over is shown as finished.
     final active = ref.watch(tokenIsLiveProvider)(token);
-    final sessionOver = token.status.isActive && !active;
+    final sessionOver = token.status.isOpenForPatient && !active;
     final isToday = token.date == dayKey(pktNow());
     final pos = active && isToday ? ref.watch(tokenPositionProvider(token.id)).value : null;
     final (tileBg, tileFg) = sessionOver ? (AppColors.muted, AppColors.textSecondary) : switch (token.status) {
       TokenStatus.booked || TokenStatus.onHold => (AppColors.primaryContainer, AppColors.primary),
       TokenStatus.arrived || TokenStatus.called => (AppColors.avatarCool, AppColors.secondary),
+      TokenStatus.skipped => (AppColors.warningContainer, AppColors.warning),
       _ => (AppColors.muted, AppColors.textSecondary),
     };
 

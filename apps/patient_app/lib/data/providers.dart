@@ -123,7 +123,9 @@ final tokenPositionProvider = Provider.family<AsyncValue<TokenPosition>, String>
   final doctor = ref.watch(doctorProvider(token.doctorId)).value;
   final day = ref.watch(queueDayProvider((doctorId: token.doctorId, date: token.date)));
   return day.whenData((d) {
-    final ahead = patientsAhead(d.activeNumbers, token.number);
+    // D-35: a Skipped patient who checked in again is called right after the
+    // current patient, so nobody is ahead, whatever the token numbers say.
+    final ahead = token.isNextUp ? 0 : patientsAhead(d.activeNumbers, token.number);
     return TokenPosition(day: d, ahead: ahead, waitMinutes: estimatedWaitMinutes(ahead, doctor?.avgConsultMinutes ?? 10));
   });
 });

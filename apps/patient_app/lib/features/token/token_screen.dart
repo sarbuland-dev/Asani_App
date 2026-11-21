@@ -34,7 +34,9 @@ class TokenScreen extends ConsumerWidget {
 
     final status = token.status;
     final called = status == TokenStatus.called;
-    final finished = !status.isActive;
+    // D-35: Skipped is paused (the clinic can recall it), not finished.
+    final finished = !status.isOpenForPatient;
+    final skipped = status == TokenStatus.skipped;
     final isToday = token.date == dayKey(pktNow());
     final session = pos?.day.sessionStatus;
     final live = isToday && !finished && session == SessionStatus.running;
@@ -116,7 +118,11 @@ class TokenScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (!finished && isToday) ..._liveSection(token, doctor, pos, session, called),
+                    if (skipped && isToday) ...[
+                      const _SkippedCard(),
+                      const SizedBox(height: Gap.md),
+                    ],
+                    if (!finished && !skipped && isToday) ..._liveSection(token, doctor, pos, session, called),
                     if (!finished && !isToday) ...[
                       _InfoLine(
                         icon: Icons.event_available_outlined,
@@ -252,7 +258,7 @@ class TokenScreen extends ConsumerWidget {
         Expanded(
           child: StatTile(
             label: 'Ahead of you',
-            value: called ? '0' : '${pos?.ahead ?? '—'}',
+            value: called || token.isNextUp ? '0' : '${pos?.ahead ?? '—'}',
             bg: called ? AppColors.muted : AppColors.warningContainer,
             fg: called ? AppColors.textPrimary : AppColors.warning,
           ),
@@ -263,7 +269,12 @@ class TokenScreen extends ConsumerWidget {
         _InfoLine(icon: Icons.info_outline_rounded, text: notice),
         const SizedBox(height: Gap.md),
       ],
-      if (!called)
+      // D-35: checked in again after a skip → called right after the current patient.
+      if (token.isNextUp && !called) ...[
+        const _InfoLine(icon: Icons.campaign_outlined, text: "You're next · called right after the current patient"),
+        const SizedBox(height: Gap.md),
+      ],
+      if (!called && !token.isNextUp)
         Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -273,7 +284,7 @@ class TokenScreen extends ConsumerWidget {
           ),
           StatusChip(token.status),
         ]),
-      if (!called) const SizedBox(height: Gap.md),
+      if (!called && !token.isNextUp) const SizedBox(height: Gap.md),
     ];
   }
 
@@ -295,6 +306,31 @@ class TokenScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) showSnack(context, AppException.messageOf(e));
     }
+  }
+}
+
+/// D-35: amber card while the token is Skipped. The slip stays; no "Book again".
+class _SkippedCard extends StatelessWidget {
+  const _SkippedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(Gap.md),
+      decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.card)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.directions_walk_rounded, color: AppColors.warning),
+        const SizedBox(width: Gap.md),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Your turn passed · Go to reception', style: AppText.labelLarge.copyWith(color: AppColors.warning)),
+            const SizedBox(height: 2),
+            Text("You'll be called right after the patient now with the doctor.",
+                style: AppText.bodyMedium.copyWith(color: AppColors.warning)),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 

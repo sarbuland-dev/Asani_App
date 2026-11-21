@@ -21,6 +21,10 @@ enum TokenStatus {
   /// Active = booked, arrived, called, onHold (PRD BR-5).
   bool get isActive => this == booked || this == arrived || this == called || this == onHold;
 
+  /// D-35: Skipped is a paused state for the patient: the clinic can still
+  /// recall it, so the app keeps it under Active with a "go to reception" card.
+  bool get isOpenForPatient => isActive || this == skipped;
+
   /// Counts towards "patients ahead" (PRD N-1).
   bool get isWaiting => this == booked || this == arrived || this == onHold;
 

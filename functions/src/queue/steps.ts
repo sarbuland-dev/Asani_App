@@ -46,3 +46,13 @@ export function messageFor(step: StepKey, label: string, doctorName: string): { 
       return { title: 'Your turn now', body: `Token ${label} · Please go to ${doctorName}.` };
   }
 }
+
+/**
+ * PRD D-35: exception to N-2. When a token that already got "Your turn now"
+ * is skipped, the step is cleared once (and `turnRepeatUsed` set), so the
+ * patient gets ONE more "Your turn now" when recalled. Never more than once
+ * per token.
+ */
+export function turnRepeatOnSkip(t: { notified?: Partial<Record<StepKey, unknown>> | null; turnRepeatUsed?: boolean | null }): boolean {
+  return !!t.notified?.yourTurn && !t.turnRepeatUsed;
+}

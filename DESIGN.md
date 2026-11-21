@@ -465,6 +465,7 @@ Fixed by PRD F-06. Keep titles under 40 characters, bodies under 90.
 | 2 ahead | 2 patients ahead of you | Token #{n} · {doctor} |
 | 1 ahead | You're next | Token #{n} · Please be at the reception. |
 | Called | Your turn now | Token #{n} · Please go to {doctor}. |
+| Skipped (D-34, outside the 4) | You missed your turn | Token #{n} · Go to reception to be called next. |
 | Follow-up (day before) | Follow-up visit tomorrow | {patient} · {doctor}, {clinic}. Tap to book. |
 | Follow-up (same day) | Follow-up visit today | {patient} · {doctor}. Tap to book your token. |
 

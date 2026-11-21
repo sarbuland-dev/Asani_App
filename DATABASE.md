@@ -196,6 +196,8 @@ One per doctor per date. Created by `bookToken` on the first booking of that day
 | `cancelReason` | string \| null | Reason picked by the clinic (C-04); shown in the app and the cancel push (D-23) |
 | `priorityAt` | timestamp (optional) | D-24: set when a Skipped patient checks in again (`arrive` / `backToQueue`); Next calls these first, oldest first. Removed on skip / hold |
 | `cancelNotifiedAt` | timestamp (optional) | Set (claimed) just before the D-23 "cancelled by clinic" push, so it is sent once |
+| `skipNotifiedAt` | timestamp (optional) | Set (claimed) just before the D-34 "You missed your turn" push, so it is sent once per token |
+| `turnRepeatUsed` | bool (optional) | D-35: set when a skip clears `notified.yourTurn` so the patient gets one more "Your turn now" on recall; never cleared, so this happens at most once per token |
 | `history` | array<map> | `{action, by, at, note?}` for every clinic action (C-04), e.g. `by: "Al-Shifa Clinic (clinic login)"` |
 | `waitMinutes` | number \| null | Set on `called`: `calledAt − (arrivedAt ?? createdAt)` |
 | `autoClosed` | bool (optional) | `true` when the 03:00 PKT job closed a past-day token (PRD D-21): Booked → `noShow`, Arrived/On hold/Called → `completed`. Missing on all other tokens |

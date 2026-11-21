@@ -10,6 +10,8 @@ import { pktNow } from '../lib/dates';
 import { callableOptions } from '../lib/options';
 import { notifyClinicCancel } from '../queue/cancelNotice';
 import { evaluateQueue } from '../queue/notify';
+import { notifySkipped } from '../queue/skipNotice';
+import { turnRepeatOnSkip } from '../queue/steps';
 import { NextCandidate, needsArrivalConfirm, pickNext } from './nextOrder';
 
 /**
@@ -257,7 +259,14 @@ export const queueAction = onCall(callableOptions, async (request) => {
           break;
         }
         case 'skip':
-          tx.update(tokenRef, { status: 'skipped', priorityAt: FieldValue.delete(), history: hist('Skipped'), updatedAt: ts });
+          tx.update(tokenRef, {
+            status: 'skipped',
+            priorityAt: FieldValue.delete(),
+            // D-35: one more "Your turn now" when recalled (max once per token).
+            ...(turnRepeatOnSkip(t) ? { 'notified.yourTurn': FieldValue.delete(), turnRepeatUsed: true } : {}),
+            history: hist('Skipped'),
+            updatedAt: ts,
+          });
           break;
         case 'hold':
           tx.update(tokenRef, { status: 'onHold', priorityAt: FieldValue.delete(), history: hist('On hold', reason), updatedAt: ts });
@@ -301,6 +310,10 @@ export const queueAction = onCall(callableOptions, async (request) => {
   // D-23: the patient is told when the clinic cancels (separate from the 4 queue alerts).
   if (action === 'cancel') {
     await notifyClinicCancel(db, getMessaging(), [id(d, 'tokenId')]).catch((e) => logger.warn('cancel notice', e));
+  }
+  // D-34: one push when the patient is skipped (separate from the 4 queue alerts).
+  if (action === 'skip') {
+    await notifySkipped(db, getMessaging(), id(d, 'tokenId')).catch((e) => logger.warn('skip notice', e));
   }
   return { ok: true, called };
 });

@@ -28,8 +28,8 @@ class ProfileDetailScreen extends ConsumerWidget {
     }
     final tokens = (ref.watch(myTokensProvider).value ?? const <Token>[]).where((t) => t.patientId == patientId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final history = tokens.where((t) => !t.status.isActive).toList();
-    final active = tokens.where((t) => t.status.isActive).toList();
+    final history = tokens.where((t) => !t.status.isOpenForPatient).toList();
+    final active = tokens.where((t) => t.status.isOpenForPatient).toList();
     final followUps = ref.watch(upcomingFollowUpsProvider).where((f) => f.patientId == patientId).toList();
     final (bg, fg) = InitialsAvatar.colorsFor(patient.relation);
 
@@ -128,7 +128,7 @@ class _HistoryItem extends ConsumerWidget {
     final doctor = ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     final completed = token.status == TokenStatus.completed;
-    final dotColor = completed ? AppColors.success : (token.status.isActive ? AppColors.primary : AppColors.danger);
+    final dotColor = completed ? AppColors.success : (token.status.isOpenForPatient ? AppColors.primary : AppColors.danger);
     return IntrinsicHeight(
       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SizedBox(

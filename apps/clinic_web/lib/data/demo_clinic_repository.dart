@@ -423,7 +423,8 @@ class DemoClinicRepository implements ClinicRepository {
       case TokenAction.arrive:
         final fromSkip = t.status == TokenStatus.skipped;
         if (fromSkip) _priorityAt[t.id] = _now;
-        _put(_event(t, fromSkip ? 'Arrived after skip · called next' : 'Arrived', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: _now));
+        _put(_event(t, fromSkip ? 'Arrived after skip · called next' : 'Arrived',
+            token: tk.copyWith(status: TokenStatus.arrived, priorityAt: fromSkip ? _now : null), arrivedAt: _now));
       case TokenAction.callNow:
         // BW-3: only one Called token per doctor; the current one is completed.
         final current = tokens(tk.clinicId, tk.date).where((x) => x.token.doctorId == tk.doctorId && x.status == TokenStatus.called);
@@ -435,14 +436,15 @@ class DemoClinicRepository implements ClinicRepository {
         _days['${tk.doctorId}|${tk.date}'] = queueDay(tk.clinicId, tk.doctorId, tk.date).copyWith(currentToken: tk.number);
       case TokenAction.skip:
         _priorityAt.remove(t.id);
-        _put(_event(t, 'Skipped', token: tk.copyWith(status: TokenStatus.skipped)));
+        _put(_event(t, 'Skipped', token: tk.copyWith(status: TokenStatus.skipped, clearPriorityAt: true)));
       case TokenAction.hold:
         _priorityAt.remove(t.id);
-        _put(_event(t, 'On hold', token: tk.copyWith(status: TokenStatus.onHold), note: reason));
+        _put(_event(t, 'On hold', token: tk.copyWith(status: TokenStatus.onHold, clearPriorityAt: true), note: reason));
       case TokenAction.backToQueue:
         final fromSkip = t.status == TokenStatus.skipped;
         if (fromSkip) _priorityAt[t.id] = _now;
-        _put(_event(t, fromSkip ? 'Back to queue · called next' : 'Back to queue', token: tk.copyWith(status: TokenStatus.arrived), arrivedAt: t.arrivedAt ?? _now));
+        _put(_event(t, fromSkip ? 'Back to queue · called next' : 'Back to queue',
+            token: tk.copyWith(status: TokenStatus.arrived, priorityAt: fromSkip ? _now : null), arrivedAt: t.arrivedAt ?? _now));
       case TokenAction.cancel:
         _put(_event(t, 'Cancelled',
             token: tk.copyWith(status: TokenStatus.cancelled, cancelledAt: _now, cancelledBy: 'clinic'),

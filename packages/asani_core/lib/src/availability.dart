@@ -72,7 +72,8 @@ const tokenGraceAfterSession = Duration(hours: 1);
 /// being live when the clinic ended the session, or one hour after the
 /// doctor's session end time (the 3 AM job closes it properly later).
 bool tokenIsLive(Token t, {Doctor? doctor, QueueDay? day, required DateTime now}) {
-  if (!t.status.isActive) return false;
+  // D-35: a Skipped token stays live (paused) until the session is over.
+  if (!t.status.isOpenForPatient) return false;
   final today = dayKey(now);
   if (t.date.compareTo(today) < 0) return false;
   if (t.date.compareTo(today) > 0) return true;

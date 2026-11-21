@@ -439,6 +439,7 @@ class Token {
     this.cancelledAt,
     this.cancelledBy,
     this.cancelReason,
+    this.priorityAt,
   });
 
   final String id;
@@ -459,8 +460,13 @@ class Token {
   final String? cancelledBy;
   /// Reason the clinic picked when it cancelled (C-04, D-23).
   final String? cancelReason;
+  /// D-24: set when a Skipped patient checks in again; Next calls them first.
+  final DateTime? priorityAt;
 
   String get label => '$tokenPrefix-$number';
+
+  /// D-35: checked in again after a skip, so called right after the current patient.
+  bool get isNextUp => status == TokenStatus.arrived && priorityAt != null;
 
   bool get cancelledByClinic => status == TokenStatus.cancelled && cancelledBy == 'clinic';
 
@@ -474,6 +480,8 @@ class Token {
     DateTime? completedAt,
     DateTime? cancelledAt,
     String? cancelledBy,
+    DateTime? priorityAt,
+    bool clearPriorityAt = false,
   }) =>
       Token(
         id: id,
@@ -493,6 +501,7 @@ class Token {
         cancelledAt: cancelledAt ?? this.cancelledAt,
         cancelledBy: cancelledBy ?? this.cancelledBy,
         cancelReason: cancelReason,
+        priorityAt: clearPriorityAt ? null : (priorityAt ?? this.priorityAt),
       );
 
   Map<String, Object?> toMap() => {
@@ -514,6 +523,7 @@ class Token {
         'cancelledAt': _ms(cancelledAt),
         'cancelledBy': cancelledBy,
         'cancelReason': cancelReason,
+        'priorityAt': _ms(priorityAt),
       };
 
   factory Token.fromMap(Map<String, Object?> m) => Token(
@@ -534,6 +544,7 @@ class Token {
         cancelledAt: _dt(m['cancelledAt']),
         cancelledBy: m['cancelledBy'] as String?,
         cancelReason: m['cancelReason'] as String?,
+        priorityAt: _dt(m['priorityAt']),
       );
 }
 

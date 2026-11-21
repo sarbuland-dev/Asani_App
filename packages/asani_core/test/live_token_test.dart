@@ -40,6 +40,20 @@ void main() {
     expect(tokenIsLive(token('2026-11-14', TokenStatus.completed), doctor: doctor, now: at(11, 0)), isFalse);
   });
 
+  test('D-35: a Skipped token stays live today (paused), but not on a past day', () {
+    expect(tokenIsLive(token('2026-11-14', TokenStatus.skipped), doctor: doctor, now: at(11, 0)), isTrue);
+    expect(tokenIsLive(token('2026-11-14', TokenStatus.skipped), doctor: doctor, now: at(15, 0)), isFalse);
+    expect(tokenIsLive(token('2026-11-13', TokenStatus.skipped), doctor: doctor, now: at(11, 0)), isFalse);
+  });
+
+  test('D-35: isNextUp only for a re-checked-in Skipped token', () {
+    final t = token('2026-11-14', TokenStatus.arrived);
+    expect(t.isNextUp, isFalse);
+    final m = t.toMap()..['priorityAt'] = DateTime(2026, 11, 14, 11).millisecondsSinceEpoch;
+    expect(Token.fromMap(m).isNextUp, isTrue);
+    expect(Token.fromMap(m..['status'] = 'called').isNextUp, isFalse);
+  });
+
   test('D-27: clinic open now only while some doctor session has not ended', () {
     expect(clinicOpenNow([doctor], at(13, 59)), isTrue);
     expect(clinicOpenNow([doctor], at(14, 0)), isFalse);

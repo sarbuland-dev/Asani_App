@@ -113,8 +113,14 @@ Daily summary, Doctors, Billing, Super Admin dashboard + Clinics list.
 4. ✅ D-24 built 2026-11-14: `clinic/nextOrder.ts` (+ tests); Next = re-checked-in Skipped (`priorityAt`) first,
    else lowest Booked/Arrived; Booked pick → "C-8 has not arrived · Back / Skip / Call anyway" on the board;
    check-in by code and "Arrived · call next" work for Skipped tokens; demo backend follows the same rules.
-   Tested on dev (Dr. Sana C-4 … C-8). Not done: the board's Waiting list is still sorted by number, so a
-   re-checked-in Skipped patient isn't shown at the top even though Next calls them first.
+   Tested on dev (Dr. Sana C-4 … C-8). ✅ 2026-11-21 (D-35): the board's Waiting list now puts re-checked-in
+   Skipped patients right after the Called patient, with a "Next up" label.
+5. ✅ D-34 + D-35 built 2026-11-21 (skipped patient): `queue/skipNotice.ts` sends one "You missed your turn"
+   push on skip (claim `skipNotifiedAt`); a skip after "Your turn now" clears `notified.yourTurn` once
+   (`turnRepeatUsed`) so recall sends one more "Your turn now". App: Skipped stays under Active with the amber
+   "Your turn passed · Go to reception" card (slip kept, no Book again); `priorityAt` → "You're next · called
+   right after the current patient". Unit tests pass. Not tested yet: on dev with a real phone (QA-4b in
+   docs/07). `tools/queue-sim skip` does not send the skip push (it only writes the status).
 
 Original findings:
 - [ ] **Old tokens never close.** End session closes only Booked/Called; Arrived/On hold stay open, and a
@@ -135,8 +141,8 @@ Original findings:
       and be passed over again and again. **Decide** Q-W03 (strict number order, or count ahead the same way).
 
 🟡 Should fix
-- [ ] App: On hold shows the normal queue (no "You're on hold" message); Skipped shows "Book again" even
-      though the clinic can recall it.
+- [ ] App: On hold shows the normal queue (no "You're on hold" message).
+- [x] App: Skipped showed "Book again" even though the clinic can recall it (fixed by D-35, 2026-11-21).
 - [x] `cancelDoctorTokens` now runs `evaluateQueue` (D-23 change).
 - [ ] Each clinic action takes 8–10 s on the emulator; re-measure after deploy.
 - [ ] Super Admin dashboard / Clinics list show partial numbers (e.g. Active 1, Tokens 0) for a few seconds

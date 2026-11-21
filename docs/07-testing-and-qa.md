@@ -65,6 +65,9 @@ Coverage goals: `asani_core` ≥ 90%, functions business logic ≥ 85%. UI cover
 - Cancelled tokens don't count as ahead; cancelling a token ahead advances others' steps correctly.
 - Walk-in token (`bookedByUserId: null`): no sends.
 - Invalid FCM token → device doc deleted.
+- D-34 skip push: copy is "You missed your turn" / "Token A-7 · Go to reception to be called next." (`skipNotice.test.ts`); skipping twice sends it once (`skipNotifiedAt`).
+- D-35 repeat turn: skip after "Your turn now" clears `yourTurn` once and sets `turnRepeatUsed`; a second skip does not clear it again; a skip before the patient was called clears nothing (`turnRepeatOnSkip`).
+- D-35 app: Skipped stays live today and is not live on a past day; `isNextUp` only for Arrived + `priorityAt` (`asani_core/test/live_token_test.dart`).
 
 ### `onTokenWrite` counters
 - `activeNumbers` sorted and correct after book / arrive / call / cancel / skip / hold / noShow.
@@ -182,6 +185,17 @@ Total queue notifications received: **4**.
 Repeat with: app in foreground, background, killed; phone locked; Redmi with battery saver on.
 Jump test: from 4 ahead, `skip` two tokens → only the applicable step arrives.
 Tap each notification → opens the right token screen.
+
+### QA-4b Skipped patient (D-24, D-34, D-35)
+Setup: book token #6 from the app, do **not** check in; clinic web Queue Board for doctor X.
+| Step | Clinic web action | Expected |
+|---|---|---|
+| 1 | Next until #6 is due → "not arrived" → **Skip** | Phone: push "You missed your turn · Token #6 · Go to reception to be called next" (once). Token screen: amber "Your turn passed · Go to reception" card, slip buttons still there, **no** Book again. Tokens tab: still under **Active**, chip "Turn passed" |
+| 2 | Skip #6 again after recalling it (or press Skip on another device) | **No** second skip push |
+| 3 | Check in #6 by code (or "Arrived · call next") | Board: #6 right under the Called patient with a **Next up** label. Phone: "You're next · called right after the current patient", Ahead = 0 |
+| 4 | **Next** | #6 is called. Phone: "Your turn now" (first time, if #6 was skipped before being called) |
+| 5 | Variant: call #6 (gets "Your turn now"), **Skip**, check in, **Next** | Phone gets "Your turn now" **once more**; a second skip → recall gives **no** third one |
+| 6 | Session ends with #6 still Skipped | Token leaves Active (Past) like other tokens |
 
 ### QA-5 Family & history
 1. Add, edit, remove a profile; Self can't be removed.
