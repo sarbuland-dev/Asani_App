@@ -171,3 +171,14 @@ Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINI
       "Also sits at" on the clinic page. Full list was: patient app Search tabs, Doctors tab, doctor card with "Also sits at", location primer (S-18),
       "Also sits at" on the clinic page; clinic web speciality picker, PMDC field ("on file · Change"), required
       location (wizard + settings), "Please pick a speciality" chip, Super Admin A-09 screen + Linked chip in A-03.
+
+## 10. Step 5 – payments (ON HOLD, 2026-11-22)
+Sarbuland will confirm a few things first; nothing built yet. Open choices (asked 2026-11-22):
+- [ ] **Payment proof:** a screenshot upload needs Firebase Storage (Blaze). Proposal: for now a reference form
+      (method, amount, date, transaction ID, note) → Super Admin sees "Payment reported" and confirms with Record
+      payment; screenshot upload after Blaze.
+- [ ] **Defaulter reminder:** automatic email needs Blaze + a mail service. Proposal: Super Admin Email / WhatsApp
+      buttons on a defaulter that open their own Gmail / WhatsApp with the reminder text; automatic email after Blaze.
+- [ ] **Bank details:** "How to pay" is editable in Super Admin → Settings but starts with fake IBAN / JazzCash
+      numbers. Proposal: empty default ("Payment details will be shared by Asani") until Sarbuland types the real ones.
+
