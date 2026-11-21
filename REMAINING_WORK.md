@@ -155,7 +155,8 @@ Original findings:
 Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINIC-WEB C-11/C-13/A-09; docs/07).
 - [x] 2026-11-21 Step 1 backend: `saveDoctor` (speciality key, admin-only PMDC, suggestions), Link / Not the same /
       Unlink functions, rules + rules tests (14/14), indexes, `migrate-doctor-search.js`, Firebase code in the web.
-- [ ] Run `node migrate-doctor-search.js --project dev` for real (dry run done: 20 doctors, 2 flagged, 4 clinics without location).
+- [x] 2026-11-21 `migrate-doctor-search.js --project dev` run: 20 doctors updated, 2 "Dr. Test (24h)" flagged as Other,
+      1 suggestion (the two test doctors). Clinics still without a location: Noor, Care Plus, Rehman, Shifa Family (step 2).
 - [ ] Step 2: location (geolocator, permission screen, clinic location required, "Also sits at" on the clinic page): `docs/09` §5.
 - [x] 2026-11-19 **Basic placeholder UI on demo data** (plain Material, real design later in its own chat):
       patient app Search tabs (Clinics | Doctors), speciality chips, doctor list with distance and "Also sits at";

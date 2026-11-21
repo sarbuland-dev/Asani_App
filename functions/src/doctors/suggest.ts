@@ -12,7 +12,12 @@ export const pmdcRef = (db: Firestore, doctorId: string) => db.collection('docto
  * doctorLinkSuggestions. Never links and never throws (a save must not fail
  * because of this). Returns how many pairs were written.
  */
-export async function buildSuggestions(db: Firestore, doctorId: string): Promise<number> {
+export async function buildSuggestions(
+  db: Firestore,
+  doctorId: string,
+  // Admin scripts pass their own (a second firebase-admin copy can't serialise this one's sentinel).
+  serverTime: () => unknown = () => FieldValue.serverTimestamp(),
+): Promise<number> {
   try {
     const doctor = (await db.collection('doctors').doc(doctorId).get()).data();
     if (!doctor || doctor.active === false || !doctor.city) return 0;
@@ -51,7 +56,7 @@ export async function buildSuggestions(db: Firestore, doctorId: string): Promise
           clinicIds: ids.map(clinicOf),
           strength,
           status: 'open',
-          createdAt: FieldValue.serverTimestamp(),
+          createdAt: serverTime(),
           decidedAt: null,
           decidedBy: null,
         });

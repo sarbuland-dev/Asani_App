@@ -62,7 +62,8 @@ async function main() {
   }
   const { buildSuggestions } = functionsLib('doctors/suggest.js');
   let pairs = 0;
-  for (const d of doctors) pairs += await buildSuggestions(db, d.id);
+  const now = () => admin.firestore.FieldValue.serverTimestamp();
+  for (const d of doctors) pairs += await buildSuggestions(db, d.id, now);
   console.log(`[${where}] ${pairs} same-doctor suggestion(s) written.`);
   process.exit(0);
 }
