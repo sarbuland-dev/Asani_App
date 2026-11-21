@@ -434,7 +434,7 @@ On iOS this precedes the system prompt; on Android 13+ it precedes `POST_NOTIFIC
 
 | State | Pattern |
 |---|---|
-| Loading | Skeleton cards (not spinners) for lists. Anywhere a spinner is needed (buttons, full-screen waits, splash, clinic web busy dialog) use the **logo loader** `AsaniLoader` (D-36, "Draw": the "a" writes itself, holds, wipes away; 2.4 s loop; green on cream or cream on green; still when reduce motion is on). Never the plain circular spinner |
+| Loading | Skeleton cards (not spinners) for lists. Anywhere a spinner is needed (buttons, full-screen waits, splash, clinic web busy dialog) use the **logo loader** `AsaniLoader` (D-36, "Draw": the "a" writes itself, holds, wipes away; 2.4 s loop; green on cream or cream on green; still when reduce motion is on). A **full-screen wait** uses `LoadingScreen`: a blurred placeholder of the screen with the loader and a short message ("Loading your token…") in a white card on top. Never the plain circular spinner |
 | Empty | Icon + one-line message + one action. E.g. Tokens/Active: "No active tokens. Find a clinic to book one." [Find clinic] |
 | Error | "Something went wrong. Please try again." + [Retry]. Never show raw exception text. |
 | Offline | Top banner, cached data stays visible, booking button disabled with "Needs internet" |

@@ -17,7 +17,7 @@ class ProfileFormScreen extends ConsumerWidget {
     final patients = ref.watch(myPatientsProvider).value;
     final existing = patientId == null ? null : patients?.where((p) => p.id == patientId).firstOrNull;
     if (patientId != null && existing == null) {
-      return const Scaffold(body: Center(child: AsaniLoader()));
+      return const LoadingScreen();
     }
     return Scaffold(
       body: Column(

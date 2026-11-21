@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'dart:ui' show PathMetric;
+import 'dart:ui' show ImageFilter, PathMetric;
 
 import 'package:flutter/material.dart';
 
@@ -125,4 +125,75 @@ class _DrawPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DrawPainter old) => old.t != t || old.color != color;
+}
+
+/// Full-screen wait (DESIGN §6, D-36): a blurred outline of a screen with the
+/// logo loader in a white card on top. The real data is not there yet, so
+/// the blurred layer is a placeholder (header + a few blocks), not content.
+class LoadingScreen extends StatelessWidget {
+  const LoadingScreen({super.key, this.message = 'Loading…'});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget block(double h, {double opacity = 1}) => Opacity(
+          opacity: opacity,
+          child: Container(height: h, decoration: BoxDecoration(color: AppColors.muted, borderRadius: BorderRadius.circular(Radii.card))),
+        );
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(fit: StackFit.expand, children: [
+        ExcludeSemantics(
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+            // Decorative only: on short screens the blocks just run off the bottom.
+            child: ClipRect(
+              child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(
+                height: 220,
+                decoration: const BoxDecoration(
+                  gradient: AppColors.headerGradient,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(Gap.screen),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  block(56),
+                  const SizedBox(height: Gap.md),
+                  block(90),
+                  const SizedBox(height: Gap.md),
+                  block(130),
+                  const SizedBox(height: Gap.md),
+                  block(70, opacity: 0.7),
+                ]),
+              ),
+            ]),
+            ),
+            ),
+          ),
+        ),
+        ColoredBox(color: AppColors.background.withValues(alpha: 0.45)),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 26),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.16), blurRadius: 44, offset: const Offset(0, 20))],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const AsaniLoader(size: 56),
+              const SizedBox(height: Gap.md),
+              Text(message, style: AppText.labelLarge),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
 }
