@@ -25,6 +25,7 @@ import '../../features/queue/queue_board_screen.dart';
 import '../../features/settings/clinic_settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/summary/summary_screen.dart';
+import '../../features/upcoming/upcoming_screen.dart';
 import '../widgets/pin_gate.dart';
 
 /// Where each role lands after login (§5.3).
@@ -71,6 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/follow-ups', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => FollowUpsScreen(id)))),
           GoRoute(path: '/summary', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => SummaryScreen(id)))),
+          GoRoute(path: '/upcoming', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => UpcomingScreen(id)))), // D-42
           GoRoute(path: '/doctors', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => DoctorsScreen(id)))),
           GoRoute(path: '/password', pageBuilder: (c, s) => page(const ChangePasswordScreen())),
           GoRoute(path: '/settings', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => ClinicSettingsScreen(id)))),

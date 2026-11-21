@@ -253,6 +253,11 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 - Per day and per doctor: tokens issued, app vs walk-in, completed, cancelled, no-show, **average wait time**, busiest hour.
 - Date picker (last 30 days).
 
+### C-17 Upcoming bookings (P1, clinic login) (D-42)
+- Pick a day: tomorrow up to the longest booking window of the clinic's doctors (default 7 days).
+- Per doctor: "N of max booked", then each token (letter-number, patient name, App / Walk-in, booked at, CANCELLED + reason).
+- View only. Check-in by code stays limited to today (BW-5); tokens move to the Queue Board on their day.
+
 ### C-11 Doctors management (P0, clinic login) (D-19)
 - List of doctors with letter (A, B, C…), speciality, active/inactive.
 - **Speciality** is a **picker** (**one** per doctor, D-33) with the fixed list from PRD F-13 (patient label shown, e.g. "Heart (Cardiologist)"); no free text (D-31).

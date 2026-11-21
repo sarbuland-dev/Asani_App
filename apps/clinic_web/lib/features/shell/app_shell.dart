@@ -30,6 +30,7 @@ List<_NavItem> _itemsFor(UserRole role) => switch (role) {
       UserRole.clinic => const [
           _NavItem('Queue Board', Icons.format_list_numbered_rounded, '/queue'),
           _NavItem('Patients', Icons.people_alt_outlined, '/patients'),
+          _NavItem('Upcoming bookings', Icons.event_note_outlined, '/upcoming'),
           _NavItem('Follow-ups', Icons.event_repeat_rounded, '/follow-ups'),
           _NavItem('Daily summary', Icons.insights_rounded, '/summary'),
           _NavItem('Doctors', Icons.medical_services_outlined, '/doctors'),
