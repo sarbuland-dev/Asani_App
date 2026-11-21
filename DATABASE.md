@@ -327,6 +327,7 @@ index) and queue alerts go to `bookedByUserId ?? patientOwnerUid`.
 | `doctors` | `clinicId` ASC, `active` ASC, `sortOrder` ASC | Clinic page |
 | `tokens` | `bookedByUserId` ASC, `status` ASC, `createdAt` DESC | My active tokens |
 | `tokens` | `bookedByUserId` ASC, `createdAt` DESC | Past tokens |
+| `tokens` | `patientOwnerUid` ASC, `source` ASC, `createdAt` DESC | My Tokens "Load older" walk-ins (beyond the live 100) |
 | `tokens` | `patientOwnerUid` ASC, `patientId` ASC, `createdAt` DESC | Profile history (rules need the owner filter) |
 | `tokens` | `patientId` ASC, `createdAt` DESC | Functions / staff (Phase 2) |
 | `tokens` | `doctorId` ASC, `date` ASC, `status` ASC, `number` ASC | Queue position, notifications |

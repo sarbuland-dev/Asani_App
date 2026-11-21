@@ -57,13 +57,33 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
                     )
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.lg, Gap.screen, kNavBarClearance),
-                      children: [for (final t in list) TokenListCard(token: t)],
+                      children: [
+                        for (final t in list) TokenListCard(token: t),
+                        // Past list: the live query holds the latest 100; older ones on demand.
+                        if (_past) const _LoadOlder(),
+                      ],
                     ),
             ),
           ),
         ],
       ),
     ));
+  }
+}
+
+class _LoadOlder extends ConsumerWidget {
+  const _LoadOlder();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(olderTokensProvider);
+    if (s.done) return const Center(child: Text('No older tokens.'));
+    return Center(
+      child: TextButton(
+        onPressed: s.loading ? null : () => ref.read(olderTokensProvider.notifier).loadMore(),
+        child: Text(s.loading ? 'Loading…' : 'Load older tokens'),
+      ),
+    );
   }
 }
 

@@ -97,12 +97,43 @@ final myActiveTokensProvider = Provider<AsyncValue<List<Token>>>((ref) {
       );
 });
 
+/// Older past tokens loaded on demand ("Load older"), beyond the live latest 100.
+class OlderTokens extends Notifier<({List<Token> tokens, bool done, bool loading})> {
+  @override
+  ({List<Token> tokens, bool done, bool loading}) build() {
+    ref.watch(currentUserProvider.select((u) => u?.uid)); // reset per signed-in user
+    return (tokens: const [], done: false, loading: false);
+  }
+
+  Future<void> loadMore() async {
+    if (state.done || state.loading) return;
+    final all = [...?ref.read(myTokensProvider).value, ...state.tokens];
+    if (all.isEmpty) {
+      state = (tokens: state.tokens, done: true, loading: false);
+      return;
+    }
+    final oldest = all.map((t) => t.createdAt).reduce((a, b) => a.isBefore(b) ? a : b);
+    state = (tokens: state.tokens, done: false, loading: true);
+    try {
+      final more = await ref.read(tokenRepositoryProvider).loadOlderTokens(oldest);
+      state = (tokens: [...state.tokens, ...more], done: more.isEmpty, loading: false);
+    } catch (e) {
+      AppLogger.warn('load older tokens: $e');
+      state = (tokens: state.tokens, done: false, loading: false);
+    }
+  }
+}
+
+final olderTokensProvider = NotifierProvider<OlderTokens, ({List<Token> tokens, bool done, bool loading})>(OlderTokens.new);
+
 /// Finished tokens, plus active ones whose session is over (shown as "Session over").
 final myPastTokensProvider = Provider<AsyncValue<List<Token>>>((ref) {
   final live = ref.watch(tokenIsLiveProvider);
-  return ref.watch(myTokensProvider).whenData(
-        (list) => list.where((t) => !live(t)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-      );
+  final older = ref.watch(olderTokensProvider).tokens;
+  return ref.watch(myTokensProvider).whenData((list) {
+    final byId = {for (final t in [...older, ...list]) t.id: t};
+    return byId.values.where((t) => !live(t)).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  });
 });
 
 final tokenProvider = StreamProvider.family<Token?, String>(

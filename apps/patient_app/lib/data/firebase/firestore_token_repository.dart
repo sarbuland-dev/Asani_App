@@ -78,6 +78,30 @@ class FirestoreTokenRepository implements TokenRepository {
     });
   }
 
+  @override
+  Future<List<Token>> loadOlderTokens(DateTime before, {int limit = 50}) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return const [];
+    final at = fs.Timestamp.fromDate(before);
+    final res = await Future.wait([
+      _tokens.where('bookedByUserId', isEqualTo: uid).where('createdAt', isLessThan: at).orderBy('createdAt', descending: true).limit(limit).get(),
+      // DATABASE §9: patientOwnerUid + source + createdAt (walk-ins on my profiles, D-22).
+      _tokens
+          .where('patientOwnerUid', isEqualTo: uid)
+          .where('source', isEqualTo: 'walkIn')
+          .where('createdAt', isLessThan: at)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get(),
+    ]);
+    final byId = <String, Token>{};
+    for (final d in [...res[0].docs, ...res[1].docs]) {
+      final t = _token(d);
+      if (t != null) byId[t.id] = t;
+    }
+    return (byId.values.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt))).take(limit).toList();
+  }
+
   /// Emits once both streams have a value, then on every change of either.
   static Stream<(A, B)> _combineLatest<A, B>(Stream<A> a, Stream<B> b) {
     late StreamController<(A, B)> c;

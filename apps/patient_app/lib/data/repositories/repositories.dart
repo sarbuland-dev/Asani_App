@@ -55,6 +55,10 @@ class QueueAlert {
 
 abstract interface class TokenRepository {
   Stream<List<Token>> watchMyTokens();
+
+  /// My tokens created before [before], newest first: My Tokens → Past "Load older"
+  /// (the live list holds the latest 100 only). Empty when there are no more.
+  Future<List<Token>> loadOlderTokens(DateTime before, {int limit = 50});
   Stream<Token?> watchToken(String tokenId);
   Future<Token> bookToken({required String clinicId, required String doctorId, required String patientId, required String date});
   Future<void> cancelToken(String tokenId);

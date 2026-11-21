@@ -48,9 +48,9 @@ Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase step
 ## 6. Smaller issues from the 2026-11-12 review (🟡 / ⚪)
 - [ ] Remove the demo backend from Firebase mode (attachAccount, useDoctors, usePatients bridges).
 - [ ] After Blaze: onTokenWrite + onQueueDayWrite both run evaluateQueue (correct but double cost).
-- [ ] Search only looks in the selected city; offer other cities when nothing is found.
+- [x] 2026-11-22 Empty search offers other cities with matches ("Found in other cities: Karachi (1)"; tap switches the city).
 - [ ] "Open today" stays on after all sessions ended for the day.
-- [ ] My Tokens shows the last 100 only, and only tokens the user booked (not staff walk-ins via `patientOwnerUid`).
+- [x] 2026-11-22 My Tokens → Past has "Load older tokens" beyond the live 100 (incl. walk-ins; new index). Was: My Tokens shows the last 100 only, and only tokens the user booked (not staff walk-ins via `patientOwnerUid`).
 - [ ] deleteAccount sets `patientSnapshot.phone` to null; the model expects a string (staff app could crash).
 - [ ] Recent clinics re-fetch on every token change.
 - [ ] Account says "Notifications On" on web, where pushes never arrive; label says "Notifications" but it is queue alerts.

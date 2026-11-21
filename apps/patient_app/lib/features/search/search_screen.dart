@@ -128,6 +128,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             title: _query.trim().isEmpty ? 'No clinics match' : "No clinic found for '${_query.trim()}'",
                             message: 'Check the spelling, or search by area name.',
                           ),
+                          // Nothing in this city: offer cities where the search does match.
+                          _OtherCities(query: _query, city: city),
                           Wrap(
                             spacing: Gap.sm,
                             runSpacing: Gap.sm,
@@ -182,6 +184,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         shape: const StadiumBorder(),
         onSelected: (_) => setState(() => _filter = value),
       ),
+    );
+  }
+}
+
+/// Empty search: other cities with matching clinics; tapping one switches the city.
+class _OtherCities extends ConsumerWidget {
+  const _OtherCities({required this.query, required this.city});
+  final String query;
+  final String city;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (query.trim().isEmpty) return const SizedBox.shrink();
+    final cities = (ref.watch(citiesProvider).value ?? const <String>[]).where((c) => c != city);
+    final hits = <(String, int)>[];
+    for (final c in cities) {
+      final n = (ref.watch(clinicsProvider(c)).value ?? const <Clinic>[]).where((x) => x.matches(query)).length;
+      if (n > 0) hits.add((c, n));
+    }
+    if (hits.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.all(Gap.md),
+      child: Column(children: [
+        const Text('Found in other cities:'),
+        Wrap(spacing: Gap.sm, children: [
+          for (final (c, n) in hits)
+            ActionChip(
+              label: Text('$c ($n)'),
+              onPressed: () => ref.read(authRepositoryProvider).setCity(c),
+            ),
+        ]),
+      ]),
     );
   }
 }

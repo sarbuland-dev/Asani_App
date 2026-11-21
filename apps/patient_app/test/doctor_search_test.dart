@@ -33,4 +33,16 @@ void main() {
     final heart = c.listen(doctorCardsProvider(Speciality.heart), (_, _) {}).read().value ?? const [];
     expect(heart.map((x) => x.main.doctor.name), contains('Dr. Asif Khan'));
   });
+
+  test('Load older tokens: the demo backend has no more, so the list says done', () async {
+    SharedPreferences.setMockInitialValues({});
+    final backend = await DemoBackend.create();
+    final c = ProviderContainer(overrides: [backendProvider.overrideWithValue(backend)]);
+    addTearDown(() {
+      c.dispose();
+      backend.dispose();
+    });
+    await c.read(olderTokensProvider.notifier).loadMore();
+    expect(c.read(olderTokensProvider).done, isTrue);
+  });
 }

@@ -426,6 +426,9 @@ class DemoBackend
   Stream<List<Token>> watchMyTokens() => _watch(_myTokens);
 
   @override
+  Future<List<Token>> loadOlderTokens(DateTime before, {int limit = 50}) async => const []; // demo: all tokens are live
+
+  @override
   Stream<Token?> watchToken(String tokenId) => _watch(() => _tokens[tokenId]);
 
   @override
