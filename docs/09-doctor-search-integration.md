@@ -1,5 +1,8 @@
 # 09 — Doctor search + same-doctor linking: integration tasks
 
+> **2026-11-21:** §1–§4 (functions, rules, indexes, migration) and the Firebase data code are **done** (step 1).
+> Left: §5 native/location + the location items in §1 and §6 (step 2). The migration has only been dry-run on dev.
+
 PRD D-31, D-32, D-33 (2026-11-19). **Roles:** UI (patient app screens, clinic web screens, `asani_ui`) is done by
 Claude. Everything below is for the **integration side**. Tick items here as they land; the UI is built against
 the names in §6, so keep them or tell the UI side.
@@ -11,7 +14,7 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
 
 ## 1. Cloud Functions (`functions/src`)
 
-- [ ] **`saveDoctor`** (clinic):
+- [x] **`saveDoctor`** (clinic):
   - `speciality` must be **one** key of the fixed list (share the list with `asani_core`, see §6); reject free text.
   - Optional `pmdcNumber`: normalise (trim, upper case, no spaces), loose check `^\d{3,7}(-[A-Z]{1,2})?$`;
     `invalid-argument` "Not a valid PMDC number" otherwise. Field **absent = keep** the saved number (the clinic
@@ -21,50 +24,50 @@ A-09, BW-11, BW-12 · tests in docs/07 (§2, QA-2b, QA-2c).
   - Copy `city` from the clinic; set `nameKey` (lower case, strip `dr`/`dr.`/`doctor`, punctuation, extra spaces);
     clear `specialityFlagged`.
   - **Suggestion builder** after save (never blocks the save, never links):
-    - strong: collection-group query on `admin` with the same `pmdcNumber`, other clinic, same city;
+    - strong: collection-group query on `private` (doc `admin`) with the same `pmdcNumber`, other clinic, same city;
     - weak: `doctors` with the same `nameKey` + `speciality`, other clinic, same city;
     - pair id = sorted doctor IDs joined by `_`; create `open`, or upgrade `weak` → `strong`;
     - skip pairs whose document is `notSame`, `unlinked` or `linked`.
-- [ ] **`adminLinkDoctors({pairId})`** (super admin, transaction): both records get one `doctorGroupId` (reuse an
+- [x] **`adminLinkDoctors({pairId})`** (super admin, transaction): both records get one `doctorGroupId` (reuse an
   existing group of either record; new ID otherwise); pair → `linked`, `decidedAt`, `decidedBy`; activity log
   `doctorLinked`. Second call on a decided pair = no-op.
-- [ ] **`adminMarkNotSame({pairId})`** (super admin): pair → `notSame`; activity log `doctorNotSame`.
-- [ ] **`adminUnlinkDoctor({doctorId})`** (super admin, transaction): clear its `doctorGroupId`; if one record is
+- [x] **`adminMarkNotSame({pairId})`** (super admin): pair → `notSame`; activity log `doctorNotSame`.
+- [x] **`adminUnlinkDoctor({doctorId})`** (super admin, transaction): clear its `doctorGroupId`; if one record is
   left in the group, clear it too; every pair between it and the group → `unlinked` (never re-suggested, D-33);
   activity log `doctorUnlinked`.
-- [ ] **Doctor list for the clinic web** (whatever the web reads today) gets `hasPmdc`, and for the super admin the
+- [x] **Doctor list for the clinic web** (whatever the web reads today) gets `hasPmdc`, and for the super admin the
   real number (read from `private/admin`).
 - [ ] **`adminCreateClinic`** / **`updateClinicSettings`**: `location` `{lat, lng}` **required** and in range
   (Pakistan bounds are enough); when a clinic's `city` changes, update `city` on its doctors.
-- [ ] Unit tests: docs/07 §2 "Doctor linking functions".
+- [x] Unit tests: docs/07 §2 "Doctor linking functions".
 
 ## 2. Firestore rules (`firestore.rules`) + rules tests
 
-- [ ] `doctors/{id}/private/{doc}`: read **only** `superAdmin`; no client writes. Clinic logins can't read it,
+- [x] `doctors/{id}/private/{doc}`: read **only** `superAdmin`; no client writes. Clinic logins can't read it,
   even for their own doctor.
-- [ ] `doctorLinkSuggestions/{id}`: read only `superAdmin`; no client writes.
-- [ ] `doctors`: clients still can't write; `doctorGroupId`, `city`, `nameKey`, `specialityFlagged` are
+- [x] `doctorLinkSuggestions/{id}`: read only `superAdmin`; no client writes.
+- [x] `doctors`: clients still can't write; `doctorGroupId`, `city`, `nameKey`, `specialityFlagged` are
   function-only.
-- [ ] Rules tests for each (allow + deny), docs/07 §2 "Rules".
+- [x] Rules tests for each (allow + deny), docs/07 §2 "Rules".
 
 ## 3. Indexes (`firestore.indexes.json`)
 
-- [ ] `doctors`: `city` ASC, `speciality` ASC, `active` ASC (Doctors tab).
-- [ ] `doctors`: `doctorGroupId` ASC, `active` ASC ("Also sits at").
-- [ ] `doctors`: `nameKey` ASC, `speciality` ASC (weak match).
-- [ ] Collection group `admin`: field override `pmdcNumber` ASC with **collection-group** scope (strong match).
-- [ ] `doctorLinkSuggestions`: `status` ASC, `createdAt` DESC (Super Admin list).
+- [x] `doctors`: `city` ASC, `speciality` ASC, `active` ASC (Doctors tab).
+- [x] `doctors`: `doctorGroupId` ASC, `active` ASC ("Also sits at").
+- [x] `doctors`: `nameKey` ASC, `speciality` ASC (weak match).
+- [x] Collection group `private`: field override `pmdcNumber` ASC with **collection-group** scope (strong match).
+- [x] `doctorLinkSuggestions`: `status` ASC, `createdAt` DESC (Super Admin list).
 
 ## 4. Migration (`tools/admin-scripts`, dev first, `--dry-run` like `run-auto-close.js`)
 
-- [ ] `migrate-doctor-search.js`:
+- [x] `migrate-doctor-search.js`:
   - map free-text `speciality` → key (table in the script; e.g. "General Physician"/"GP"/"Family Physician" →
     `generalPhysician`, "Cardiologist" → `heart`, "Paediatrician"/"Child Specialist" → `child`, …);
     unknown → `other` + `specialityFlagged: true`; print the unknown list;
   - backfill `city` and `nameKey`;
   - list clinics with no `location` (no write; the Super Admin fills them in);
   - run the suggestion builder once over all doctors.
-- [ ] Never against `asani-prod` without Sarbuland's go-ahead (AGENTS.md §7).
+- [x] Never against `asani-prod` without Sarbuland's go-ahead (AGENTS.md §7).
 
 ## 5. Native + dependencies (patient app)
 
@@ -88,27 +91,27 @@ parser, and a real `LocationService` with geolocator in `apps/patient_app/lib/da
 The UI reads these; names are the contract. **Pure helpers** go in `asani_core`, providers/repositories in each app.
 
 `asani_core` (pure Dart, with tests):
-- [ ] `enum Speciality` with `key`, `label` ("Heart"), `term` ("Cardiologist"), `display`
+- [x] `enum Speciality` with `key`, `label` ("Heart"), `term` ("Cardiologist"), `display`
   ("Heart (Cardiologist)"), `iconName` (Material Symbols name); `Speciality.fromKey(String?)` → `other` for unknown.
-- [ ] `double distanceKm(GeoPoint a, GeoPoint b)` (haversine).
-- [ ] `List<DoctorGroupCard> buildDoctorCards({doctors, clinics, availability, userLocation, userArea})`: groups
+- [x] `double distanceKm(GeoPoint a, GeoPoint b)` (haversine).
+- [x] `List<DoctorGroupCard> buildDoctorCards({doctors, clinics, availability, userLocation, userArea})`: groups
   by `doctorGroupId` (same city only), picks the nearest clinic as main, sorts bookable-today nearest first →
   no-location clinics → not-available-today; without `userLocation`, same `userArea` first then A–Z by area.
-- [ ] `normalisePmdc(String)`, `isValidPmdc(String)`, `doctorNameKey(String)`.
-- [ ] `Doctor` model: `speciality` stays a string key, plus `city`, `doctorGroupId`, `specialityFlagged`.
+- [x] `normalisePmdc(String)`, `isValidPmdc(String)`, `doctorNameKey(String)`.
+- [x] `Doctor` model: `speciality` stays a string key, plus `city`, `doctorGroupId`, `specialityFlagged`.
 
 Patient app (`lib/data/**`, demo backend **and** Firebase):
-- [ ] `doctorsBySpecialityProvider((city, speciality))` → active doctors at visible clinics in that city.
+- [x] `doctorsBySpecialityProvider((city, speciality))` → active doctors at visible clinics in that city.
 - [ ] `doctorGroupProvider(groupId)` → active doctors in the group (for "Also sits at" on the clinic page).
 - [ ] `userLocationProvider` → `AsyncValue<GeoPoint?>` + `requestLocationPermission()` returning
   `granted / denied / deniedForever`; `openLocationSettings()`; `locationPrimerShown` stored on the device
   (like `primerShown`).
-- [ ] Demo backend: give demo clinics a `location`, demo doctors fixed speciality keys, one demo doctor linked at
+- [x] Demo backend: give demo clinics a `location`, demo doctors fixed speciality keys, one demo doctor linked at
   two Lahore clinics, so the UI can be previewed without Firebase.
 
 Clinic web (`lib/data/**`):
-- [ ] `saveDoctor` input gets `speciality` (key) and `pmdcNumber?`; doctor rows get `hasPmdc`,
+- [x] `saveDoctor` input gets `speciality` (key) and `pmdcNumber?`; doctor rows get `hasPmdc`,
   `specialityFlagged`, `doctorGroupId`.
-- [ ] Super Admin: `linkSuggestionsProvider(status)`, `linkedGroupsProvider`, and `link` / `notSame` / `unlink`
+- [x] Super Admin: `linkSuggestionsProvider(status)`, `linkedGroupsProvider`, and `link` / `notSame` / `unlink`
   actions (callables above); suggestion rows include both doctors, clinics, timings and PMDC numbers.
 - [ ] Clinic settings / wizard: `location` in the save calls.

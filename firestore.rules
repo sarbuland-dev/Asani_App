@@ -103,7 +103,17 @@ service cloud.firestore {
       match /days/{date} {
         allow read: if signedIn();             // numbers only, no personal data
         allow write: if false;
+      }      // PMDC number (D-33): only the Super Admin reads it; written by saveDoctor only.
+      match /private/{docId} {
+        allow read: if isSuperAdmin();
+        allow write: if false;
       }
+    }
+
+    // Same-doctor suggestions (D-32): Super Admin only, written by functions.
+    match /doctorLinkSuggestions/{pairId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
     }
 
     // ---------- tokens ----------

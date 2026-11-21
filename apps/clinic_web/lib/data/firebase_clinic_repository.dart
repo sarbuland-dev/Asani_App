@@ -51,6 +51,9 @@ class FirebaseClinicRepository implements ClinicRepository {
   final _billing = <String, Map<String, dynamic>>{};
   final _doctors = <String, Doctor>{};
   final _addedAt = <String, DateTime>{};
+  final _hasPmdc = <String>{}; // doctors with a PMDC number on file (D-33: never the number)
+  final _suggestions = <String, LinkSuggestion>{}; // D-32, Super Admin only
+  final _pmdc = <String, String>{}; // doctorId → PMDC, Super Admin only
   final _days = <String, QueueDay>{}; // doctorId|date
   final _undoAt = <String, DateTime>{}; // doctorId → last Next
   final _tokens = <String, QueueToken>{};
@@ -340,6 +343,11 @@ class FirebaseClinicRepository implements ClinicRepository {
       _doctors.removeWhere((_, d) => d.clinicId == clinicId);
       for (final d in q.docs) {
         _doctors[d.id] = _doctorFrom(d);
+        if (d.data()['hasPmdc'] == true) {
+          _hasPmdc.add(d.id);
+        } else {
+          _hasPmdc.remove(d.id);
+        }
         final at = _date(d.data()['createdAt']);
         if (at != null) _addedAt[d.id] = at;
       }
@@ -443,6 +451,11 @@ class FirebaseClinicRepository implements ClinicRepository {
       _doctors.clear();
       for (final d in q.docs) {
         _doctors[d.id] = _doctorFrom(d);
+        if (d.data()['hasPmdc'] == true) {
+          _hasPmdc.add(d.id);
+        } else {
+          _hasPmdc.remove(d.id);
+        }
         final at = _date(d.data()['createdAt']);
         if (at != null) _addedAt[d.id] = at;
       }
@@ -472,6 +485,38 @@ class FirebaseClinicRepository implements ClinicRepository {
       _settings = _settingsFrom(d.data());
       _notify();
     });
+    // D-32 / A-09: same-doctor suggestions and the PMDC numbers they show.
+    _watch('linkSuggestions', _db.collection('doctorLinkSuggestions').snapshots(), (q) {
+      _suggestions
+        ..clear()
+        ..addEntries(q.docs.map((d) => MapEntry(d.id, _suggestionFrom(d))));
+      for (final s in _suggestions.values) {
+        for (final id in s.doctorIds) {
+          _watch('pmdc/$id', _db.collection('doctors').doc(id).collection('private').doc('admin').snapshots(), (d) {
+            final n = d.data()?['pmdcNumber'] as String?;
+            if (n == null) {
+              _pmdc.remove(id);
+            } else {
+              _pmdc[id] = n;
+            }
+            _notify();
+          });
+        }
+      }
+      _notify();
+    });
+  }
+
+  static LinkSuggestion _suggestionFrom(fs.DocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data() ?? const {};
+    return LinkSuggestion(
+      pairId: d.id,
+      doctorIds: [for (final x in (m['doctorIds'] as List? ?? const [])) '$x'],
+      clinicIds: [for (final x in (m['clinicIds'] as List? ?? const [])) '$x'],
+      strength: m['strength'] == 'strong' ? LinkStrength.strong : LinkStrength.weak,
+      status: LinkStatus.values.firstWhere((x) => x.name == m['status'], orElse: () => LinkStatus.open),
+      createdAt: _date(m['createdAt']) ?? DateTime(2026),
+    );
   }
 
   // ===================================================================
@@ -1033,12 +1078,23 @@ class FirebaseClinicRepository implements ClinicRepository {
   @override
   Future<void> waiveInvoice(String invoiceId, String reason) => _call('waiveInvoice', {'invoiceId': invoiceId, 'reason': reason});
 
-  // ---- D-31..D-33: placeholders until the integration side lands docs/09 §1–§6 ----
+  // ---- D-31..D-33: doctor search + same-doctor linking ----
   @override
-  bool hasPmdc(String doctorId) => false; // TODO(integration): `hasPmdc` from saveDoctor / the doctor list
+  bool hasPmdc(String doctorId) => _hasPmdc.contains(doctorId);
 
   @override
-  List<LinkSuggestion> linkSuggestions() => const []; // TODO(integration): doctorLinkSuggestions listener
+  List<LinkSuggestion> linkSuggestions() => [
+        for (final s in _suggestions.values)
+          LinkSuggestion(
+            pairId: s.pairId,
+            doctorIds: s.doctorIds,
+            clinicIds: s.clinicIds,
+            strength: s.strength,
+            status: s.status,
+            createdAt: s.createdAt,
+            pmdcNumbers: [for (final id in s.doctorIds) _pmdc[id]],
+          ),
+      ]..sort((a, b) => a.strength != b.strength ? a.strength.index.compareTo(b.strength.index) : b.createdAt.compareTo(a.createdAt));
 
   @override
   Doctor? doctorById(String doctorId) => _doctors[doctorId];

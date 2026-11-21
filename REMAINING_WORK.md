@@ -153,8 +153,10 @@ Original findings:
 
 ## 9. Search by doctor + same doctor at two clinics (D-31..D-33, 2026-11-19)
 Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINIC-WEB C-11/C-13/A-09; docs/07).
-- [ ] **Integration side:** functions, rules, indexes, migration, native permission + dependencies and the app data
-      layer: full task list in `docs/09-doctor-search-integration.md`.
+- [x] 2026-11-21 Step 1 backend: `saveDoctor` (speciality key, admin-only PMDC, suggestions), Link / Not the same /
+      Unlink functions, rules + rules tests (14/14), indexes, `migrate-doctor-search.js`, Firebase code in the web.
+- [ ] Run `node migrate-doctor-search.js --project dev` for real (dry run done: 20 doctors, 2 flagged, 4 clinics without location).
+- [ ] Step 2: location (geolocator, permission screen, clinic location required, "Also sits at" on the clinic page): `docs/09` §5.
 - [x] 2026-11-19 **Basic placeholder UI on demo data** (plain Material, real design later in its own chat):
       patient app Search tabs (Clinics | Doctors), speciality chips, doctor list with distance and "Also sits at";
       clinic web speciality picker + PMDC field, Super Admin "Same doctor" screen (Link / Not the same / Unlink).

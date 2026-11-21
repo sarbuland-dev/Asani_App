@@ -86,3 +86,29 @@ test('a patient still reads only their own tokens', async () => {
   await assertSucceeds(getDoc(doc(patient(), 'tokens/t1')));
   await assertFails(getDoc(doc(env.authenticatedContext('someoneElse').firestore(), 'tokens/t1')));
 });
+
+// ---- D-32 / D-33: PMDC number and same-doctor suggestions ----
+test('PMDC number: Super Admin reads it; clinic login and patients never do; nobody writes', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'doctors/d1'), { clinicId: 'c1', name: 'Dr. One', speciality: 'heart', hasPmdc: true });
+    await setDoc(doc(db, 'doctors/d1/private/admin'), { pmdcNumber: '12345-P', clinicId: 'c1' });
+  });
+  await assertSucceeds(getDoc(doc(admin(), 'doctors/d1/private/admin')));
+  await assertFails(getDoc(doc(clinic1(), 'doctors/d1/private/admin'))); // even its own doctor
+  await assertFails(getDoc(doc(patient(), 'doctors/d1/private/admin')));
+  await assertFails(setDoc(doc(clinic1(), 'doctors/d1/private/admin'), { pmdcNumber: '1' }));
+  await assertSucceeds(getDoc(doc(patient(), 'doctors/d1'))); // public doctor doc has no number
+  await assertFails(updateDoc(doc(clinic1(), 'doctors/d1'), { doctorGroupId: 'g1' }));
+});
+
+test('doctorLinkSuggestions: Super Admin only, no client writes', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'doctorLinkSuggestions/d1_d2'), { doctorIds: ['d1', 'd2'], clinicIds: ['c1', 'c2'], status: 'open', strength: 'strong' });
+  });
+  await assertSucceeds(getDoc(doc(admin(), 'doctorLinkSuggestions/d1_d2')));
+  await assertSucceeds(getDocs(query(collection(admin(), 'doctorLinkSuggestions'), where('status', '==', 'open'))));
+  await assertFails(getDoc(doc(clinic1(), 'doctorLinkSuggestions/d1_d2')));
+  await assertFails(getDoc(doc(patient(), 'doctorLinkSuggestions/d1_d2')));
+  await assertFails(updateDoc(doc(admin(), 'doctorLinkSuggestions/d1_d2'), { status: 'linked' }));
+});

@@ -10,6 +10,8 @@ import { DAY_ID, WEEKDAYS, hhmmToMinutes, pktNow } from '../lib/dates';
 import { callableOptions } from '../lib/options';
 import { notifyClinicCancel } from '../queue/cancelNotice';
 import { evaluateQueue } from '../queue/notify';
+import { doctorNameKey, isSpecialityKey, isValidPmdc, normalisePmdc } from '../doctors/linking';
+import { buildSuggestions, pmdcRef } from '../doctors/suggest';
 import { historyEntry, syncDay } from './queueAction';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -248,9 +250,19 @@ export const saveDoctor = onCall(callableOptions, async (request) => {
   const d = input(request);
   const actor = await requireClinic(db, request);
   const name = str(d, 'name', 60);
+  // D-31: one key from the fixed list; free text is rejected.
+  const speciality = str(d, 'speciality', 40);
+  if (!isSpecialityKey(speciality)) throw new HttpsError('invalid-argument', 'Pick a speciality from the list.');
+  // D-32 / D-33: optional PMDC number, stored admin-only. Absent = keep the saved one.
+  const pmdcRaw = optStr(d, 'pmdcNumber', 20);
+  if (pmdcRaw && !isValidPmdc(pmdcRaw)) throw new HttpsError('invalid-argument', 'Not a valid PMDC number.');
+  const pmdc = pmdcRaw ? normalisePmdc(pmdcRaw) : null;
+  const clinicCity = String((await db.collection('clinics').doc(actor.clinicId).get()).data()?.city ?? '');
   const fields = {
     name,
-    speciality: str(d, 'speciality', 60),
+    speciality,
+    city: clinicCity,
+    nameKey: doctorNameKey(name),
     qualification: optStr(d, 'qualification', 60),
     avgConsultMinutes: int(d, 'avgConsultMinutes', 2, 120),
     maxTokensPerDay: int(d, 'maxTokensPerDay', 1, 300),
@@ -264,9 +276,11 @@ export const saveDoctor = onCall(callableOptions, async (request) => {
     const ref = db.collection('doctors').doc(doctorId);
     const cur = (await ref.get()).data();
     if (!cur || cur.clinicId !== actor.clinicId) throw new HttpsError('not-found', 'Doctor not found.');
-    await ref.update({ ...fields, updatedAt: ts });
+    await ref.update({ ...fields, ...(pmdc ? { hasPmdc: true } : {}), specialityFlagged: FieldValue.delete(), updatedAt: ts });
+    if (pmdc) await pmdcRef(db, doctorId).set({ pmdcNumber: pmdc, clinicId: actor.clinicId, updatedAt: ts });
     await logActivity(db, actor, actor.clinicId, 'updated doctor', name);
-    return { doctorId };
+    await buildSuggestions(db, doctorId); // never links, never throws (D-32)
+    return { doctorId, hasPmdc: Boolean(pmdc) || cur.hasPmdc === true };
   }
 
   // New: the letter is assigned here and never reused (BW-7).
@@ -279,13 +293,15 @@ export const saveDoctor = onCall(callableOptions, async (request) => {
     const next = Math.max(Number(clinic.nextDoctorLetter ?? 0), used.length ? Math.max(...used) + 1 : 0);
     if (next >= LETTERS.length) throw new HttpsError('resource-exhausted', 'No more doctor letters available.');
     const active = existing.docs.filter((x) => x.data().active !== false).length;
-    tx.set(ref, { ...fields, clinicId: actor.clinicId, tokenPrefix: LETTERS[next], onLeaveDates: [], active: true, sortOrder: existing.size + 1, addedBy: 'clinic', createdAt: ts, updatedAt: ts });
+    tx.set(ref, { ...fields, hasPmdc: Boolean(pmdc), doctorGroupId: null, clinicId: actor.clinicId, tokenPrefix: LETTERS[next], onLeaveDates: [], active: true, sortOrder: existing.size + 1, addedBy: 'clinic', createdAt: ts, updatedAt: ts });
     tx.update(clinicRef, { nextDoctorLetter: next + 1, doctorCount: active + 1, updatedAt: ts });
+    if (pmdc) tx.set(pmdcRef(db, ref.id), { pmdcNumber: pmdc, clinicId: actor.clinicId, updatedAt: ts });
     return LETTERS[next];
   });
   // D-19: shows up for the Super Admin (dashboard + activity).
   await logActivity(db, actor, actor.clinicId, 'added doctor', `${name} · ${fields.speciality}`);
-  return { doctorId: ref.id, tokenPrefix: letter };
+  await buildSuggestions(db, ref.id); // bookable at once; a match only creates a suggestion (D-32)
+  return { doctorId: ref.id, tokenPrefix: letter, hasPmdc: Boolean(pmdc) };
 });
 
 async function ownDoctor(db: FirebaseFirestore.Firestore, clinicId: string, doctorId: string) {

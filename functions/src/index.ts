@@ -40,3 +40,5 @@ export {
   billingJobs,
   adminRunBillingJobs,
 } from './admin/adminClinics';
+// Same doctor at two clinics (D-32, A-09).
+export { adminLinkDoctors, adminMarkNotSame, adminUnlinkDoctor } from './admin/doctorLinks';

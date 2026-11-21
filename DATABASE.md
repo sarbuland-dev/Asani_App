@@ -138,7 +138,8 @@ Top-level (not under clinics) so queries by `clinicId` are simple. A doctor work
 
 - **Write:** only by `saveDoctor` (the clinic types it in Add / Edit doctor). No client writes.
 - **Read:** only the `superAdmin` claim. The clinic login **cannot read it back** (the edit form shows "PMDC number on file · Change" from `hasPmdc` in the `saveDoctor` / doctor list response, never the number). Patients never receive it.
-- Matching uses a **collection group** query on `admin` (`pmdcNumber ==`), run only inside functions.
+- Matching uses a **collection group** query on `private` (`pmdcNumber ==`; clinic billing docs in `private` have no such field), run only inside functions.
+- The public doctor document only carries `hasPmdc: bool` (set by `saveDoctor`), so the clinic form can say "on file".
 | `qualification` | string \| null | e.g. `MBBS, FCPS` |
 | `avgConsultMinutes` | number | Default 10. Used for wait estimate |
 | `maxTokensPerDay` | number | Default 40 |
@@ -345,7 +346,7 @@ index) and queue alerts go to `bookedByUserId ?? patientOwnerUid`.
 | `doctors` | `clinicId` ASC, `active` ASC | Doctor count |
 | `doctors` | `city` ASC, `speciality` ASC, `active` ASC | Doctors tab (D-31); distance is sorted in the app |
 | `doctors` | `doctorGroupId` ASC, `active` ASC | "Also sits at" (D-32) |
-| `admin` (collection group) | `pmdcNumber` ASC | Strong-match suggestions, functions only (single-field **collection-group** index exemption needed) |
+| `private` (collection group) | `pmdcNumber` ASC | Strong-match suggestions, functions only (single-field **collection-group** index exemption needed) |
 | `doctors` | `nameKey` ASC, `speciality` ASC | Weak-match suggestions |
 | `doctorLinkSuggestions` | `status` ASC, `createdAt` DESC | Super Admin "Possible same doctor" list |
 
