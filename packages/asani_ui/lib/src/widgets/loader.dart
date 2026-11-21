@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
+import 'dart:ui' show PathMetric;
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
 /// Loading indicator made from the logo "a" (PRD D-36, option A "Draw"):
-/// the bowl and then the stem write themselves like a pen, hold, then wipe
-/// away, on a 2.4 s loop. Used instead of the plain circular spinner.
+/// the bowl and then the stem write themselves like a pen, then wipe away,
+/// on a 2.4 s loop. One smooth ease in and out per half (no hard hold),
+/// with a short fade at the loop seam so the round caps never pop. Used instead of the plain circular spinner.
 ///
 /// Logo colours only (green on cream, or cream on green): pass `color`.
 /// With "reduce motion" on, the mark is shown still.
@@ -59,7 +62,7 @@ class _DrawPainter extends CustomPainter {
   /// Loop position 0..1, or null to draw the whole mark (reduce motion).
   final double? t;
 
-  static const _ease = Cubic(0.65, 0, 0.35, 1);
+  static const _ease = Curves.easeInOutSine;
   static const _deg = math.pi / 180;
 
   static final Path _bowl = Path()..addArc(Rect.fromCircle(center: const Offset(40, 56), radius: 22), -80 * _deg, -262 * _deg);
@@ -69,23 +72,37 @@ class _DrawPainter extends CustomPainter {
     ..quadraticBezierTo(62, 80, 75, 74)
     ..lineTo(86, 62);
 
+  /// Path lengths are measured once, not on every frame.
+  static final _cache = <Path, List<PathMetric>>{};
+  static List<PathMetric> _metrics(Path p) => _cache.putIfAbsent(p, () => p.computeMetrics().toList());
+
   /// Visible part (start, end) of a stroke, each 0..1, at loop time [x]:
-  /// draws in for 45 %, holds full for 10 %, wipes out for 45 %.
+  /// draws in over the first half, wipes out over the second.
   static (double, double) _window(double x) {
-    if (x < 0.45) return (0, _ease.transform(x / 0.45));
-    if (x < 0.55) return (0, 1);
-    return (_ease.transform((x - 0.55) / 0.45), 1);
+    if (x < 0.5) return (0, _ease.transform(x / 0.5));
+    return (_ease.transform((x - 0.5) / 0.5), 1);
   }
+
+  /// Fade in/out over the first and last 6 % of the loop.
+  static double _alpha(double x) => x < 0.06 ? x / 0.06 : (x > 0.94 ? (1 - x) / 0.06 : 1);
 
   void _stroke(Canvas canvas, Path path, Paint paint, double delay) {
     if (t == null) {
       canvas.drawPath(path, paint);
       return;
     }
-    final (a, b) = _window((t! - delay) % 1.0);
+    final x = (t! - delay) % 1.0;
+    final (a, b) = _window(x);
     if (b - a <= 0.001) return;
-    for (final m in path.computeMetrics()) {
-      canvas.drawPath(m.extractPath(a * m.length, b * m.length), paint);
+    final p = Paint()
+      ..color = paint.color.withValues(alpha: paint.color.a * _alpha(x))
+      ..style = paint.style
+      ..strokeWidth = paint.strokeWidth
+      ..strokeCap = paint.strokeCap
+      ..strokeJoin = paint.strokeJoin
+      ..isAntiAlias = true;
+    for (final m in _metrics(path)) {
+      canvas.drawPath(m.extractPath(a * m.length, b * m.length), p);
     }
   }
 
@@ -101,8 +118,8 @@ class _DrawPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     _stroke(canvas, _bowl, paint, 0);
-    // The stem follows the bowl by 0.25 s, like the pen moving on.
-    _stroke(canvas, _stem, paint, 0.25 / 2.4);
+    // The stem follows the bowl by 0.15 s, like the pen moving on.
+    _stroke(canvas, _stem, paint, 0.15 / 2.4);
     canvas.restore();
   }
 
