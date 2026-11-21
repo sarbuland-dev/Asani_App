@@ -128,7 +128,7 @@ class _DrawPainter extends CustomPainter {
 }
 
 /// Full-screen wait (DESIGN §6, D-36): a blurred outline of a screen with the
-/// logo loader in a white card on top. The real data is not there yet, so
+/// logo loader in the middle and a short message at the bottom. The real data is not there yet, so
 /// the blurred layer is a placeholder (header + a few blocks), not content.
 class LoadingScreen extends StatelessWidget {
   const LoadingScreen({super.key, this.message = 'Loading…'});
@@ -176,22 +176,14 @@ class LoadingScreen extends StatelessWidget {
             ),
           ),
         ),
-        ColoredBox(color: AppColors.background.withValues(alpha: 0.45)),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 26),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.94),
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.16), blurRadius: 44, offset: const Offset(0, 20))],
-            ),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const AsaniLoader(size: 56),
-              const SizedBox(height: Gap.md),
-              Text(message, style: AppText.labelLarge),
-            ]),
-          ),
+        ColoredBox(color: AppColors.background.withValues(alpha: 0.55)),
+        // Loader alone in the middle; the message sits at the bottom.
+        const Center(child: AsaniLoader(size: 64)),
+        Positioned(
+          left: Gap.screen,
+          right: Gap.screen,
+          bottom: 48,
+          child: SafeArea(top: false, child: Text(message, textAlign: TextAlign.center, style: AppText.labelLarge)),
         ),
       ]),
     );
