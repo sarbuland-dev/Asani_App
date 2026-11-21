@@ -22,7 +22,7 @@ class ProfileDetailScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(),
         body: patients.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: AsaniLoader())
             : const EmptyState(icon: Icons.person_off_outlined, title: 'Profile not found', message: 'This profile was removed.'),
       ));
     }

@@ -193,7 +193,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         : TextButton(
                             onPressed: _resending || _verifying ? null : _resend,
                             child: _resending
-                                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                                ? const AsaniLoader(size: 20)
                                 : const Text('Resend code'),
                           ),
               ),

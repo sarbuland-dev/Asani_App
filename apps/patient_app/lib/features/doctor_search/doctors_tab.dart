@@ -1,4 +1,5 @@
 import 'package:asani_core/asani_core.dart';
+import 'package:asani_ui/asani_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,7 +59,7 @@ class _Results extends ConsumerWidget {
     final city = ref.watch(selectedCityProvider);
     final location = ref.watch(userLocationProvider).value;
     return ref.watch(doctorCardsProvider(speciality)).when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: AsaniLoader()),
           error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(clinicsProvider(city))),
           data: (cards) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

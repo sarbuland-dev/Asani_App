@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import 'loader.dart';
 
 /// The "a" mark of the 2026-11-17 logo: an open bowl, a stem and a tail
 /// that swings up to the right. One colour.
@@ -145,16 +146,13 @@ class StatusBarScrim extends StatelessWidget {
   }
 }
 
-/// Small spinner inside a button while it works. Takes the button's own
-/// foreground colour, so it stays visible when the button is disabled.
+/// Small logo loader inside a button while it works (D-36). Takes the
+/// button's own foreground colour, so it stays visible when disabled.
 class ButtonSpinner extends StatelessWidget {
   const ButtonSpinner({super.key});
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-        dimension: 22,
-        child: CircularProgressIndicator(strokeWidth: 2.5, color: IconTheme.of(context).color),
-      );
+  Widget build(BuildContext context) => AsaniLoader(size: 22, color: IconTheme.of(context).color ?? AppColors.onPrimary);
 }
 
 /// Dashed tear line, like on a paper token slip.

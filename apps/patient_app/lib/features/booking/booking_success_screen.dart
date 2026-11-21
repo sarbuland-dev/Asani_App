@@ -19,7 +19,7 @@ class BookingSuccessScreen extends ConsumerWidget {
     final doctor = token == null ? null : ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = token == null ? null : ref.watch(clinicProvider(token.clinicId)).value;
     if (token == null || doctor == null || clinic == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: AsaniLoader()));
     }
     final schedule = doctor.scheduleOn(DateTime.parse(token.date));
 

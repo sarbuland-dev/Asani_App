@@ -40,7 +40,7 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
       child: Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(widget.clinicId)))));
     }
     if (clinicAsync.isLoading && clinic == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: AsaniLoader()));
     }
     if (clinic == null) {
       return Scaffold(

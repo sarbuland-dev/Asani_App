@@ -19,7 +19,7 @@ class TokenScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokenAsync = ref.watch(tokenProvider(tokenId));
     final token = tokenAsync.value;
-    if (tokenAsync.isLoading && token == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (tokenAsync.isLoading && token == null) return const Scaffold(body: Center(child: AsaniLoader()));
     if (token == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -30,7 +30,7 @@ class TokenScreen extends ConsumerWidget {
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
     final pos = ref.watch(tokenPositionProvider(tokenId)).value;
     final settings = ref.watch(settingsProvider).value;
-    if (doctor == null || clinic == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (doctor == null || clinic == null) return const Scaffold(body: Center(child: AsaniLoader()));
 
     final status = token.status;
     final called = status == TokenStatus.called;

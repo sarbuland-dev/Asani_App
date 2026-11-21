@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 // Same height either way, so the logo never jumps.
                 SizedBox.square(
                   dimension: 24,
-                  child: _showSpinner ? const CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.onPrimary) : null,
+                  child: _showSpinner ? const AsaniLoader(size: 24, color: AppColors.onPrimary) : null,
                 ),
                 if (_slowNow) ...[
                   const SizedBox(height: Gap.lg),

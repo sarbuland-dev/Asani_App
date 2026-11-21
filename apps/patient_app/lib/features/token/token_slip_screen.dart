@@ -51,7 +51,7 @@ class _TokenSlipScreenState extends ConsumerState<TokenSlipScreen> {
     final doctor = token == null ? null : ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = token == null ? null : ref.watch(clinicProvider(token.clinicId)).value;
     if (token == null || doctor == null || clinic == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: AsaniLoader()));
     }
     final cancelled = token.status == TokenStatus.cancelled;
     if (!_autoShared && GoRouterState.of(context).uri.queryParameters['share'] == '1' && !cancelled) {

@@ -118,7 +118,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final tokens = ref.watch(myTokensProvider).value ?? const <Token>[];
 
     if (doctor == null || clinic == null || !patientsAsync.hasValue) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: AsaniLoader()));
     }
     final patients = patientsAsync.value!;
     _applyPrefill(doctor, patients);

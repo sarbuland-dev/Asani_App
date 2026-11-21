@@ -133,7 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: FilledButton(
                         onPressed: _busy ? null : _login,
                         child: _busy
-                            ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary))
+                            ? const AsaniLoader(size: 24)
                             : const Text('Log in'),
                       ),
                     ),

@@ -396,7 +396,7 @@ class _BusyOverlay extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: Gap.xl, vertical: Gap.lg),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary)),
+                const AsaniLoader(size: 32),
                 const SizedBox(width: Gap.lg),
                 Text(message, style: AppText.titleMedium),
               ]),
