@@ -12,6 +12,7 @@ String liveLine(Token token, QueueDay? day, int ahead) {
   if (token.status == TokenStatus.called) return 'Your turn now';
   // D-35: Skipped is paused, not finished: the clinic can still call them.
   if (token.status == TokenStatus.skipped) return 'Your turn passed · go to reception';
+  if (token.status == TokenStatus.onHold) return "You're on hold · you'll be called when they're ready"; // D-37
   switch (day.sessionStatus) {
     case SessionStatus.notStarted:
       return "Doctor hasn't started yet";
@@ -198,7 +199,7 @@ class ActiveTokenBanner extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text('${doctor?.name ?? ''} · ${clinic?.name ?? ''}', style: AppText.bodyMedium, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: Gap.md),
-                  if (isToday && running && !called && token.status != TokenStatus.skipped)
+                  if (isToday && running && !called && token.status != TokenStatus.skipped && token.status != TokenStatus.onHold)
                     Row(children: [
                       Expanded(
                         child: StatTile(
@@ -229,7 +230,7 @@ class ActiveTokenBanner extends ConsumerWidget {
                     ),
                   const SizedBox(height: Gap.md),
                   Row(children: [
-                    if (isToday && running && !called) ...[
+                    if (isToday && running && !called && token.status != TokenStatus.skipped && token.status != TokenStatus.onHold) ...[
                       const Icon(Icons.schedule_rounded, size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 6),
                       Flexible(child: Text('${Fmt.wait(pos!.waitMinutes)} wait', style: AppText.labelMedium)),

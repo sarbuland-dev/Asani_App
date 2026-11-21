@@ -519,9 +519,10 @@ class DemoBackend
     final day = _day(doctorId, date);
     final doctor = _doctors[doctorId];
     if (doctor == null || date != dayKey(DateTime.now())) return;
+    final withDoctor = _tokens.values.any((x) => x.doctorId == doctorId && x.date == date && x.status == TokenStatus.called);
     for (final t in _myTokens().where((t) => t.doctorId == doctorId && t.date == date)) {
       final ahead = patientsAhead(day.activeNumbers, t.number);
-      final r = nextQueueNotification(status: t.status, ahead: ahead, alreadyNotified: t.notified);
+      final r = nextQueueNotification(status: t.status, ahead: ahead, alreadyNotified: t.notified, someoneWithDoctor: withDoctor);
       if (r.send == null) continue;
       _tokens[t.id] = t.copyWith(notified: r.notified);
       if (!_settings.notificationsAllowed || _me?.queueAlertsEnabled == false) continue;

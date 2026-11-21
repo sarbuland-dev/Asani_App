@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { skipMessage } from './skipNotice';
-import { turnRepeatOnSkip } from './steps';
+import { turnRepeatOnSkip, turnRepeatOnUndo } from './steps';
 
 test('D-34: skip push copy', () => {
   assert.deepEqual(skipMessage('A-7'), {
@@ -19,4 +19,10 @@ test('D-35: a skip after "Your turn now" allows one repeat, only once per token'
 test('D-35: a skip before the patient was called needs no repeat', () => {
   assert.equal(turnRepeatOnSkip({ notified: { ahead1: 1 } }), false);
   assert.equal(turnRepeatOnSkip({}), false);
+});
+
+test('D-38: undoing the Next that called a token allows one repeat "Your turn now"', () => {
+  assert.equal(turnRepeatOnUndo({ notified: { yourTurn: 1 } }), true);
+  assert.equal(turnRepeatOnUndo({ notified: { yourTurn: 1 }, turnRepeatUsed: true }), false);
+  assert.equal(turnRepeatOnUndo({ notified: {} }), false);
 });

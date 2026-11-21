@@ -11,7 +11,7 @@ import { callableOptions } from '../lib/options';
 import { notifyClinicCancel } from '../queue/cancelNotice';
 import { evaluateQueue } from '../queue/notify';
 import { notifySkipped } from '../queue/skipNotice';
-import { turnRepeatOnSkip } from '../queue/steps';
+import { turnRepeatOnSkip, turnRepeatOnUndo } from '../queue/steps';
 import { NextCandidate, needsArrivalConfirm, pickNext } from './nextOrder';
 
 /**
@@ -176,6 +176,8 @@ export const queueAction = onCall(callableOptions, async (request) => {
       // undo
       await db.runTransaction(async (tx) => {
         const day = (await tx.get(dayRef)).data();
+        // D-38: read the called token first (reads before writes) for the one-time repeat.
+        const calledTok = day?.undo?.calledId ? (await tx.get(db.collection('tokens').doc(day.undo.calledId))).data() : undefined;
         const u = day?.undo;
         const at: Date | null = u?.at?.toDate ? u.at.toDate() : null;
         if (!u || !at || Date.now() - at.getTime() > UNDO_SECONDS * 1000) {
@@ -194,6 +196,8 @@ export const queueAction = onCall(callableOptions, async (request) => {
             status: u.calledPrevStatus ?? 'arrived',
             calledAt: null,
             waitMinutes: null,
+            // D-38: no push on undo; one more "Your turn now" when really called.
+            ...(calledTok && turnRepeatOnUndo(calledTok) ? { 'notified.yourTurn': FieldValue.delete(), turnRepeatUsed: true } : {}),
             history: FieldValue.arrayUnion(historyEntry('Undo last Next', actor)),
             updatedAt: ts,
           });

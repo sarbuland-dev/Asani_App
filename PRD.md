@@ -143,6 +143,8 @@ Rules:
 - N-7: No queue notifications for walk-in tokens without an app account (future SMS).
 - N-8 (D-34): When the clinic **skips** a token, the account owner gets **one** push: "You missed your turn" · "Token #11 · Go to reception to be called next." Sent at most once per token (`skipNotifiedAt`). It is **outside** the 4 queue notifications.
 - N-9 (D-35): Exception to N-2: if a token that already got "Your turn now" is skipped, it gets **one** more "Your turn now" when it is called again (recall, or Next after checking in again). At most once per token (`turnRepeatUsed`).
+- N-10 (D-39): 0 ahead counts as step 3 ("You're next") when a patient is with the doctor (a `called` token on that doctor/day).
+- N-11 (D-38): undoing the Next that called a token sends nothing and allows one more "Your turn now" (shares `turnRepeatUsed` with N-9).
 
 ### F-07 Family profiles (P0)
 - Account owner can add, edit and remove patient profiles: **name, age, gender, relation** (Self, Mother, Father, Spouse, Son, Daughter, Brother, Sister, Other). Optional: patient's own phone.
@@ -291,6 +293,9 @@ Flow: **Search → Doctors tab → speciality chip → doctor card → booking f
 | D-34 | 2026-11-21 | **Push when skipped.** When the clinic skips a token, the patient's account gets one push: "You missed your turn · Token #11 · Go to reception to be called next." Sent **once per token** (claim `skipNotifiedAt`, then send, like D-23). Tap opens the token screen. **Outside** the 4 queue notifications (N-8). |
 | D-35 | 2026-11-21 | **Skipped is a paused state in the app**, and one repeat "Your turn now". The token stays under **Active** with an amber card "Your turn passed · Go to reception. You'll be called right after the patient now with the doctor."; the slip stays, no "Book again". After the patient checks in again (`priorityAt` set), the app shows **"You're next · called right after the current patient"** instead of the number count. Exception to N-2: on recall, **one** extra "Your turn now" push, max once per token (`turnRepeatUsed`, N-9). Clinic web: re-checked-in Skipped patients are listed right after the Called patient with a **"Next up"** label. |
 | D-36 | 2026-11-21 | **Logo loading indicator.** The plain circular spinner is replaced everywhere (both apps) by `AsaniLoader` in `asani_ui`, option **A "Draw"**: the logo "a" bowl, then the stem, write themselves like a pen, hold, then wipe away (2.4 s loop). Logo colours only (green on cream, cream on green); shown still when the phone asks for reduced motion. Full-screen waits show it over a **blurred** placeholder of the screen, with the message at the bottom (`LoadingScreen`). |
+| D-37 | 2026-11-22 | **On hold in the app.** A token the reception puts **On hold** stays under **Active** with an amber note "You're on hold · The reception paused your turn. You'll be called when they're ready." No queue numbers and **no push**. |
+| D-38 | 2026-11-22 | **Undo last Next.** If the clinic undoes the Next that called a patient, **no push** is sent; the app simply shows the queue again. When the patient is really called, they get **"Your turn now" once more** (the same one-time repeat as D-35, `turnRepeatUsed`). |
+| D-39 | 2026-11-22 | **"You're next" at 0 ahead** (closes the open N-1 gap). A Booked/Arrived patient with **nobody waiting before them while someone is with the doctor** gets "You're next" (step 3 of the 4 queue pushes), once. With nobody at the doctor there is no early alert; "Your turn now" comes when called. |
 
 ## 10. Open questions (confirm before building the related part)
 

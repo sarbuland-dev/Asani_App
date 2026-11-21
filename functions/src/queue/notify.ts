@@ -34,17 +34,20 @@ export async function evaluateQueue(db: Firestore, messaging: Messaging, doctorI
   const activeNumbers: number[] = daySnap.data()?.activeNumbers ?? [];
   const doctorName: string = doctorSnap.data()?.name ?? 'the doctor';
 
+  // D-39: someone is with the doctor → the first waiting patient gets "You're next" even at 0 ahead.
+  const withDoctor = tokensSnap.docs.some((d) => d.data().status === 'called');
+
   const log: SentLog[] = [];
   for (const doc of tokensSnap.docs) {
     const t = doc.data();
-    if (!nextStep(t.status, patientsAhead(activeNumbers, t.number), t.notified ?? {})) continue;
+    if (!nextStep(t.status, patientsAhead(activeNumbers, t.number), t.notified ?? {}, withDoctor)) continue;
 
     // Claim the step in a transaction; only the run that claims it sends.
     const claimed = await db.runTransaction(async (tx) => {
       const fresh = await tx.get(doc.ref);
       const ft = fresh.data();
       if (!ft) return null;
-      const decision = nextStep(ft.status, patientsAhead(activeNumbers, ft.number), ft.notified ?? {});
+      const decision = nextStep(ft.status, patientsAhead(activeNumbers, ft.number), ft.notified ?? {}, withDoctor);
       if (!decision) return null;
       const now = new Date();
       const notified = { ...(ft.notified ?? {}) };

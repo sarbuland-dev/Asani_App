@@ -11,7 +11,7 @@ Last updated: 2026-11-13. Status of the patient app: all 12 demo→Firebase step
       Needed: debug-only cleartext to the emulator + no 10.0.2.2 remap when EMULATOR_HOST is set (adb reverse).
 - [ ] Not tested yet: follow-up reminder tap opens pre-filled booking; push with the app fully killed; iPhone.
 - [x] 2026-11-14 notification icon: white "a" mark (res/drawable/ic_notification.xml) + teal header colour; checked on the Redmi.
-- [ ] **Decide:** a patient who books when nobody is waiting (0 ahead, someone with the doctor) gets no
+- [x] 2026-11-22 Decided D-39 ("You're next" at 0 ahead when someone is with the doctor), built. Was: a patient who books when nobody is waiting (0 ahead, someone with the doctor) gets no
       "You're next", only "Your turn now" (steps.ts sends ahead1..3 only for 1..3 ahead).
 - [x] 2026-11-14 StatTile values stay on one line and shrink to fit ("Any moment" no longer breaks); checked on the Redmi.
 - [ ] `getToken` / `onTokenRefresh` are deprecated in firebase_messaging 17; move to
@@ -141,7 +141,7 @@ Original findings:
       and be passed over again and again. **Decide** Q-W03 (strict number order, or count ahead the same way).
 
 🟡 Should fix
-- [ ] App: On hold shows the normal queue (no "You're on hold" message).
+- [x] 2026-11-22 D-37 amber "You're on hold" note. Was: App: On hold shows the normal queue (no "You're on hold" message).
 - [x] App: Skipped showed "Book again" even though the clinic can recall it (fixed by D-35, 2026-11-21).
 - [x] `cancelDoctorTokens` now runs `evaluateQueue` (D-23 change).
 - [ ] Each clinic action takes 8–10 s on the emulator; re-measure after deploy.
@@ -149,7 +149,7 @@ Original findings:
       while loading, with no loading state.
 - [ ] A new clinic from the wizard is visible in the patient app at once with 0 doctors.
 - [ ] Billing "How to pay" shows placeholder bank/IBAN details.
-- [ ] Undo last Next: the patient already got "Your turn now"; after undo the app goes back to waiting.
+- [x] 2026-11-22 D-38 no push on undo, one repeat "Your turn now". Was: Undo last Next: the patient already got "Your turn now"; after undo the app goes back to waiting.
 
 ## 9. Search by doctor + same doctor at two clinics (D-31..D-33, 2026-11-19)
 Docs approved (PRD F-13/F-14, D-31..D-33; DESIGN S-06b/S-18; DATABASE; PRD-CLINIC-WEB C-11/C-13/A-09; docs/07).

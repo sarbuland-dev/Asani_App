@@ -122,7 +122,12 @@ class TokenScreen extends ConsumerWidget {
                       const _SkippedCard(),
                       const SizedBox(height: Gap.md),
                     ],
-                    if (!finished && !skipped && isToday) ..._liveSection(token, doctor, pos, session, called),
+                    // D-37: On hold keeps the token Active but shows no queue numbers.
+                    if (status == TokenStatus.onHold && isToday) ...[
+                      const _OnHoldCard(),
+                      const SizedBox(height: Gap.md),
+                    ],
+                    if (!finished && !skipped && status != TokenStatus.onHold && isToday) ..._liveSection(token, doctor, pos, session, called),
                     if (!finished && !isToday) ...[
                       _InfoLine(
                         icon: Icons.event_available_outlined,
@@ -306,6 +311,25 @@ class TokenScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) showSnack(context, AppException.messageOf(e));
     }
+  }
+}
+
+/// D-37: amber note while the reception has the token On hold. No push.
+class _OnHoldCard extends StatelessWidget {
+  const _OnHoldCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(Gap.md),
+      decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.card)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text("You're on hold", style: AppText.labelLarge.copyWith(color: AppColors.warning)),
+        const SizedBox(height: 2),
+        Text("The reception paused your turn. You'll be called when they're ready.",
+            style: AppText.bodyMedium.copyWith(color: AppColors.warning)),
+      ]),
+    );
   }
 }
 

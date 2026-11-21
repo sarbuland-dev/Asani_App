@@ -14,6 +14,8 @@ int estimatedWaitMinutes(int ahead, int avgConsultMinutes) => ahead * avgConsult
   required TokenStatus status,
   required int ahead,
   required Set<QueueStep> alreadyNotified,
+  /// D-39: a patient is with the doctor now, so 0 ahead still means "You're next".
+  bool someoneWithDoctor = false,
 }) {
   QueueStep? current;
   if (status == TokenStatus.called) {
@@ -21,6 +23,8 @@ int estimatedWaitMinutes(int ahead, int avgConsultMinutes) => ahead * avgConsult
   } else if (status == TokenStatus.booked || status == TokenStatus.arrived) {
     if (ahead >= 1 && ahead <= 3) {
       current = QueueStep.values.firstWhere((s) => s.ahead == ahead);
+    } else if (ahead == 0 && someoneWithDoctor) {
+      current = QueueStep.values.firstWhere((s) => s.ahead == 1);
     }
   }
   if (current == null || alreadyNotified.contains(current)) {

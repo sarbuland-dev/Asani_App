@@ -21,11 +21,16 @@ export function nextStep(
   status: string,
   ahead: number,
   notified: Partial<Record<StepKey, unknown>>,
+  /** D-39: a patient is with the doctor now (a `called` token on this doctor/day). */
+  someoneWithDoctor = false,
 ): { send: StepKey; mark: StepKey[] } | null {
   let current: StepKey | null = null;
   if (status === 'called') current = 'yourTurn';
   else if ((status === 'booked' || status === 'arrived') && ahead >= 1 && ahead <= 3) {
     current = (`ahead${ahead}` as StepKey);
+  } else if ((status === 'booked' || status === 'arrived') && ahead === 0 && someoneWithDoctor) {
+    // D-39: nobody waiting before me but someone is with the doctor → "You're next".
+    current = 'ahead1';
   }
   if (!current || notified[current]) return null;
   const upTo = STEP_KEYS.indexOf(current);
@@ -53,6 +58,13 @@ export function messageFor(step: StepKey, label: string, doctorName: string): { 
  * patient gets ONE more "Your turn now" when recalled. Never more than once
  * per token.
  */
+/**
+ * D-38: the same one-time repeat when the clinic undoes the Next that called
+ * this token (the patient may already have "Your turn now").
+ */
+export const turnRepeatOnUndo = (t: { notified?: Partial<Record<StepKey, unknown>> | null; turnRepeatUsed?: boolean | null }) =>
+  turnRepeatOnSkip(t);
+
 export function turnRepeatOnSkip(t: { notified?: Partial<Record<StepKey, unknown>> | null; turnRepeatUsed?: boolean | null }): boolean {
   return !!t.notified?.yourTurn && !t.turnRepeatUsed;
 }

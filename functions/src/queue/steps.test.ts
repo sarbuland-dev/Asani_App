@@ -36,3 +36,10 @@ test('DESIGN copy', () => {
   });
   assert.equal(messageFor('yourTurn', 'A-11', 'Dr. Ayesha Malik').body, 'Token A-11 · Please go to Dr. Ayesha Malik.');
 });
+
+test('D-39: 0 ahead with someone at the doctor gets "You\'re next" once', () => {
+  assert.deepEqual(nextStep('booked', 0, {}, true), { send: 'ahead1', mark: ['ahead3', 'ahead2', 'ahead1'] });
+  assert.equal(nextStep('booked', 0, { ahead1: 1 }, true), null);
+  assert.equal(nextStep('booked', 0, {}, false), null); // nobody with the doctor: no early alert
+  assert.equal(nextStep('onHold', 0, {}, true), null);
+});
