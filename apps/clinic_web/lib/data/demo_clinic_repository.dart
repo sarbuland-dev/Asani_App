@@ -36,7 +36,8 @@ class DemoClinicRepository implements ClinicRepository {
   final _staff = <String, UserAccount>{};
   final _passwords = <String, String>{}; // email -> password (demo only)
   final _addedAt = <String, DateTime>{}; // doctorId -> added (D-19)
-  final _pmdc = <String, String>{}; // doctorId -> PMDC number, admin-only (D-33)
+  final _pmdc = <String, String>{};
+  final _pins = <String, ({String pin, int failed, DateTime? lockedUntil, DateTime? unlockedUntil})>{}; // D-41 (demo: plain) // doctorId -> PMDC number, admin-only (D-33)
   final _suggestions = <String, LinkSuggestion>{}; // pairId -> suggestion (D-32)
   final _invoices = <String, Invoice>{};
   final _activity = <ActivityLog>[];
@@ -562,6 +563,8 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> updatePatient(String clinicId, String patientId, {required String name, int? birthYear, required Gender gender}) async {
     _requireUser();
     final p = _patients[patientId] ?? (throw AppException.generic);
+    // D-40: app profiles are managed by the family in the app.
+    if (p.ownerUid != null) throw const AppException('managed-by-app', 'This patient manages their details in the Asani app.');
     await _latency();
     _patients[patientId] = p.copyWith(name: name.trim(), birthYear: birthYear, gender: gender);
     _log(clinicId, 'edited patient details', name.trim());
@@ -579,6 +582,7 @@ class DemoClinicRepository implements ClinicRepository {
     await _latency();
     var d = doctor;
     if (isNew) {
+      _requirePinUnlocked(clinicId); // D-41
       final c = _clinics[clinicId]!;
       final letter = c.nextDoctorLetter < _letters.length ? _letters[c.nextDoctorLetter] : 'Z${c.nextDoctorLetter}';
       _clinics[clinicId] = c.copyWith(nextDoctorLetter: c.nextDoctorLetter + 1);
@@ -787,6 +791,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> setDoctorActive(String doctorId, bool active) async {
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
+    if (!active) _requirePinUnlocked(d.clinicId); // D-41
     await _latency();
     _doctors[doctorId] = _copyDoctor(d, active: active);
     _syncDoctorCount(d.clinicId);
@@ -843,8 +848,78 @@ class DemoClinicRepository implements ClinicRepository {
     _notify();
   }
 
+  // ---- Manager PIN (D-41): mirrors functions/src/clinic/pin.ts ----
+  void _requirePinUnlocked(String clinicId) {
+    final p = _pins[clinicId];
+    if (p == null) return;
+    if (p.unlockedUntil != null && _now.isBefore(p.unlockedUntil!)) return;
+    throw const AppException('pin-required', 'Enter the manager PIN first.');
+  }
+
+  void _setPinFlag(String clinicId, bool on) {
+    for (final e in _staff.entries.toList()) {
+      if (e.value.clinicId == clinicId && e.value.isClinic) _staff[e.key] = e.value.copyWith(pinSet: on);
+    }
+    if (_user?.clinicId == clinicId && _user!.isClinic) _user = _user!.copyWith(pinSet: on);
+  }
+
+  void _checkPin(String clinicId, String pin) {
+    final p = _pins[clinicId];
+    if (p == null) return;
+    if (p.lockedUntil != null && _now.isBefore(p.lockedUntil!)) {
+      throw const AppException('pin-locked', 'Too many wrong PINs. Try again in 15 minutes.');
+    }
+    if (pin == p.pin) {
+      _pins[clinicId] = (pin: p.pin, failed: 0, lockedUntil: null, unlockedUntil: _now.add(const Duration(minutes: 15)));
+      return;
+    }
+    final failed = p.failed + 1;
+    if (failed >= 5) {
+      _pins[clinicId] = (pin: p.pin, failed: 0, lockedUntil: _now.add(const Duration(minutes: 15)), unlockedUntil: p.unlockedUntil);
+      throw const AppException('pin-locked', 'Too many wrong PINs. Try again in 15 minutes.');
+    }
+    _pins[clinicId] = (pin: p.pin, failed: failed, lockedUntil: null, unlockedUntil: p.unlockedUntil);
+    throw AppException('pin-wrong', 'Wrong PIN. ${5 - failed} tries left.');
+  }
+
+  @override
+  Future<void> setPin(String pin, {String? currentPin}) async {
+    final u = _requireUser();
+    final clinicId = u.clinicId ?? (throw AppException.notAllowed);
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) throw const AppException('invalid-pin', 'The PIN must be 4 digits.');
+    await _latency();
+    final had = _pins.containsKey(clinicId);
+    if (had) _checkPin(clinicId, currentPin ?? '');
+    _pins[clinicId] = (pin: pin, failed: 0, lockedUntil: null, unlockedUntil: _now.add(const Duration(minutes: 15)));
+    _setPinFlag(clinicId, true);
+    _log(clinicId, had ? 'changed manager PIN' : 'set manager PIN', _clinics[clinicId]?.clinic.name ?? '');
+    _notify();
+  }
+
+  @override
+  Future<void> verifyPin(String pin) async {
+    final clinicId = _requireUser().clinicId ?? (throw AppException.notAllowed);
+    await _latency();
+    try {
+      _checkPin(clinicId, pin);
+    } finally {
+      _notify();
+    }
+  }
+
+  @override
+  Future<void> resetClinicPin(String clinicId) async {
+    _requireAdmin();
+    await _latency();
+    _pins.remove(clinicId);
+    _setPinFlag(clinicId, false);
+    _log(clinicId, 'reset manager PIN', _clinics[clinicId]?.clinic.name ?? '');
+    _notify();
+  }
+
   @override
   Future<void> logExport(String clinicId, String range) async {
+    _requirePinUnlocked(clinicId);
     _log(clinicId, 'exported visits', range);
     _notify();
   }

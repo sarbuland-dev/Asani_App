@@ -40,12 +40,14 @@ class PatientProfileScreen extends ConsumerWidget {
       subtitle: '${p.relation.label} · ${p.age(pktNow()) ?? '—'} / ${p.gender.label} · ${Fmt.phone(p.phone)}',
       leading: HeaderBackButton(dark: true, onPressed: () => context.go('/patients')),
       actions: [
-        if (user.role.canRunQueue)
+        // D-40: only walk-ins (no app account) are edited by the clinic.
+        if (user.role.canRunQueue && p.ownerUid == null)
           OutlinedButton.icon(
             onPressed: () => _edit(context, ref, p),
             icon: const Icon(Icons.edit_outlined, size: 18),
             label: const Text('Edit details'),
           ),
+        if (p.ownerUid != null) const Center(child: Text('Managed by the patient in the Asani app')),
         if (user.role.canRunQueue)
           FilledButton.icon(
             onPressed: writable

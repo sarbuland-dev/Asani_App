@@ -12,6 +12,7 @@ export { deleteAccount } from './account/deleteAccount';
 // Clinic web (PRD-CLINIC-WEB): clinic login callables.
 export { queueAction } from './clinic/queueAction';
 export { clinicLookupPhone } from './clinic/phoneLookup';
+export { clinicSetPin, clinicVerifyPin, adminResetClinicPin } from './clinic/pin'; // D-41
 export {
   clinicCreateWalkIn,
   clinicUpdatePatient,

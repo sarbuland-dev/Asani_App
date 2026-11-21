@@ -282,6 +282,7 @@ each callable also recomputes `day.activeNumbers` and calls `evaluateQueue` itse
 | `clinicUpdatePatient` | clinic | Name/age/gender typo fix (Q-W07) |
 | `setFollowUp` | clinic | Follow-up from a visit (C-09) |
 | `saveDoctor`, `setDoctorActive`, `setDoctorLeave`, `cancelDoctorTokens` | clinic | The clinic manages its own doctors (D-19); letters never reused (BW-7). `saveDoctor` checks `speciality` is one fixed key and the PMDC format, writes the PMDC number only to `doctors/{id}/private/admin` (D-33), copies `city`, sets `nameKey`, clears `specialityFlagged`, and creates/updates same-city `doctorLinkSuggestions` (D-31..D-33; never links) |
+| `clinicSetPin`, `clinicVerifyPin` / `adminResetClinicPin` | clinic / super admin | D-41 manager PIN: hashed in `clinicPins`, 5 wrong → 15 min lock, unlock 15 min; gates Add / Deactivate doctor and Export |
 | `adminLinkDoctors`, `adminMarkNotSame`, `adminUnlinkDoctor` | super admin | D-32: set/clear `doctorGroupId`, update the pair's suggestion status, write the activity log. Transactions, so a pair is decided once |
 | `updateClinicSettings`, `logExport` | clinic | C-13, C-14 |
 | `clinicLoginTouch`, `clinicPasswordChanged` | clinic | Last login / invite accepted; revoke other sessions after a password change (C-12) |

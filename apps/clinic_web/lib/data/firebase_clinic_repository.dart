@@ -221,6 +221,7 @@ class FirebaseClinicRepository implements ClinicRepository {
       invitedAt: _date(m['invitedAt']),
       lastLoginAt: _date(m['lastLoginAt']),
       passwordChangedAt: _date(m['passwordChangedAt']),
+      pinSet: m['pinSet'] == true,
     );
   }
 
@@ -1006,6 +1007,15 @@ class FirebaseClinicRepository implements ClinicRepository {
 
   @override
   Future<void> logExport(String clinicId, String range) => _call('logExport', {'range': range});
+
+  @override
+  Future<void> setPin(String pin, {String? currentPin}) => _call('clinicSetPin', {'pin': pin, 'currentPin': ?currentPin});
+
+  @override
+  Future<void> verifyPin(String pin) => _call('clinicVerifyPin', {'pin': pin});
+
+  @override
+  Future<void> resetClinicPin(String clinicId) => _call('adminResetClinicPin', {'clinicId': clinicId});
 
   // ===================================================================
   // Super admin

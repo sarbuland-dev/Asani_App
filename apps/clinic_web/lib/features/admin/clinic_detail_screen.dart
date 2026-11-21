@@ -243,6 +243,12 @@ class _ClinicLoginCard extends ConsumerWidget {
             ),
           ]),
         ),
+        // D-41: forgotten manager PIN.
+        if (login != null && login.pinSet)
+          OutlinedButton(
+            onPressed: () => runAction(context, () => repo.resetClinicPin(c.id), success: 'Manager PIN reset. The clinic can set a new one.'),
+            child: const Text('Reset manager PIN'),
+          ),
         if (login != null && login.status == LoginStatus.invited)
           OutlinedButton.icon(
             onPressed: () => runAction(context, () => repo.resendClinicInvite(c.id), success: 'Invite sent again to ${login.email}.'),

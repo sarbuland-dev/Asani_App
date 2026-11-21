@@ -253,6 +253,7 @@ stateDiagram-v2
 |---|---|---|
 | `email`, `clinicId`, `name` | string | `name` = manager / senior doctor |
 | `status` | string | `invited` / `active` / `disabled` |
+| `pinSet` | bool | D-41: a manager PIN exists (set by functions; the PIN itself is in `clinicPins`) |
 | `invitedAt`, `lastLoginAt`, `passwordChangedAt`, `createdAt` | timestamp | |
 
 The role itself is the Auth custom claim, never this document.
@@ -310,6 +311,12 @@ joined with `_`, so the same pair can never get a second document.
 - Run the suggestion builder once over all doctors.
 
 ---
+
+### `clinicPins/{clinicId}` (backend only, D-41)
+`salt`, `hash` (scrypt of the 4-digit manager PIN), `failed` (wrong tries in a row), `lockedUntil` (ms, after 5 wrong),
+`unlockedUntil` (ms, 15 min after a correct PIN), `updatedAt`. No rules match: clients (even the Super Admin) never read
+it. Written by `clinicSetPin`, `clinicVerifyPin`, `adminResetClinicPin`; read by the PIN gate in `saveDoctor` (new),
+`setDoctorActive` (deactivate) and `logExport`.
 
 ### `rateLimits/{id}` (backend only)
 `phoneLookup_{clinicId}`: `{windowStart: ms, count, clinicId, updatedAt}` for the D-22 full-phone lookup

@@ -183,6 +183,14 @@ abstract interface class ClinicRepository {
   Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name, GeoPoint? location});
   Future<void> logExport(String clinicId, String range);
 
+  // ---- Manager PIN (D-41) ----
+  /// Set, or change with [currentPin]. Throws AppException with the reason.
+  Future<void> setPin(String pin, {String? currentPin});
+  /// Unlocks the protected actions for 15 minutes. Throws on wrong / locked.
+  Future<void> verifyPin(String pin);
+  /// Super Admin: forgotten PIN.
+  Future<void> resetClinicPin(String clinicId);
+
   // ---- Super admin ----
   Future<ClinicAccount> createClinic(NewClinicDraft draft);
   Future<void> resendClinicInvite(String clinicId);

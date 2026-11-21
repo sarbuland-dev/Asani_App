@@ -86,7 +86,8 @@ Still open:
 - [ ] Reminder email for defaulters needs a mail service (only recorded today).
 - [ ] Payment proof upload (Storage), "Send payment proof" for clinics (P2).
 - [ ] Real print test on a thermal 80 mm printer and A5 with `--kiosk-printing`.
-- [ ] Open questions Q-W03, Q-W05..Q-W09, Q-W11 (manager PIN). Q-W08 (notify on clinic cancel / no-show) not built.
+- [x] 2026-11-22 Q-W07 → D-40 (clinic edits walk-ins only) and Q-W11 → D-41 (manager PIN) built.
+- [ ] Still open: Q-W05 (grace/suspension days), Q-W06 (prices), Q-W09 (domain) — part of the payments step (§10) / hosting.
 - [ ] Optional: Dart pub workspace (PRD §2.1) and CI path filters.
 - [ ] Firebase Hosting site for dev/prod (needs a domain, Q-W09).
 

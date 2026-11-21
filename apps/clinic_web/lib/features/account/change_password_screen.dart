@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/pin_gate.dart';
 
 /// W-18 / C-12: the clinic has one login (D-18), so there is no staff
 /// management, only Change password. Changing it signs the clinic out on
@@ -33,6 +34,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   Future<void> _save() async {
     if (!(_form.currentState?.validate() ?? false)) return;
+    final clinicId = ref.read(currentUserProvider)?.clinicId;
+    if (clinicId != null && (!await requireManagerPin(context, ref, clinicId) || !mounted)) return; // D-41
     setState(() => _busy = true);
     final ok = await runAction(
       context,
@@ -124,6 +127,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         Expanded(
           flex: 2,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            // D-41: set / change the manager PIN.
+            if (ref.watch(currentUserProvider)?.clinicId case final id?) ManagerPinCard(clinicId: id),
             const Banner2(
               icon: Icons.devices_rounded,
               fg: AppColors.info,

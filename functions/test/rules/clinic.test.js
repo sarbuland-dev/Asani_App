@@ -112,3 +112,13 @@ test('doctorLinkSuggestions: Super Admin only, no client writes', async () => {
   await assertFails(getDoc(doc(patient(), 'doctorLinkSuggestions/d1_d2')));
   await assertFails(updateDoc(doc(admin(), 'doctorLinkSuggestions/d1_d2'), { status: 'linked' }));
 });
+
+// ---- D-41: manager PIN hash is backend-only ----
+test('clinicPins: nobody reads or writes it from a client, not even the Super Admin', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'clinicPins/c1'), { salt: 's', hash: 'h', failed: 0 });
+  });
+  await assertFails(getDoc(doc(clinic1(), 'clinicPins/c1')));
+  await assertFails(getDoc(doc(admin(), 'clinicPins/c1')));
+  await assertFails(setDoc(doc(clinic1(), 'clinicPins/c1'), { hash: 'x' }));
+});

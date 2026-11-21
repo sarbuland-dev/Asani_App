@@ -13,6 +13,7 @@ import { evaluateQueue } from '../queue/notify';
 import { doctorNameKey, isSpecialityKey, isValidPmdc, normalisePmdc } from '../doctors/linking';
 import { buildSuggestions, pmdcRef } from '../doctors/suggest';
 import { readLocation } from '../lib/location';
+import { requirePinUnlocked } from './pin';
 import { historyEntry, syncDay } from './queueAction';
 
 const GENDERS = ['male', 'female', 'other'];
@@ -169,6 +170,10 @@ export const clinicUpdatePatient = onCall(callableOptions, async (request) => {
   const ref = db.collection('patients').doc(id(d, 'patientId'));
   const p = (await ref.get()).data();
   if (!p || !(p.clinicIds ?? []).includes(actor.clinicId)) throw new HttpsError('not-found', 'Patient not found.');
+  // D-40: app profiles belong to the family; only walk-ins (no app account) are edited by the clinic.
+  if (p.ownerUid) {
+    throw new HttpsError('failed-precondition', 'This patient manages their details in the Asani app.', { code: 'managed-by-app' });
+  }
   const name = str(d, 'name', 60);
   const gender = str(d, 'gender', 10);
   if (!GENDERS.includes(gender)) throw new HttpsError('invalid-argument', 'Pick a gender.');
@@ -284,7 +289,8 @@ export const saveDoctor = onCall(callableOptions, async (request) => {
     return { doctorId, hasPmdc: Boolean(pmdc) || cur.hasPmdc === true };
   }
 
-  // New: the letter is assigned here and never reused (BW-7).
+  // New: the letter is assigned here and never reused (BW-7). Adding needs the manager PIN (D-41).
+  await requirePinUnlocked(db, actor.clinicId);
   const clinicRef = db.collection('clinics').doc(actor.clinicId);
   const ref = db.collection('doctors').doc();
   const letter = await db.runTransaction(async (tx) => {
@@ -318,6 +324,7 @@ export const setDoctorActive = onCall(callableOptions, async (request) => {
   const actor = await requireClinic(db, request);
   const { ref, doc } = await ownDoctor(db, actor.clinicId, id(d, 'doctorId'));
   const active = d.active === true;
+  if (!active) await requirePinUnlocked(db, actor.clinicId); // D-41: deactivating needs the PIN
   await ref.update({ active, updatedAt: FieldValue.serverTimestamp() });
   const count = await db.collection('doctors').where('clinicId', '==', actor.clinicId).where('active', '==', true).count().get();
   await db.collection('clinics').doc(actor.clinicId).update({ doctorCount: count.data().count });
@@ -396,6 +403,7 @@ export const updateClinicSettings = onCall(callableOptions, async (request) => {
 export const logExport = onCall(callableOptions, async (request) => {
   const db = getFirestore();
   const actor = await requireClinic(db, request);
+  await requirePinUnlocked(db, actor.clinicId); // D-41: Export is a manager action
   await logActivity(db, actor, actor.clinicId, 'exported visits', str(input(request), 'range', 60));
   return { ok: true };
 });

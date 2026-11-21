@@ -7,6 +7,7 @@ import '../../core/web/download.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/pin_gate.dart';
 
 /// W-16 / C-10 daily summary, plus C-14 export.
 class SummaryScreen extends ConsumerStatefulWidget {
@@ -165,6 +166,7 @@ class _ExportCardState extends ConsumerState<_ExportCard> {
   late DateTimeRange _range = DateTimeRange(start: _today.subtract(const Duration(days: 6)), end: _today);
 
   Future<void> _export() async {
+    if (!await requireManagerPin(context, ref, widget.clinicId) || !mounted) return; // D-41
     final repo = ref.read(repositoryProvider);
     final doctors = {for (final d in repo.doctors(widget.clinicId, includeInactive: true)) d.id: d.name};
     final lines = <String>[csvRow(['Date', 'Token', 'Doctor', 'Patient', 'Age', 'Sex', 'Phone', 'Source', 'Status', 'Wait (min)'])];

@@ -25,6 +25,7 @@ import '../../features/queue/queue_board_screen.dart';
 import '../../features/settings/clinic_settings_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/summary/summary_screen.dart';
+import '../widgets/pin_gate.dart';
 
 /// Where each role lands after login (§5.3).
 String homeFor(UserAccount? u) => switch (u?.role) {
@@ -73,7 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/doctors', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => DoctorsScreen(id)))),
           GoRoute(path: '/password', pageBuilder: (c, s) => page(const ChangePasswordScreen())),
           GoRoute(path: '/settings', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => ClinicSettingsScreen(id)))),
-          GoRoute(path: '/billing', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => BillingScreen(id)))),
+          GoRoute(path: '/billing', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => PinGuard(clinicId: id, child: BillingScreen(id)))) /* D-41 */),
           GoRoute(path: '/help', pageBuilder: (c, s) => page(const HelpScreen())),
           // Super admin (§7)
           GoRoute(path: '/admin', pageBuilder: (c, s) => page(const AdminDashboardScreen())),

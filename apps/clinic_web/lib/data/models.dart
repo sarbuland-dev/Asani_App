@@ -32,6 +32,7 @@ class UserAccount {
     this.invitedAt,
     this.lastLoginAt,
     this.passwordChangedAt,
+    this.pinSet = false,
   });
 
   final String uid;
@@ -47,9 +48,12 @@ class UserAccount {
   final DateTime? lastLoginAt;
   final DateTime? passwordChangedAt;
 
+  /// D-41: a manager PIN exists (the PIN itself never leaves the server).
+  final bool pinSet;
+
   bool get isClinic => role == UserRole.clinic;
 
-  UserAccount copyWith({String? name, LoginStatus? status, DateTime? invitedAt, DateTime? lastLoginAt, DateTime? passwordChangedAt}) => UserAccount(
+  UserAccount copyWith({String? name, LoginStatus? status, DateTime? invitedAt, DateTime? lastLoginAt, DateTime? passwordChangedAt, bool? pinSet}) => UserAccount(
         uid: uid,
         name: name ?? this.name,
         email: email,
@@ -60,6 +64,7 @@ class UserAccount {
         invitedAt: invitedAt ?? this.invitedAt,
         lastLoginAt: lastLoginAt ?? this.lastLoginAt,
         passwordChangedAt: passwordChangedAt ?? this.passwordChangedAt,
+        pinSet: pinSet ?? this.pinSet,
       );
 }
 

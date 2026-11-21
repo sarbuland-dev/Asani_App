@@ -7,6 +7,7 @@ import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import 'doctor_form_dialog.dart';
+import '../../core/widgets/pin_gate.dart';
 
 /// W-17 / C-11 (D-19): the clinic adds, edits and deactivates its own
 /// doctors and sets leave. Doctors are records only; they never log in.
@@ -31,6 +32,7 @@ class DoctorsScreen extends ConsumerWidget {
 
 /// Opens the doctor form and saves a new doctor (clinic login only).
 Future<void> addDoctor(BuildContext context, WidgetRef ref, String clinicId) async {
+  if (!await requireManagerPin(context, ref, clinicId) || !context.mounted) return; // D-41
   final r = await showDoctorForm(context, clinicId: clinicId);
   if (r != null && context.mounted) {
     await runAction(context, () => ref.read(repositoryProvider).saveDoctor(clinicId, r.doctor, isNew: true, pmdcNumber: r.pmdc),
@@ -170,6 +172,7 @@ class _DoctorCard extends ConsumerWidget {
             tooltip: 'More',
             onSelected: (_) async {
               if (d.active) {
+                if (!await requireManagerPin(context, ref, clinicId) || !context.mounted) return; // D-41
                 final ok = await confirmDialog(context,
                     title: 'Deactivate ${d.name}?', message: 'No new bookings. Visit history is kept. You can reactivate later.', confirmLabel: 'Deactivate', danger: true);
                 if (!ok || !context.mounted) return;

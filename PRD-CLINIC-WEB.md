@@ -507,11 +507,11 @@ Pilot runs on 2a with 2–3 clinics, free month.
 | ~~Q-W04~~ | ~~Doctor logins~~: **Closed**: doctors don't log in (D-18). | §4 |
 | Q-W05 | Grace and suspension days: **7 and 15** OK? | A-06 |
 | Q-W06 | Subscription prices per plan | A-08 |
-| Q-W07 | Can the clinic **edit** a patient's name/age/gender (typo fix), or only the patient from the app? | C-08 |
+| ~~Q-W07~~ | ~~Clinic edits patient details?~~ **Closed**: walk-ins only; app profiles are read-only at the clinic (D-40). | C-08 |
 | ~~Q-W08~~ | ~~Notify on clinic cancel / No-show~~: **Closed**: push on clinic cancel with the reason, none on No-show (D-23). | C-04 |
 | Q-W09 | Domain/URLs for the clinic web (e.g. `clinic.asani.app`) | Hosting |
 | ~~Q-W10~~ | ~~Doctor changes~~: **Closed**: the clinic adds and manages its own doctors; Super Admin sees them (D-19). | C-11 |
-| Q-W11 | **Shared login & sensitive pages:** since the receptionist uses the manager's login, should **Billing, Export, Doctors and Change password** be protected by a short **manager PIN**? | C-11..C-15 |
+| ~~Q-W11~~ | **Closed (D-41):** 4-digit manager PIN, server-checked and hashed, for Billing, Export, Add / Deactivate doctor and Change password (not leave or timings); 5 wrong → 15 min lock; Super Admin resets. Was: **Shared login & sensitive pages:** since the receptionist uses the manager's login, should **Billing, Export, Doctors and Change password** be protected by a short **manager PIN**? | C-11..C-15 |
 
 ---
 
