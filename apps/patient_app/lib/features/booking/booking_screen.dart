@@ -123,7 +123,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final patients = patientsAsync.value!;
     _applyPrefill(doctor, patients);
 
-    final titles = ['Who is the patient?', 'Pick a date', 'Confirm booking'];
+    final titles = ['Who is the patient?', 'Pick a date', 'Review and confirm'];
     final patient = patients.where((p) => p.id == _patientId).firstOrNull;
     final today = dayKey(pktNow());
     final blockedToday = patient == null ? null : _existingToken(tokens, patient.id, today);
@@ -137,50 +137,67 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       _ => !_booking && blockedOnDate == null && online,
     };
 
+    final subtitles = [
+      '${doctor.name} · ${clinic.name}',
+      patient == null ? '' : 'For ${patient.name}${patient.isSelf ? ' (Self)' : ' (${patient.relation.label})'}',
+      'Check the details before booking',
+    ];
+
     return PopScope(
       canPop: _step == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _back();
       },
-      child: Scaffold(
+      child: StatusBarScrim(
+        child: Scaffold(
+        backgroundColor: AppColors.surface,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            GradientHeader(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    HeaderBackButton(onPressed: _back),
-                    const SizedBox(width: Gap.md),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(doctor.name, style: AppText.labelLarge.copyWith(color: AppColors.onPrimary)),
-                        Text(clinic.name, style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.85))),
+            // Board P4: green header with back, the step's title and the 3 step bars.
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 18),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      HeaderBackButton(onPressed: _back),
+                      const SizedBox(width: Gap.md),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(titles[_step],
+                              style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                          Text(subtitles[_step],
+                              style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ]),
+                      ),
+                    ]),
+                    const SizedBox(height: 14),
+                    Semantics(
+                      label: 'Step ${_step + 1} of 3',
+                      child: Row(children: [
+                        for (var i = 0; i < 3; i++) ...[
+                          Expanded(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: i <= _step ? AppColors.onPrimary : AppColors.primaryMid,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                          if (i < 2) const SizedBox(width: 6),
+                        ],
                       ]),
                     ),
                   ]),
-                  const SizedBox(height: Gap.lg),
-                  Text('Step ${_step + 1} of 3', style: AppText.labelMedium.copyWith(color: AppColors.onPrimary)),
-                  const SizedBox(height: Gap.sm),
-                  Row(children: [
-                    for (var i = 0; i < 3; i++) ...[
-                      Expanded(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: i <= _step ? AppColors.onPrimary : AppColors.onPrimary.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(Radii.pill),
-                          ),
-                        ),
-                      ),
-                      if (i < 2) const SizedBox(width: 6),
-                    ],
-                  ]),
-                  const SizedBox(height: Gap.lg),
-                  Text(titles[_step], style: AppText.headline.copyWith(color: AppColors.onPrimary)),
-                ],
+                ),
               ),
             ),
             Expanded(
@@ -200,42 +217,45 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.sm, Gap.screen, 0),
                 child: Text(
-                  _bookingSlow
-                      ? 'Still working on it… Please keep the app open.'
-                      : 'Getting your token number…',
+                  _bookingSlow ? 'Still working on it… Please keep the app open.' : 'Getting your token number…',
                   textAlign: TextAlign.center,
                   style: AppText.bodyMedium,
                 ),
               ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.sm, Gap.screen, Gap.md),
-                child: FilledButton(
-                  onPressed: canContinue
-                      ? () {
-                          if (_step < 2) {
-                            setState(() {
-                              _step++;
-                              _error = null;
-                              if (_step == 1 && _date == null) _date = _firstBookableDate(doctor);
-                            });
-                          } else {
-                            _confirm(doctor);
+            Container(
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, Gap.lg),
+                  child: FilledButton(
+                    onPressed: canContinue
+                        ? () {
+                            if (_step < 2) {
+                              setState(() {
+                                _step++;
+                                _error = null;
+                                if (_step == 1 && _date == null) _date = _firstBookableDate(doctor);
+                              });
+                            } else {
+                              _confirm(doctor);
+                            }
                           }
-                        }
-                      : null,
-                  child: _booking
-                      ? const ButtonSpinner()
-                      : Row(mainAxisSize: MainAxisSize.min, children: [
-                          if (_step == 2) ...[const Icon(Icons.check_rounded), const SizedBox(width: Gap.sm)],
-                          Text(_step == 2 ? (online ? 'Confirm booking' : 'Needs internet') : 'Next'),
-                        ]),
+                        : null,
+                    child: _booking
+                        ? const ButtonSpinner()
+                        : Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(_step == 2 ? (online ? 'Confirm booking' : 'Needs internet') : 'Continue'),
+                            const SizedBox(width: Gap.xs),
+                            const Icon(Icons.chevron_right_rounded),
+                          ]),
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -255,63 +275,102 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   // ---------------------------------------------------------------- step 1
 
+  /// Board P4 S-08: one card per family member with a radio; the chosen one
+  /// has a green edge. Someone who already has a token today is greyed with
+  /// an amber note. "+ Add family member" in cream at the end.
   Widget _patientStep(List<Patient> patients, List<Token> tokens, Doctor doctor) {
     final today = dayKey(pktNow());
     return ListView(
-      padding: const EdgeInsets.all(Gap.screen),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       children: [
-        Text('Patient', style: AppText.labelMedium),
-        const SizedBox(height: Gap.sm),
         for (final p in patients)
           Builder(builder: (context) {
             final existing = _existingToken(tokens, p.id, today);
             final selected = p.id == _patientId;
-            final (bg, fg) = InitialsAvatar.colorsFor(p.relation);
+            final blocked = existing != null && _isOnlyToday(doctor);
             return Padding(
-              padding: const EdgeInsets.only(bottom: Gap.md),
-              child: AppCard(
-                onTap: () => setState(() => _patientId = p.id),
-                color: selected ? AppColors.primaryContainer.withValues(alpha: 0.45) : AppColors.surface,
-                borderColor: selected ? AppColors.primary : AppColors.border,
-                padding: const EdgeInsets.all(Gap.md),
-                child: Row(children: [
-                  InitialsAvatar(name: p.name, size: 46, bg: bg, fg: fg),
-                  const SizedBox(width: Gap.md),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(p.name, style: AppText.titleSmall),
-                      Text(patientSubtitle(p), style: AppText.bodyMedium),
-                      if (existing != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Row(children: [
-                            const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.warning),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text('Already has token ${existing.label} today',
-                                  style: AppText.labelSmall.copyWith(color: AppColors.warning, fontWeight: FontWeight.w600)),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: '${p.name}, ${patientSubtitle(p)}${existing == null ? '' : '. Already has token ${existing.label} today'}',
+                excludeSemantics: true,
+                child: Material(
+                  color: selected || existing != null ? AppColors.background : AppColors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    side: BorderSide(color: selected ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: blocked ? null : () => setState(() => _patientId = p.id),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: existing != null
+                                ? AppColors.cream
+                                : (selected ? AppColors.primary : AppColors.primaryContainer),
+                          ),
+                          child: Text(Fmt.initials(p.name),
+                              style: AppText.labelMedium.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: existing != null
+                                      ? AppColors.textSecondary
+                                      : (selected ? AppColors.onPrimary : AppColors.primary))),
+                        ),
+                        const SizedBox(width: Gap.md),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(p.name,
+                                style: AppText.labelLarge.copyWith(
+                                    fontWeight: FontWeight.w700, color: existing != null ? AppColors.textSecondary : AppColors.textPrimary)),
+                            Text(
+                              existing == null ? patientSubtitle(p) : 'Already has token ${existing.label} today',
+                              style: AppText.labelSmall.copyWith(
+                                  color: existing == null ? AppColors.textSecondary : AppColors.warning,
+                                  fontWeight: existing == null ? FontWeight.w500 : FontWeight.w600),
                             ),
                           ]),
                         ),
-                    ]),
+                        if (!blocked)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: selected ? AppColors.primary : AppColors.borderStrong, width: selected ? 7 : 2),
+                            ),
+                          ),
+                      ]),
+                    ),
                   ),
-                  Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                      color: selected ? AppColors.primary : AppColors.textMuted),
-                ]),
+                ),
               ),
             );
           }),
-        const SizedBox(height: Gap.xs),
-        // Same button as the Family tab.
-        SizedBox(
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: () async {
+        // Same action as the Family tab.
+        Material(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () async {
               final p = await showAddFamilySheet(context);
               if (p != null && mounted) setState(() => _patientId = p.id);
             },
-            icon: const Icon(Icons.person_add_alt_1_outlined),
-            label: const Text('Add family member'),
+            child: SizedBox(
+              height: 52,
+              child: Center(
+                child: Text('+ Add family member', style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ),
+            ),
           ),
         ),
       ],
@@ -320,123 +379,148 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   // ---------------------------------------------------------------- step 2
 
+  /// Board P4 S-09: a month-style calendar of the booking window (Mon first;
+  /// past days and days with no clinic struck out, leave in red, full in
+  /// amber, the chosen day green), a legend, then the session card.
   Widget _dateStep(Doctor doctor, Patient? patient, Token? blockedOnDate) {
     final now = pktNow();
     final dates = bookingDates(doctor, now);
+    final inWindow = {for (final d in dates) dayKey(d)};
+    final first = dateOnly(now).subtract(Duration(days: now.weekday - 1));
+    final last = dates.isEmpty ? first : dates.last.add(Duration(days: 7 - dates.last.weekday));
+    final days = [for (var d = first; !d.isAfter(last); d = d.add(const Duration(days: 1))) d];
+    final months = {DateFormat('MMMM').format(dates.isEmpty ? now : dates.first), if (dates.isNotEmpty) DateFormat('MMMM').format(dates.last)};
+
     final selectedDate = _date == null ? null : parseDayKey(_date!);
     final selectedDay = _date == null ? null : ref.watch(queueDayProvider((doctorId: doctor.id, date: _date!))).value;
     final schedule = selectedDate == null ? null : doctor.scheduleOn(selectedDate);
+    final booked = selectedDay?.bookedCount ?? 0;
 
     return ListView(
-      padding: const EdgeInsets.all(Gap.screen),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: [
-        Row(children: [
-          Expanded(child: Text(DateFormat('MMMM y').format(now), style: AppText.titleMedium)),
-          Text('Next ${dates.length} days', style: AppText.labelSmall),
-        ]),
-        const SizedBox(height: Gap.md),
-        SizedBox(
-          // Grows with the user's text size (up to 1.3×); body-text factor
-          // because Android 14+ scales big sizes less (non-linear).
-          height: 40 + 64 * (MediaQuery.textScalerOf(context).scale(14) / 14),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: dates.length,
-            separatorBuilder: (_, _) => const SizedBox(width: Gap.sm),
-            itemBuilder: (_, i) {
-              final d = dates[i];
-              final key = dayKey(d);
-              final day = ref.watch(queueDayProvider((doctorId: doctor.id, date: key))).value;
-              final av = availabilityFor(doctor: doctor, date: d, day: day, now: now);
-              final selected = key == _date;
-              final label = i == 0 ? 'Today' : (i == 1 ? 'Tomorrow' : DateFormat('EEE').format(d));
-              return Semantics(
-                button: true,
-                enabled: av.canBook,
-                selected: selected,
-                label: '$label ${d.day}${av.canBook ? '' : ', ${av.shortReason}'}',
-                child: GestureDetector(
-                  onTap: av.canBook ? () => setState(() => _date = key) : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 66,
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.primary : (av.canBook ? AppColors.surface : AppColors.muted),
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                      border: Border.all(color: selected ? AppColors.primary : AppColors.border),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ExcludeSemantics(
-                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        // "Tomorrow" shrinks to fit instead of breaking at large text sizes.
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(label,
-                              maxLines: 1,
-                              style: AppText.labelSmall.copyWith(color: selected ? AppColors.onPrimary : AppColors.textSecondary)),
-                        ),
-                        const SizedBox(height: 2),
-                        Text('${d.day}',
-                            style: AppText.titleLarge.copyWith(
-                              color: selected ? AppColors.onPrimary : (av.canBook ? AppColors.textPrimary : AppColors.textMuted),
-                              decoration: av == DoctorAvailability.full ? TextDecoration.lineThrough : null,
-                            )),
-                        if (!av.canBook)
-                          Text(av.shortReason, style: AppText.labelSmall),
-                      ]),
-                    ),
-                  ),
-                ),
-              );
-            },
+        Container(
+          padding: const EdgeInsets.all(Gap.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
           ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(months.join(' – '), style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            Row(children: [
+              for (final w in const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+                Expanded(child: Text(w, textAlign: TextAlign.center, style: AppText.labelSmall.copyWith(fontSize: 11))),
+            ]),
+            const SizedBox(height: 4),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 0.95,
+              children: [
+                for (final d in days)
+                  Builder(builder: (context) {
+                    final key = dayKey(d);
+                    final open = inWindow.contains(key);
+                    final day = open ? ref.watch(queueDayProvider((doctorId: doctor.id, date: key))).value : null;
+                    final av = open ? availabilityFor(doctor: doctor, date: d, day: day, now: now) : null;
+                    final selected = key == _date;
+                    final canBook = av?.canBook ?? false;
+                    final (Color bg, Color fg, bool strike) = selected
+                        ? (AppColors.primary, AppColors.onPrimary, false)
+                        : switch (av) {
+                            null => (Colors.transparent, AppColors.borderStrong, false),
+                            DoctorAvailability.onLeave => (AppColors.dangerContainer, AppColors.dangerText, false),
+                            DoctorAvailability.full => (AppColors.warningContainer, AppColors.warningText, false),
+                            DoctorAvailability.notScheduled ||
+                            DoctorAvailability.ended =>
+                              (Colors.transparent, AppColors.borderStrong, true),
+                            _ => (AppColors.cream, AppColors.textPrimary, false),
+                          };
+                    return Semantics(
+                      button: canBook,
+                      enabled: canBook,
+                      selected: selected,
+                      label: '${DateFormat('EEEE d MMMM').format(d)}${av == null || canBook ? '' : ', ${av.shortReason}'}',
+                      excludeSemantics: true,
+                      child: Material(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: canBook ? () => setState(() => _date = key) : null,
+                          child: Center(
+                            child: Text('${d.day}',
+                                style: AppText.labelMedium.copyWith(
+                                  color: fg,
+                                  decoration: strike ? TextDecoration.lineThrough : null,
+                                  decorationColor: fg,
+                                )),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
+            const SizedBox(height: Gap.md),
+            Wrap(spacing: Gap.md, runSpacing: 4, children: [
+              _legend(AppColors.dangerContainer, 'On leave'),
+              _legend(AppColors.warningContainer, 'Full'),
+              Text('Struck · no clinic', style: AppText.labelSmall.copyWith(fontSize: 11)),
+            ]),
+          ]),
         ),
-        const SizedBox(height: Gap.lg),
+        const SizedBox(height: Gap.md),
         if (_date == null)
           const EmptyState(
             icon: Icons.event_busy_outlined,
             title: 'No dates available',
             message: 'This doctor has no open dates in the booking window. Please try another doctor.',
           )
-        else
-          AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        else ...[
+          Text('Session on ${Fmt.shortDay(_date!)}', style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+          const SizedBox(height: Gap.sm),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                InitialsAvatar(name: doctor.name, size: 44, bg: AppColors.primaryContainer, fg: AppColors.primary),
-                const SizedBox(width: Gap.md),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(doctor.name, style: AppText.titleSmall),
-                    if (schedule != null)
-                      Row(children: [
-                        const Icon(Icons.schedule_rounded, size: 15, color: AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(Fmt.timeRange(schedule), style: AppText.bodyMedium),
-                      ]),
-                  ]),
-                ),
+                Expanded(child: Text(schedule == null ? '—' : Fmt.timeRange(schedule), style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700))),
+                if (selectedDay?.sessionStatus == SessionStatus.running)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(color: AppColors.successContainer, borderRadius: BorderRadius.circular(Radii.pill)),
+                    child: Text('● Running', style: AppText.labelSmall.copyWith(color: AppColors.successText, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
               ]),
-              const SizedBox(height: Gap.md),
-              Row(children: [
-                Expanded(
-                  child: Text('${selectedDay?.bookedCount ?? 0} of ${doctor.maxTokensPerDay} tokens booked',
-                      style: AppText.labelMedium),
-                ),
-                Text('${doctor.maxTokensPerDay - (selectedDay?.bookedCount ?? 0)} left',
-                    style: AppText.labelMedium.copyWith(color: AppColors.success)),
-              ]),
-              const SizedBox(height: Gap.sm),
+              const SizedBox(height: 10),
               ClipRRect(
-                borderRadius: BorderRadius.circular(Radii.pill),
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: (selectedDay?.bookedCount ?? 0) / doctor.maxTokensPerDay,
+                  value: doctor.maxTokensPerDay == 0 ? 0 : (booked / doctor.maxTokensPerDay).clamp(0.0, 1.0),
                   minHeight: 8,
-                  backgroundColor: AppColors.muted,
+                  backgroundColor: AppColors.cream,
                   color: AppColors.primary,
                 ),
               ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: Text('$booked of ${doctor.maxTokensPerDay} booked', style: AppText.labelSmall.copyWith(fontSize: 13))),
+                Text('${doctor.maxTokensPerDay - booked} left',
+                    style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ]),
             ]),
           ),
+        ],
         if (blockedOnDate != null && patient != null) ...[
           const SizedBox(height: Gap.md),
           _ErrorBox(text: '${patient.name} already has token ${blockedOnDate.label} with this doctor on this day.'),
@@ -445,46 +529,162 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     );
   }
 
+  Widget _legend(Color c, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 4),
+        Text(text, style: AppText.labelSmall.copyWith(fontSize: 11)),
+      ]);
+
   // ---------------------------------------------------------------- step 3
 
+  /// Board P4 S-10: a dark ticket (doctor, clinic, notches, Date / Session /
+  /// Token "A-??"), the patient strip with Change, today's queue, and the
+  /// note that the number comes on confirm.
   Widget _confirmStep(Clinic clinic, Doctor doctor, Patient patient) {
     final schedule = doctor.scheduleOn(parseDayKey(_date!));
-    final age = patient.age();
+    final isToday = _date == dayKey(pktNow());
+    final day = ref.watch(queueDayProvider((doctorId: doctor.id, date: _date!))).value;
+    Widget cell(String label, String value, {bool faded = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: AppText.labelSmall.copyWith(fontSize: 11, color: AppColors.primarySoft)),
+          Text(value,
+              style: AppText.labelMedium.copyWith(
+                  color: AppColors.onPrimary.withValues(alpha: faded ? 0.75 : 1), fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ]);
+    Widget tile(String label, String value, {bool dark = false}) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: dark ? AppColors.primary : AppColors.cream, borderRadius: BorderRadius.circular(14)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: AppText.labelSmall.copyWith(fontSize: 11, color: dark ? AppColors.onPrimaryMuted : AppColors.textSecondary)),
+              Text(value,
+                  style: AppText.titleMedium.copyWith(fontSize: 17, fontWeight: FontWeight.w700, color: dark ? AppColors.onPrimary : AppColors.textPrimary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ]),
+          ),
+        );
+
     return ListView(
-      padding: const EdgeInsets.all(Gap.screen),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       children: [
-        AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.xs),
-          child: Column(children: [
-            _SummaryRow(icon: Icons.local_hospital_outlined, label: 'Clinic', value: '${clinic.name}, ${clinic.area}'),
-            const Divider(),
-            _SummaryRow(icon: Icons.medical_services_outlined, label: 'Doctor', value: doctor.name),
-            const Divider(),
-            _SummaryRow(
-              icon: Icons.person_outline_rounded,
-              label: 'Patient',
-              value: '${patient.name} (${[if (!patient.isSelf) patient.relation.label, if (age != null) '$age'].join(', ')})'
-                  .replaceAll(' ()', ''),
+        // The ticket.
+        Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.coverGradient,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.22), blurRadius: 24, offset: const Offset(0, 10))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+              child: Row(children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+                  child: Text(Fmt.initials(doctor.name),
+                      style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(width: Gap.md),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(doctor.name, style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                    Text('${doctor.specialityEnum.label} · ${clinic.name}',
+                        style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+                Semantics(
+                  button: true,
+                  label: 'Change date',
+                  excludeSemantics: true,
+                  child: Material(
+                    color: AppColors.cream.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => setState(() => _step = 1),
+                      child: const SizedBox.square(dimension: 40, child: Icon(Icons.edit_outlined, size: 17, color: AppColors.onPrimary)),
+                    ),
+                  ),
+                ),
+              ]),
             ),
-            const Divider(),
-            _SummaryRow(
-              icon: Icons.calendar_today_outlined,
-              label: 'Date',
-              value: '${Fmt.relativeDay(_date!)}${schedule == null ? '' : ' · ${Fmt.timeRangeShort(schedule)}'}',
+            // Tear line with two notches.
+            SizedBox(
+              height: 22,
+              child: Stack(clipBehavior: Clip.none, children: [
+                Positioned(left: -11, top: 0, child: _notch()),
+                Positioned(right: -11, top: 0, child: _notch()),
+                const Positioned(left: 16, right: 16, top: 10, child: DashedLine(color: Color(0x40F0EDE4))),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+              child: Row(children: [
+                Expanded(child: cell('Date', Fmt.shortDay(_date!))),
+                Expanded(child: cell('Session', schedule == null ? '—' : Fmt.timeRangeShort(schedule))),
+                Expanded(child: cell('Token', '${doctor.tokenPrefix}-??', faded: true)),
+              ]),
             ),
           ]),
         ),
         const SizedBox(height: Gap.md),
+        // Patient strip.
         Container(
-          padding: const EdgeInsets.all(Gap.md),
-          decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(Radii.button)),
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          decoration: BoxDecoration(color: AppColors.primaryContainer, borderRadius: BorderRadius.circular(18)),
           child: Row(children: [
-            const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
-            const SizedBox(width: Gap.sm),
-            Expanded(
-              child: Text('Your token number is given when you confirm.',
-                  style: AppText.bodyMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w500)),
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+              child: Text(Fmt.initials(patient.name),
+                  style: AppText.labelMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
             ),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('PATIENT', style: AppText.labelSmall.copyWith(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryLight)),
+                Text(patient.name, style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(patientSubtitle(patient), style: AppText.labelSmall.copyWith(color: AppColors.primaryLight)),
+              ]),
+            ),
+            TextButton(onPressed: () => setState(() => _step = 0), child: const Text('Change')),
+          ]),
+        ),
+        if (isToday && day != null) ...[
+          const SizedBox(height: Gap.md),
+          Text('Queue today', style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+          const SizedBox(height: Gap.sm),
+          Row(children: [
+            tile('Booked', '${day.bookedCount}/${doctor.maxTokensPerDay}'),
+            const SizedBox(width: Gap.sm),
+            tile('Now serving', day.currentToken == 0 ? '—' : doctor.tokenLabel(day.currentToken), dark: true),
+            const SizedBox(width: Gap.sm),
+            tile('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))}'),
+          ]),
+        ],
+        const SizedBox(height: Gap.md),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderStrong),
+          ),
+          child: Row(children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+              child: const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Your token number is given when you confirm.', style: AppText.labelSmall.copyWith(height: 1.5))),
           ]),
         ),
         if (_error != null) ...[
@@ -494,28 +694,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       ],
     );
   }
-}
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.icon, required this.label, required this.value});
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: Gap.md),
-        child: Row(children: [
-          IconBox(icon: icon, size: 40),
-          const SizedBox(width: Gap.md),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: AppText.labelSmall),
-              Text(value, style: AppText.labelLarge),
-            ]),
-          ),
-        ]),
-      );
+  Widget _notch() => Container(width: 22, height: 22, decoration: const BoxDecoration(color: AppColors.surface, shape: BoxShape.circle));
 }
 
 class _ErrorBox extends StatelessWidget {

@@ -69,61 +69,43 @@ class PrimerScreen extends ConsumerWidget {
       body: SafeArea(
         child: FillScrollView(
           padding: const EdgeInsets.all(Gap.xl),
+          // Board P4 S-17: green bell tile, the promise, the 4 alerts, Allow / Not now.
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
               Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryContainer.withValues(alpha: 0.5)),
-                alignment: Alignment.center,
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryContainer),
-                  child: Stack(alignment: Alignment.center, children: [
-                    const Icon(Icons.notifications_rounded, size: 76, color: AppColors.primary),
-                    Positioned(
-                      right: 26,
-                      top: 24,
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.surface, width: 3),
-                        ),
-                        child: const Icon(Icons.add_rounded, color: AppColors.onPrimary, size: 20),
-                      ),
-                    ),
-                  ]),
-                ),
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+                child: const Icon(Icons.notifications_none_rounded, size: 32, color: AppColors.onPrimary),
               ),
-              const SizedBox(height: Gap.xl),
-              Text('Never miss your turn', style: AppText.headline, textAlign: TextAlign.center),
-              const SizedBox(height: Gap.md),
-              Text(
-                "We'll alert you when 3, 2 and 1 patients are ahead, and when it's your turn.",
-                textAlign: TextAlign.center,
-                style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: Gap.xl),
+              const SizedBox(height: Gap.lg),
+              Text('Get notified when your turn is near',
+                  style: AppText.headline.copyWith(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2)),
+              const SizedBox(height: Gap.sm),
+              Text('At most 4 alerts per token.', style: AppText.bodyLarge.copyWith(fontSize: 15, color: AppColors.textSecondary)),
+              const SizedBox(height: Gap.lg),
               Container(
-                padding: const EdgeInsets.all(Gap.lg),
-                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(Radii.card)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(16)),
                 child: Column(children: [
-                  _step(const Text('3'), 'Start heading to the clinic'),
-                  _step(const Text('2'), '2 patients ahead of you'),
-                  _step(const Text('1'), "You're next, be at reception"),
-                  _step(const Icon(Icons.check_rounded, size: 16, color: AppColors.onPrimary), 'Your turn now', filled: true),
+                  _step(const Text('3'), '3 patients ahead of you', AppColors.surface, AppColors.primary),
+                  _step(const Text('2'), '2 patients ahead of you', AppColors.surface, AppColors.primary),
+                  _step(const Text('1'), "You're next", AppColors.primary, AppColors.onPrimary),
+                  _step(const Icon(Icons.check_rounded, size: 16, color: AppColors.surface), 'Your turn now', AppColors.info,
+                      AppColors.surface,
+                      last: true),
                 ]),
               ),
               const Spacer(),
-              FilledButton(onPressed: () => _finish(context, ref, true), child: const Text('Allow notifications')),
+              const SizedBox(height: Gap.lg),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(onPressed: () => _finish(context, ref, true), child: const Text('Allow notifications')),
+              ),
               const SizedBox(height: Gap.sm),
-              TextButton(onPressed: () => _finish(context, ref, false), child: const Text('Not now')),
+              Center(child: TextButton(onPressed: () => _finish(context, ref, false), child: const Text('Not now'))),
             ],
           ),
         ),
@@ -131,18 +113,19 @@ class PrimerScreen extends ConsumerWidget {
     ));
   }
 
-  Widget _step(Widget leading, String text, {bool filled = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: Gap.sm),
+  Widget _step(Widget leading, String text, Color bg, Color fg, {bool last = false}) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: AppColors.border))),
         child: Row(children: [
           Container(
-            width: 28,
-            height: 28,
+            width: 30,
+            height: 30,
             alignment: Alignment.center,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? AppColors.primary : AppColors.primaryContainer),
-            child: DefaultTextStyle(style: AppText.labelMedium.copyWith(color: AppColors.primary), child: leading),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+            child: DefaultTextStyle(style: AppText.labelMedium.copyWith(color: fg, fontWeight: FontWeight.w700, fontSize: 13), child: leading),
           ),
           const SizedBox(width: Gap.md),
-          Expanded(child: Text(text, style: AppText.labelMedium)),
+          Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: last ? FontWeight.w700 : FontWeight.w400))),
         ]),
       );
 }
