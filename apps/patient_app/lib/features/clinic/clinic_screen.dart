@@ -59,7 +59,7 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
       child: Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _ClinicHeader(clinic: clinic)),
+          SliverToBoxAdapter(child: ClinicHeader(clinic: clinic)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(Gap.screen, 14, Gap.screen, Gap.xxl),
             sliver: SliverList.list(children: [
@@ -105,8 +105,9 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
 /// Board P3 S-07 header: back, "Clinic", call; the clinic tile with name and
 /// "2.1 km · 3 doctors · Open now"; a cream card with the address, a
 /// directions button and the drawn map (tap opens Google Maps).
-class _ClinicHeader extends ConsumerWidget {
-  const _ClinicHeader({required this.clinic});
+class ClinicHeader extends ConsumerWidget {
+  const ClinicHeader({super.key, required this.clinic, this.title = 'Clinic'});
+  final String title;
   final Clinic clinic;
 
   @override
@@ -135,7 +136,7 @@ class _ClinicHeader extends ConsumerWidget {
             Row(children: [
               const HeaderBackButton(),
               Expanded(
-                child: Text('Clinic',
+                child: Text(title,
                     textAlign: TextAlign.center,
                     style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
               ),
@@ -254,7 +255,7 @@ class _DoctorCard extends ConsumerWidget {
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              _Face(name: doctor.name, dot: null, quiet: true),
+              DoctorFace(name: doctor.name, dot: null, quiet: true),
               const SizedBox(width: Gap.md),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -297,7 +298,7 @@ class _DoctorCard extends ConsumerWidget {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            _Face(name: doctor.name, dot: AppColors.success),
+            DoctorFace(name: doctor.name, dot: AppColors.success),
             const SizedBox(width: Gap.md),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -341,11 +342,11 @@ class _DoctorCard extends ConsumerWidget {
               decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
               child: IntrinsicHeight(
                 child: Row(children: [
-                  _Stat('Now serving', day.currentToken == 0 ? '—' : doctor.tokenLabel(day.currentToken), AppColors.primary),
+                  QueueStat('Now serving', day.currentToken == 0 ? '—' : doctor.tokenLabel(day.currentToken), AppColors.primary),
                   const VerticalDivider(width: 24, color: AppColors.border),
-                  _Stat('In queue', '${day.waitingCount}', AppColors.textPrimary),
+                  QueueStat('In queue', '${day.waitingCount}', AppColors.textPrimary),
                   const VerticalDivider(width: 24, color: AppColors.border),
-                  _Stat('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))}', AppColors.textPrimary),
+                  QueueStat('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))}', AppColors.textPrimary),
                 ]),
               ),
             ),
@@ -379,8 +380,8 @@ class _DoctorCard extends ConsumerWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.value, this.color);
+class QueueStat extends StatelessWidget {
+  const QueueStat(this.label, this.value, this.color, {super.key});
   final String label;
   final String value;
   final Color color;
@@ -396,8 +397,8 @@ class _Stat extends StatelessWidget {
 }
 
 /// Doctor initials with a small status dot (green = working today).
-class _Face extends StatelessWidget {
-  const _Face({required this.name, required this.dot, this.quiet = false});
+class DoctorFace extends StatelessWidget {
+  const DoctorFace({super.key, required this.name, required this.dot, this.quiet = false});
   final String name;
   final Color? dot;
   final bool quiet;

@@ -143,6 +143,8 @@ void main() {
         ('search doctors none', '/search?tab=doctors&speciality=kidney'),
         ('clinic', '/clinic/c_alshifa'),
         ('clinic suspended', '/clinic/c_rehman'),
+        ('doctor profile', '/doctor/c_alshifa/d_ayesha'),
+        ('doctor profile other', '/doctor/c_alshifa/d_sana'),
         ('booking', '/book/c_alshifa/d_sana'),
         ('booking success', '/booked/$bookedId'),
         ('token live', '/token/$bookedId'),

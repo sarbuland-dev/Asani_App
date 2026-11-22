@@ -15,6 +15,7 @@ import '../../features/auth/splash_screen.dart';
 import '../../features/booking/booking_screen.dart';
 import '../../features/booking/booking_success_screen.dart';
 import '../../features/clinic/clinic_screen.dart';
+import '../../features/clinic/doctor_profile_screen.dart';
 import '../../features/family/family_screen.dart';
 import '../../features/family/profile_detail_screen.dart';
 import '../../features/family/profile_form_screen.dart';
@@ -110,6 +111,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/clinic/:clinicId', builder: (_, s) => ClinicScreen(clinicId: s.pathParameters['clinicId']!)),
+      // S-07b doctor profile (board P3b): from Search by doctor → Book token.
+      GoRoute(
+        path: '/doctor/:clinicId/:doctorId',
+        builder: (_, s) => DoctorProfileScreen(clinicId: s.pathParameters['clinicId']!, doctorId: s.pathParameters['doctorId']!),
+      ),
       // Clinic QR deep link (PRD F-11).
       GoRoute(path: '/c/:clinicId', redirect: (_, s) => '/clinic/${s.pathParameters['clinicId']}'),
       GoRoute(

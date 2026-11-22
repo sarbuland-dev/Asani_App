@@ -340,7 +340,7 @@ class _DoctorCardView extends ConsumerWidget {
           ],
           for (final o in card.alsoAt)
             InkWell(
-              onTap: () => context.push('/book/${o.clinic.id}/${o.doctor.id}'),
+              onTap: () => context.push('/doctor/${o.clinic.id}/${o.doctor.id}'),
               child: Padding(
                 padding: const EdgeInsets.only(top: Gap.md),
                 child: Row(children: [
@@ -365,7 +365,7 @@ class _DoctorCardView extends ConsumerWidget {
             FilledButton(
               style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-              onPressed: () => context.push('/book/${m.clinic.id}/${d.id}'),
+              onPressed: () => context.push('/doctor/${m.clinic.id}/${d.id}'),
               child: const Text('Book token ›'),
             )
           else
@@ -376,7 +376,7 @@ class _DoctorCardView extends ConsumerWidget {
                 backgroundColor: AppColors.surface,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () => context.push('/book/${m.clinic.id}/${d.id}'),
+              onPressed: () => context.push('/doctor/${m.clinic.id}/${d.id}'),
               child: const Text('Book another day'),
             ),
         ]),
