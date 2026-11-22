@@ -5,44 +5,33 @@ import 'package:flutter/material.dart';
 import '../doctor_search/doctors_tab.dart';
 import 'search_screen.dart';
 
-/// Search with two tabs, Clinics | Doctors (PRD D-31). Plain placeholder shell.
+/// Search, opened from the two Home cards (board P2 S-06, P3 S-06b; PRD D-31
+/// as amended by D-49): "Search by clinic" → the clinic search screen,
+/// "Search by doctor" (`/search?tab=doctors`) → the doctor search screen.
+/// Two separate screens, no tabs.
 class SearchTabsScreen extends StatelessWidget {
   const SearchTabsScreen({super.key, this.initialQuery = '', this.doctors = false, this.speciality});
   final String initialQuery;
 
-  /// Open on the Doctors tab (`/search?tab=doctors`).
+  /// Open "Search by doctor" (`/search?tab=doctors`).
   final bool doctors;
   final Speciality? speciality;
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      initialIndex: doctors ? 1 : 0,
-      child: Scaffold(
-        // Board P2 S-06: green header; cream tab indicator.
-        appBar: AppBar(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
-          systemOverlayStyle: kStatusBarLight,
-          titleTextStyle: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header))),
-          title: const Text('Search'),
-          bottom: TabBar(
-            labelColor: AppColors.onPrimary,
-            unselectedLabelColor: AppColors.primarySoft,
-            labelStyle: AppText.labelLarge,
-            indicatorColor: AppColors.onPrimary,
-            indicatorWeight: 3,
-            dividerColor: Colors.transparent,
-            tabs: const [Tab(text: 'Clinics'), Tab(text: 'Doctors')],
-          ),
-        ),
-        body: TabBarView(children: [
-          SearchScreen(initialQuery: initialQuery, embedded: true),
-          DoctorsTab(initialSpeciality: speciality),
-        ]),
+    // Clinic search has its own header and back button.
+    if (!doctors) return SearchScreen(initialQuery: initialQuery);
+    return Scaffold(
+      // Board P3 S-06b: green header "Search by doctor".
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        systemOverlayStyle: kStatusBarLight,
+        titleTextStyle: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header))),
+        title: const Text('Search by doctor'),
       ),
+      body: DoctorsTab(initialSpeciality: speciality),
     );
   }
 }

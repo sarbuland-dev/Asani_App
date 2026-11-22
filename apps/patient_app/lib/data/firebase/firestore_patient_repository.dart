@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/errors/app_exception.dart';
 import '../demo/demo_backend.dart';
 import '../repositories/repositories.dart';
+import 'server_first.dart';
 
 /// Family profiles in Firestore `patients/{patientId}` (PRD F-07, DATABASE.md §3).
 ///
@@ -57,11 +58,11 @@ class FirestorePatientRepository implements PatientRepository {
   Stream<List<Patient>> watchMyPatients() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(const []);
-    return _patients
-        .where('ownerUid', isEqualTo: uid)
-        .where('status', isEqualTo: 'active')
-        .orderBy('createdAt') // DATABASE.md §9 index: ownerUid + status + createdAt
-        .snapshots()
+    // Wait briefly for the server so a partial cache answer is not shown as the family list.
+    return serverFirst(_patients
+            .where('ownerUid', isEqualTo: uid)
+            .where('status', isEqualTo: 'active')
+            .orderBy('createdAt')) // DATABASE.md §9 index: ownerUid + status + createdAt
         .map((s) {
       final list = s.docs.map(_fromDoc).whereType<Patient>().toList()
         ..sort((a, b) {

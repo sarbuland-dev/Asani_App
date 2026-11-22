@@ -310,6 +310,7 @@ Flow: **Search → Doctors tab → speciality chip → doctor card → booking f
 | D-46 | 2026-11-23 | **flutter_svg in the patient app** (new dependency, approved by Sarbuland). Used for the speciality icons copied from the screens board (Doctors tab). The S-18 location primer becomes a **bottom sheet** (board P3), still shown once per phone. |
 | D-47 | 2026-11-23 | **Doctor profile (S-07b, board P3b).** In the Doctors tab, Book token / Book another day / Also sits at open the doctor's profile at that clinic (`/doctor/{clinicId}/{doctorId}`) instead of going straight to booking: clinic header with call, address and drawn map; the doctor card with today's queue, or the reason (on leave / session ended / not today) and the **next available** day; the week's timings at this clinic; **Book for today** (or **Book for {day}**, opening booking on that date) and **Another day**. Search by clinic still books from the clinic page. |
 | D-48 | 2026-11-23 | **No "Edit name" on Account.** Names are edited only in **Family → profile → Edit**. Editing the **Self** profile also updates the account name (as before). |
+| D-49 | 2026-11-23 | **No Clinics / Doctors tabs** (amends D-31, follows the UI board). Home has two cards: **Search by clinic** opens the clinic search screen, **Search by doctor** opens the doctor search screen. They are two separate screens; neither shows tabs. |
 
 ## 10. Open questions (confirm before building the related part)
 
