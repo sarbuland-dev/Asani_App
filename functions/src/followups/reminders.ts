@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type { Messaging } from 'firebase-admin/messaging';
 
 import { pktNow } from '../lib/dates';
+import { saveToInbox } from '../lib/inbox';
 
 /**
  * Follow-up reminders (PRD F-09, ARCHITECTURE.md §3.5), run daily at 09:00 PKT:
@@ -110,11 +111,12 @@ async function send(
   body: string,
 ): Promise<number> {
   if (!f.ownerUid) return 0;
+  // Tapping opens booking pre-filled (PRD F-09).
+  const route = `/book/${f.clinicId}/${f.doctorId}?patient=${f.patientId}&date=${f.dueDate}`;
+  await saveToInbox(db, f.ownerUid, { type: 'followUp', title, body, route }); // D-43
   const devices = await db.collection('users').doc(f.ownerUid).collection('devices').get();
   const tokens = devices.docs.map((d) => d.data().fcmToken).filter((t): t is string => typeof t === 'string');
   if (tokens.length === 0) return 0;
-  // Tapping opens booking pre-filled (PRD F-09).
-  const route = `/book/${f.clinicId}/${f.doctorId}?patient=${f.patientId}&date=${f.dueDate}`;
   const res = await messaging.sendEachForMulticast({
     tokens,
     notification: { title, body },

@@ -8,7 +8,7 @@ const {
   assertSucceeds,
   assertFails,
 } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, updateDoc, serverTimestamp } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = require('firebase/firestore');
 
 const PHONE = '+923000000001';
 let env;
@@ -62,4 +62,16 @@ test('role and selfPatientId still cannot be changed', async () => {
 test('existing fields still work: name and city', async () => {
   await assertSucceeds(updateDoc(doc(me(), 'users/u1'), { name: 'New Name', city: 'Karachi' }));
   await assertFails(updateDoc(doc(me(), 'users/u1'), { name: 'X' }));
+});
+
+// ---- D-43: in-app notifications list ----
+test('notifications: owner reads own list, nobody writes; seen time is a timestamp', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users/u1/notifications/n1'), { title: "You're next", route: '/token/t1' });
+  });
+  await assertSucceeds(getDoc(doc(me(), 'users/u1/notifications/n1')));
+  await assertFails(getDoc(doc(other(), 'users/u1/notifications/n1')));
+  await assertFails(setDoc(doc(me(), 'users/u1/notifications/n2'), { title: 'fake' }));
+  await assertSucceeds(updateDoc(doc(me(), 'users/u1'), { notificationsSeenAt: new Date() }));
+  await assertFails(updateDoc(doc(me(), 'users/u1'), { notificationsSeenAt: 'yesterday' }));
 });

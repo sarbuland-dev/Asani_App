@@ -155,6 +155,7 @@ void main() {
         ('profile edit', '/family/p_shazia/edit'),
         ('family new', '/family/new'),
         ('primer', '/notifications'),
+        ('notifications list', '/inbox'),
       ];
       for (final (label, path) in screens) {
         await visit(label, path);

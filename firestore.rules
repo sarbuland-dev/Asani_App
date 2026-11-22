@@ -43,12 +43,19 @@ service cloud.firestore {
 
       allow update: if signedIn() && uid() == userId
         && changedOnly(['name','city','updatedAt','lastLoginAt',
-                        'consentAcceptedAt','consentVersion','queueAlertsEnabled'])
+                        'consentAcceptedAt','consentVersion','queueAlertsEnabled','notificationsSeenAt'])
         && request.resource.data.name.size() >= 2
         && request.resource.data.name.size() <= 60
-        && request.resource.data.get('queueAlertsEnabled', true) is bool;
+        && request.resource.data.get('queueAlertsEnabled', true) is bool
+        && (!('notificationsSeenAt' in request.resource.data) || request.resource.data.notificationsSeenAt is timestamp);
 
       allow delete: if false;                 // deleteAccount function only
+
+      // In-app notifications list (D-43): written by functions only.
+      match /notifications/{notificationId} {
+        allow read: if signedIn() && uid() == userId;
+        allow write: if false;
+      }
 
       match /devices/{deviceId} {
         allow read, delete: if signedIn() && uid() == userId;

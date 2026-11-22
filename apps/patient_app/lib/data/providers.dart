@@ -16,6 +16,7 @@ final tokenRepositoryProvider = Provider<TokenRepository>((ref) => ref.watch(bac
 final patientRepositoryProvider = Provider<PatientRepository>((ref) => ref.watch(backendProvider));
 final followUpRepositoryProvider = Provider<FollowUpRepository>((ref) => ref.watch(backendProvider));
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) => ref.watch(backendProvider));
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) => ref.watch(backendProvider));
 final queueSimulatorProvider = Provider<QueueSimulator>((ref) => ref.watch(backendProvider));
 
 /// FCM push (Firebase mode only); null in demo mode.
@@ -187,3 +188,21 @@ final clockProvider = StreamProvider<DateTime>(
 );
 
 DateTime nowFrom(WidgetRef ref) => ref.watch(clockProvider).value ?? pktNow();
+
+// ---- Notifications list (PRD D-43) ----
+final notificationsProvider = StreamProvider<List<AppNotification>>((ref) {
+  ref.watch(currentUserProvider.select((u) => u?.uid)); // per signed-in user
+  return ref.watch(notificationRepositoryProvider).watchNotifications();
+});
+
+final notificationsSeenAtProvider = StreamProvider<DateTime?>((ref) {
+  ref.watch(currentUserProvider.select((u) => u?.uid));
+  return ref.watch(notificationRepositoryProvider).watchSeenAt();
+});
+
+/// Bell badge: notifications newer than the last time the list was opened.
+final unreadNotificationsProvider = Provider<int>((ref) {
+  final list = ref.watch(notificationsProvider).value ?? const <AppNotification>[];
+  final seen = ref.watch(notificationsSeenAtProvider).value;
+  return list.where((n) => n.unreadSince(seen)).length;
+});

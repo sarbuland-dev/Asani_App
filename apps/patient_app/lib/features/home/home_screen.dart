@@ -11,6 +11,7 @@ import '../clinic/clinic_card.dart';
 import '../shell/main_shell.dart';
 import '../tokens/token_widgets.dart';
 import '../../core/widgets/error_state.dart';
+import '../notifications/notifications_list_screen.dart';
 
 /// S-05 Home (PRD F-02). Design "ticket stack" (2026-11-17): a green header
 /// with the greeting, the city and the user's active tokens drawn as stacked
@@ -138,6 +139,8 @@ class _Header extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  // S-19 / D-43: notifications list with the unread count.
+                  const NotificationsBell(color: AppColors.onPrimary),
                 ],
               ),
               if (tokens.isEmpty) ...[

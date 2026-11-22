@@ -53,6 +53,18 @@ class QueueAlert {
   final String body;
 }
 
+/// In-app notifications list (PRD D-43): every push we sent, last 30 days.
+abstract interface class NotificationRepository {
+  /// Newest first, last 30 days.
+  Stream<List<AppNotification>> watchNotifications();
+
+  /// When the list was last opened; newer ones are unread.
+  Stream<DateTime?> watchSeenAt();
+
+  /// Opening the list marks everything read.
+  Future<void> markAllSeen();
+}
+
 abstract interface class TokenRepository {
   Stream<List<Token>> watchMyTokens();
 

@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type { Messaging } from 'firebase-admin/messaging';
 
 import { StepKey, messageFor, nextStep, patientsAhead } from './steps';
+import { saveToInbox } from '../lib/inbox';
 
 /**
  * ARCHITECTURE.md §3.3: after any queue change, send each token the one step
@@ -76,6 +77,8 @@ async function sendToOwner(
   body: string,
 ): Promise<SentLog> {
   if (!uid) return { tokenId, step, devices: 0, skipped: 'no-devices' };
+  // D-43: saved to the in-app list even if alerts are off or no phone gets it.
+  await saveToInbox(db, uid, { type: 'queue', title, body, route: `/token/${tokenId}`, tokenId });
   const userRef = db.collection('users').doc(uid);
   const [user, devices] = await Promise.all([userRef.get(), userRef.collection('devices').get()]);
   if (user.data()?.queueAlertsEnabled === false) return { tokenId, step, devices: 0, skipped: 'alerts-off' };

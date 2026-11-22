@@ -13,6 +13,7 @@ import 'data/firebase/firebase_auth_repository.dart';
 import 'data/firebase/firestore_clinic_repository.dart';
 import 'data/firebase/firestore_patient_repository.dart';
 import 'data/firebase/firestore_token_repository.dart';
+import 'data/firebase/firestore_notification_repository.dart';
 import 'data/providers.dart';
 
 Future<void> main() async {
@@ -76,6 +77,8 @@ Future<void> main() async {
     overrides.add(queueRepositoryProvider.overrideWithValue(FirestoreQueueRepository()));
     // Step 11: follow-ups from Firestore.
     overrides.add(followUpRepositoryProvider.overrideWithValue(FirestoreFollowUpRepository()));
+    // D-43: in-app notifications list (written by functions with every push).
+    overrides.add(notificationRepositoryProvider.overrideWithValue(FirestoreNotificationRepository()));
   }
 
   runApp(ProviderScope(overrides: overrides, child: const AsaniApp()));

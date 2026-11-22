@@ -1,5 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Messaging } from 'firebase-admin/messaging';
+import { saveToInbox } from '../lib/inbox';
 
 /**
  * PRD D-23: when the CLINIC cancels a token (one token, or a leave-day bulk
@@ -57,16 +58,18 @@ export async function notifyClinicCancel(db: Firestore, messaging: Messaging, to
       log.push({ tokenId, devices: 0, skipped: 'no-account' });
       continue;
     }
+    if (!clinicNames.has(t.clinicId)) {
+      clinicNames.set(t.clinicId, String((await db.collection('clinics').doc(t.clinicId).get()).data()?.name ?? 'the clinic'));
+    }
+    const { title, body } = cancelMessage(`${t.tokenPrefix ?? 'A'}-${t.number}`, clinicNames.get(t.clinicId)!, t.cancelReason);
+    // D-43: in the in-app list even when no phone gets the push.
+    await saveToInbox(db, uid, { type: 'cancel', title, body, route: rebookRoute({ clinicId: t.clinicId, doctorId: t.doctorId, patientId: t.patientId }), tokenId });
     const devices = await db.collection('users').doc(uid).collection('devices').get();
     const targets = devices.docs.filter((d) => typeof d.data().fcmToken === 'string');
     if (targets.length === 0) {
       log.push({ tokenId, devices: 0, skipped: 'no-devices' });
       continue;
     }
-    if (!clinicNames.has(t.clinicId)) {
-      clinicNames.set(t.clinicId, String((await db.collection('clinics').doc(t.clinicId).get()).data()?.name ?? 'the clinic'));
-    }
-    const { title, body } = cancelMessage(`${t.tokenPrefix ?? 'A'}-${t.number}`, clinicNames.get(t.clinicId)!, t.cancelReason);
     const res = await messaging.sendEachForMulticast({
       tokens: targets.map((d) => d.data().fcmToken as string),
       notification: { title, body },

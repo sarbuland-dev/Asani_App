@@ -24,6 +24,7 @@ class DemoBackend
         PatientRepository,
         FollowUpRepository,
         SettingsRepository,
+        NotificationRepository,
         QueueSimulator {
   DemoBackend._(this._prefs);
 
@@ -434,6 +435,25 @@ class DemoBackend
   @override
   Stream<QueueAlert> get alerts => _alerts.stream;
 
+  // ---------------------------------------------------------------- notifications list (D-43)
+  final _inbox = <AppNotification>[];
+  DateTime? _seenAt;
+
+  @override
+  Stream<List<AppNotification>> watchNotifications() => _watch(() {
+        final since = DateTime.now().subtract(const Duration(days: 30));
+        return _inbox.where((n) => n.createdAt.isAfter(since)).toList();
+      });
+
+  @override
+  Stream<DateTime?> watchSeenAt() => _watch(() => _seenAt);
+
+  @override
+  Future<void> markAllSeen() async {
+    _seenAt = DateTime.now();
+    _changed();
+  }
+
   /// Mirrors the `bookToken` Cloud Function (PRD F-04, BR-1..BR-7).
   @override
   Future<Token> bookToken({
@@ -528,7 +548,6 @@ class DemoBackend
       final r = nextQueueNotification(status: t.status, ahead: ahead, alreadyNotified: t.notified, someoneWithDoctor: withDoctor);
       if (r.send == null) continue;
       _tokens[t.id] = t.copyWith(notified: r.notified);
-      if (!_settings.notificationsAllowed || _me?.queueAlertsEnabled == false) continue;
       final step = r.send!;
       final (title, body) = switch (step) {
         QueueStep.threeAhead => ('3 patients ahead of you', 'Token ${t.label} · ${doctor.name}. Please start heading to the clinic.'),
@@ -536,6 +555,9 @@ class DemoBackend
         QueueStep.oneAhead => ("You're next", 'Token ${t.label} · Please be at the reception.'),
         QueueStep.called => ('Your turn now', 'Token ${t.label} · Please go to ${doctor.name}.'),
       };
+      // D-43: in the list even when alerts are off.
+      _inbox.insert(0, AppNotification(id: 'n_${_inbox.length}_${t.id}', type: 'queue', title: title, body: body, route: '/token/${t.id}', tokenId: t.id, createdAt: DateTime.now()));
+      if (!_settings.notificationsAllowed || _me?.queueAlertsEnabled == false) continue;
       _alerts.add(QueueAlert(tokenId: t.id, step: step, title: title, body: body));
     }
   }

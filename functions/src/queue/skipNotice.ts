@@ -1,5 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Messaging } from 'firebase-admin/messaging';
+import { saveToInbox } from '../lib/inbox';
 
 /**
  * PRD D-34: when the clinic SKIPS a token (patient not there when called),
@@ -38,11 +39,12 @@ export async function notifySkipped(db: Firestore, messaging: Messaging, tokenId
   // Walk-ins have no booker; the profile's app account is told (D-22).
   const uid: string | null = t.bookedByUserId ?? t.patientOwnerUid ?? null;
   if (!uid) return { tokenId, devices: 0, skipped: 'no-account' };
+  const { title, body } = skipMessage(`${t.tokenPrefix ?? 'A'}-${t.number}`);
+  await saveToInbox(db, uid, { type: 'skip', title, body, route: `/token/${tokenId}`, tokenId }); // D-43
   const devices = await db.collection('users').doc(uid).collection('devices').get();
   const targets = devices.docs.filter((d) => typeof d.data().fcmToken === 'string');
   if (targets.length === 0) return { tokenId, devices: 0, skipped: 'no-devices' };
 
-  const { title, body } = skipMessage(`${t.tokenPrefix ?? 'A'}-${t.number}`);
   const res = await messaging.sendEachForMulticast({
     tokens: targets.map((d) => d.data().fcmToken as string),
     notification: { title, body },

@@ -602,3 +602,41 @@ class FollowUp {
         note: m['note'] as String?,
       );
 }
+
+/// users/{uid}/notifications/{id}: one sent push, for the in-app list (PRD D-43).
+class AppNotification {
+  const AppNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.body,
+    required this.route,
+    this.tokenId,
+    required this.createdAt,
+  });
+
+  final String id;
+
+  /// `queue`, `cancel`, `skip` or `followUp`.
+  final String type;
+  final String title;
+  final String body;
+
+  /// Where a tap goes (same as the push).
+  final String route;
+  final String? tokenId;
+  final DateTime createdAt;
+
+  /// Unread = newer than the last time the list was opened (D-43).
+  bool unreadSince(DateTime? seenAt) => seenAt == null || createdAt.isAfter(seenAt);
+
+  factory AppNotification.fromMap(String id, Map<String, Object?> m) => AppNotification(
+        id: id,
+        type: (m['type'] as String?) ?? 'queue',
+        title: (m['title'] as String?) ?? '',
+        body: (m['body'] as String?) ?? '',
+        route: (m['route'] as String?) ?? '/tokens',
+        tokenId: m['tokenId'] as String?,
+        createdAt: _dt(m['createdAt']) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      );
+}
