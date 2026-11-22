@@ -1,23 +1,38 @@
+import 'dart:math' as math;
+
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/net/connectivity.dart';
+import '../../core/widgets/drawn_map.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/launch.dart';
+import '../../data/location_service.dart';
 import '../../data/providers.dart';
+import '../clinic/clinic_card.dart' show clinicInitials;
 
-/// S-11 live token screen (PRD F-05). Notification target.
-class TokenScreen extends ConsumerWidget {
+/// S-11 live token screen (PRD F-05; boards P5, P5b, P8). Notification target.
+/// Three looks: called (blue "Your turn now"), finished (grey visit summary)
+/// and live (green header with the numbers, Live queue | Details tabs).
+class TokenScreen extends ConsumerStatefulWidget {
   const TokenScreen({super.key, required this.tokenId});
   final String tokenId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tokenAsync = ref.watch(tokenProvider(tokenId));
+  ConsumerState<TokenScreen> createState() => _TokenScreenState();
+}
+
+class _TokenScreenState extends ConsumerState<TokenScreen> {
+  bool _details = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokenAsync = ref.watch(tokenProvider(widget.tokenId));
     final token = tokenAsync.value;
     if (tokenAsync.isLoading && token == null) return const LoadingScreen(message: 'Loading your token…');
     if (token == null) {
@@ -28,219 +43,252 @@ class TokenScreen extends ConsumerWidget {
     }
     final doctor = ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
-    final pos = ref.watch(tokenPositionProvider(tokenId)).value;
-    final settings = ref.watch(settingsProvider).value;
     if (doctor == null || clinic == null) return const LoadingScreen(message: 'Loading your token…');
 
     final status = token.status;
-    final called = status == TokenStatus.called;
+    if (status == TokenStatus.called) return _CalledView(token: token, doctor: doctor, clinic: clinic);
     // D-35: Skipped is paused (the clinic can recall it), not finished.
-    final finished = !status.isOpenForPatient;
-    final skipped = status == TokenStatus.skipped;
+    if (!status.isOpenForPatient) return _FinishedView(token: token, doctor: doctor, clinic: clinic);
+    return _liveView(token, doctor, clinic);
+  }
+
+  Widget _liveView(Token token, Doctor doctor, Clinic clinic) {
+    final pos = ref.watch(tokenPositionProvider(widget.tokenId)).value;
+    final settings = ref.watch(settingsProvider).value;
+    final status = token.status;
     final isToday = token.date == dayKey(pktNow());
     final session = pos?.day.sessionStatus;
-    final live = isToday && !finished && session == SessionStatus.running;
-    final relation = token.patientSnapshot.relation == Relation.self ? '' : ' (${token.patientSnapshot.relation.label})';
+    final skipped = status == TokenStatus.skipped;
+    final onHold = status == TokenStatus.onHold;
+    final queueOn = isToday && (session == SessionStatus.running || session == SessionStatus.paused);
+    final s = token.patientSnapshot;
+    final who = s.relation == Relation.self ? s.name : '${s.name} (${s.relation.label})';
+    final schedule = doctor.scheduleOn(parseDayKey(token.date));
+
+    final (chip, chipBg, chipFg) = skipped
+        ? ('Turn passed', AppColors.warningContainer, AppColors.warningText)
+        : onHold
+            ? ('On hold', AppColors.warningContainer, AppColors.warningText)
+            : !isToday
+                ? (Fmt.shortDay(token.date), AppColors.cream, AppColors.primary)
+                : switch (session) {
+                    SessionStatus.running => ('● Live', AppColors.cream, AppColors.primary),
+                    SessionStatus.paused => ('Paused', AppColors.warningContainer, AppColors.warningText),
+                    SessionStatus.ended => ('Ended', AppColors.cream, AppColors.textSecondary),
+                    _ => ('Today', AppColors.cream, AppColors.primary),
+                  };
+
+    final serving = pos == null || pos.day.currentToken == 0 ? '—' : '${token.tokenPrefix}-${pos.day.currentToken}';
+    final ahead = token.isNextUp ? 0 : pos?.ahead;
+    final sent = token.notified.length;
+
+    Widget number(String label, String value, {CrossAxisAlignment align = CrossAxisAlignment.start, Color? color}) =>
+        Column(crossAxisAlignment: align, children: [
+          Text(label, style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                style: AppText.displaySmall.copyWith(
+                    fontSize: 42, height: 1.1, fontWeight: FontWeight.w700, color: color ?? AppColors.onPrimary)),
+          ),
+        ]);
+
+    final List<Widget> numbers;
+    if (queueOn && (skipped || onHold)) {
+      numbers = [
+        Expanded(child: number('Now serving', serving)),
+        Expanded(child: number('Your token', token.label, align: CrossAxisAlignment.end, color: const Color(0xFFFCD9A8))),
+      ];
+    } else if (queueOn) {
+      numbers = [
+        Expanded(child: number('Now serving', serving)),
+        Expanded(child: number('Ahead of you', ahead == null ? '—' : '$ahead', align: CrossAxisAlignment.center)),
+        Expanded(
+          child: token.isNextUp
+              ? number('Your place', 'Next', align: CrossAxisAlignment.end)
+              : number('Est. wait', pos == null ? '—' : _shortWait(pos.waitMinutes), align: CrossAxisAlignment.end),
+        ),
+      ];
+    } else {
+      numbers = [
+        Expanded(child: number('Your token', token.label)),
+        Expanded(
+          child: number(isToday ? 'Session' : Fmt.shortDay(token.date), schedule == null ? '—' : Fmt.timeRangeShort(schedule),
+              align: CrossAxisAlignment.end),
+        ),
+      ];
+    }
+
+    final online = Env.isDemo || ref.watch(isOnlineProvider);
+    final canCancel = token.status.canCancel && token.bookedByUserId != null;
 
     return StatusBarScrim(
-      color: called ? AppColors.infoDark : (finished ? AppColors.textSecondary : AppColors.primary),
       child: Scaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // ---- header
-          GradientHeader(
-            gradient: called
-                ? AppColors.calledGradient
-                : finished
-                    ? AppColors.finishedGradient
-                    : AppColors.headerGradient,
-            padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, 72),
-            child: Column(children: [
-              Row(children: [
-                const HeaderBackButton(),
-                const Spacer(),
-                if (live || called)
-                  Pill(
-                    label: called ? 'Called' : 'Live',
-                    fg: called ? AppColors.info : AppColors.primary,
-                    bg: AppColors.surface,
-                    dot: true,
-                  ),
-              ]),
-              const SizedBox(height: Gap.md),
-              Text('YOUR TOKEN', style: AppText.overline.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.85))),
-              const SizedBox(height: Gap.md),
-              _TokenBadge(label: token.label, pulse: called),
-              const SizedBox(height: Gap.lg),
-              if (called) ...[
-                Text('Your turn now', style: AppText.displaySmall.copyWith(color: AppColors.onPrimary)),
-                const SizedBox(height: Gap.xs),
-                Text('Please go to ${doctor.name}', style: AppText.labelLarge.copyWith(color: AppColors.onPrimary)),
-                const SizedBox(height: 2),
-                Text('${token.patientSnapshot.name}$relation · ${clinic.name}',
-                    textAlign: TextAlign.center, style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.85))),
-              ] else ...[
-                Text('${token.patientSnapshot.name}$relation',
-                    textAlign: TextAlign.center, style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text('${doctor.name} · ${clinic.name}',
-                    textAlign: TextAlign.center, style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
-                // A finished token shows its date in the card below instead.
-                if (!finished) ...[
-                const SizedBox(height: Gap.md),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: AppColors.headerChip, borderRadius: BorderRadius.circular(Radii.pill)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.onPrimary),
-                    const SizedBox(width: 6),
-                    Text(Fmt.relativeDay(token.date), style: AppText.labelMedium.copyWith(color: AppColors.onPrimary)),
+        backgroundColor: AppColors.surface,
+        body: Column(children: [
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    const HeaderBackButton(),
+                    Expanded(
+                      child: Column(children: [
+                        Text('Token ${token.label}',
+                            style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                        Text('$who · ${isToday ? 'Today' : Fmt.shortDay(token.date)}',
+                            style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(Radii.pill)),
+                      child: Text(chip, style: AppText.labelSmall.copyWith(color: chipFg, fontSize: 11, fontWeight: FontWeight.w700)),
+                    ),
                   ]),
-                ),
-                ],
-              ],
-            ]),
-          ),
-          // ---- body card overlapping the header
-          Transform.translate(
-            offset: const Offset(0, -48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Gap.screen),
-              child: Container(
-                padding: const EdgeInsets.all(Gap.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(Radii.card + 4),
-                  boxShadow: [BoxShadow(color: AppColors.textPrimary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, 8))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (skipped && isToday) ...[
-                      const _SkippedCard(),
-                      const SizedBox(height: Gap.md),
-                    ],
-                    // D-37: On hold keeps the token Active but shows no queue numbers.
-                    if (status == TokenStatus.onHold && isToday) ...[
-                      const _OnHoldCard(),
-                      const SizedBox(height: Gap.md),
-                    ],
-                    if (!finished && !skipped && status != TokenStatus.onHold && isToday) ..._liveSection(token, doctor, pos, session, called),
-                    if (!finished && !isToday) ...[
-                      _InfoLine(
-                        icon: Icons.event_available_outlined,
-                        text: 'Booked for ${Fmt.relativeDay(token.date)}'
-                            '${doctor.scheduleOn(DateTime.parse(token.date)) == null ? '' : ', session ${Fmt.timeRange(doctor.scheduleOn(DateTime.parse(token.date))!)}'}.'
-                            ' The live queue shows here on that day.',
-                      ),
-                      const SizedBox(height: Gap.md),
-                      Align(alignment: Alignment.centerLeft, child: StatusChip(status)),
-                      const SizedBox(height: Gap.md),
-                    ],
-                    if (finished) ...[
-                      Row(children: [
+                  const SizedBox(height: 18),
+                  Semantics(
+                    container: true,
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: numbers),
+                  ),
+                  const SizedBox(height: 14),
+                  // One bar per queue alert; filled = already sent (max 4 per token).
+                  Semantics(
+                    label: '$sent of 4 queue alerts sent',
+                    child: Row(children: [
+                      for (var i = 0; i < 4; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            switch (status) {
-                              TokenStatus.completed => 'Visit completed',
-                              // D-23: say who cancelled and why.
-                              TokenStatus.cancelled when token.cancelledByClinic =>
-                                'Cancelled by clinic${(token.cancelReason ?? '').trim().isEmpty ? '' : ' · ${token.cancelReason!.trim()}'}',
-                              TokenStatus.cancelled =>
-                                'Cancelled${token.cancelledAt == null ? '' : ' on ${Fmt.dateTime(token.cancelledAt!)}'}',
-                              TokenStatus.noShow => 'Marked as no-show',
-                              _ => 'This token was skipped',
-                            },
-                            style: AppText.titleMedium,
+                          child: Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: i < sent ? AppColors.cream : AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
                           ),
                         ),
-                        StatusChip(status),
-                      ]),
-                      const SizedBox(height: Gap.xs),
-                      Text(
-                        token.cancelledByClinic && token.cancelledAt != null
-                            ? '${Fmt.longDay(token.date)} · cancelled on ${Fmt.dateTime(token.cancelledAt!)}'
-                            : Fmt.longDay(token.date),
-                        style: AppText.bodyMedium,
-                      ),
-                      const SizedBox(height: Gap.lg),
-                      FilledButton(
-                        onPressed: () => context.push('/book/${token.clinicId}/${token.doctorId}?patient=${token.patientId}'),
-                        child: Text(token.cancelledByClinic ? 'Book another day' : 'Book again'),
-                      ),                      const SizedBox(height: Gap.md),
-                    ],
-                    if (!finished && settings != null && !settings.notificationsAllowed) ...[
-                      _NotificationsOffCard(onTurnOn: () => context.push('/notifications')),
-                      const SizedBox(height: Gap.md),
-                    ],
-                    if (!finished)
-                      AppCard(
-                        color: AppColors.background,
-                        padding: const EdgeInsets.all(Gap.md),
-                        child: Row(children: [
-                          const IconBox(icon: Icons.confirmation_number_outlined),
-                          const SizedBox(width: Gap.md),
-                          Expanded(
-                            child: called
-                                ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Text('Show this screen at reception', style: AppText.labelLarge),
-                                    Text('If you are already inside, go straight to the doctor.', style: AppText.bodyMedium),
-                                  ])
-                                : Text.rich(TextSpan(style: AppText.labelLarge, children: [
-                                    const TextSpan(text: 'Show this screen at reception or tell them your code '),
-                                    TextSpan(text: token.label, style: const TextStyle(color: AppColors.primary)),
-                                  ])),
-                          ),
-                        ]),
-                      ),
-                    const SizedBox(height: Gap.md),
-                    // The slip is for reception: not needed once called or finished.
-                    if (!called && !finished)
-                      Row(children: [
-                        Expanded(
-                          child: _ActionButton(
-                              icon: Icons.download_outlined, label: 'Download slip', onTap: () => context.push('/token/$tokenId/slip')),
-                        ),
-                        const SizedBox(width: Gap.sm),
-                        Expanded(
-                          child: _ActionButton(
-                              icon: Icons.share_outlined, label: 'Share slip', onTap: () => context.push('/token/$tokenId/slip?share=1')),
-                        ),
-                      ]),
-                    const SizedBox(height: Gap.sm),
-                    Row(children: [
-                      Expanded(child: _ActionButton(icon: Icons.call_outlined, label: 'Call clinic', onTap: () => callNumber(context, clinic.phone))),
-                      const SizedBox(width: Gap.sm),
-                      Expanded(child: _ActionButton(icon: Icons.near_me_outlined, label: 'Directions', onTap: () => openDirections(context, clinic))),
+                      ],
                     ]),
-                    // Walk-ins made at reception have no booker; only the clinic can cancel them (D-22).
-                    if (status.canCancel && token.bookedByUserId != null) ...[
-                      const SizedBox(height: Gap.sm),
-                      Builder(builder: (context) {
-                        // Cancelling needs internet (ARCHITECTURE.md §8).
-                        final online = Env.isDemo || ref.watch(isOnlineProvider);
-                        return TextButton(
-                          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                          onPressed: online ? () => _cancel(context, ref, token) : null,
-                          child: Text(online ? 'Cancel token' : 'Cancel token (needs internet)'),
-                        );
-                      }),
-                    ],
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: Gap.sm),
+                  Row(children: [
+                    _tab('Live queue', !_details, () => setState(() => _details = false)),
+                    _tab('Details', _details, () => setState(() => _details = true)),
+                  ]),
+                ]),
               ),
             ),
           ),
-        ],
+          Expanded(
+            child: _details
+                ? _DetailsTab(token: token, doctor: doctor, clinic: clinic)
+                : ListView(padding: const EdgeInsets.only(bottom: Gap.lg), children: [
+                    if (skipped && isToday) const _SkippedCard(),
+                    if (onHold && isToday) const _OnHoldCard(),
+                    if (token.isNextUp) const _NextUpCard(),
+                    if (isToday && !skipped && !onHold && !token.isNextUp) ..._sessionNotice(session, doctor),
+                    if (!isToday)
+                      _note(Icons.event_available_outlined,
+                          'Booked for ${Fmt.relativeDay(token.date)}${schedule == null ? '' : ', session ${Fmt.timeRange(schedule)}'}. '
+                          'The live queue shows here on that day.'),
+                    _ClinicRow(clinic: clinic, doctor: doctor),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, Gap.md, 20, 0),
+                      child: GestureDetector(
+                        onTap: () => openDirections(context, clinic),
+                        child: DrawnMap(label: clinic.name.split(' ').first),
+                      ),
+                    ),
+                    _ReceptionCard(token: token, skipped: skipped, nextUp: token.isNextUp),
+                    if (settings != null && !settings.notificationsAllowed)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, Gap.md, 20, 0),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                          decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            Expanded(
+                              child: Text('Notifications are off. You might miss your turn.',
+                                  style: AppText.labelSmall.copyWith(color: AppColors.warningText, fontSize: 13)),
+                            ),
+                            TextButton(
+                              style: TextButton.styleFrom(foregroundColor: AppColors.warningText),
+                              onPressed: () => context.push('/notifications'),
+                              child: const Text('Turn on'),
+                            ),
+                          ]),
+                        ),
+                      ),
+                  ]),
+          ),
+          Container(
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Gap.md, 20, Gap.lg),
+                child: Row(children: [
+                  // Walk-ins made at reception have no booker; only the clinic can cancel them (D-22).
+                  if (canCancel) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          foregroundColor: AppColors.danger,
+                        ),
+                        // Cancelling needs internet (ARCHITECTURE.md §8).
+                        onPressed: online ? () => _cancel(context, token) : null,
+                        child: Text(online ? 'Cancel token' : 'Needs internet', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                      onPressed: () => callNumber(context, clinic.phone),
+                      child: const Text('Call clinic'),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ]),
       ),
-    ));
+    );
   }
 
-  List<Widget> _liveSection(Token token, Doctor doctor, TokenPosition? pos, SessionStatus? session, bool called) {
-    final day = pos?.day;
-    final notice = switch (session) {
+  String _shortWait(int minutes) => minutes < 60 ? '${minutes}m' : '${minutes ~/ 60}h${minutes % 60 == 0 ? '' : ' ${minutes % 60}m'}';
+
+  Widget _tab(String label, bool on, VoidCallback onTap) => Expanded(
+        child: Semantics(
+          button: true,
+          selected: on,
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: on ? AppColors.onPrimary : Colors.transparent, width: 3)),
+              ),
+              child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: AppText.labelMedium.copyWith(
+                      color: on ? AppColors.onPrimary : AppColors.primarySoft, fontWeight: on ? FontWeight.w700 : FontWeight.w600)),
+            ),
+          ),
+        ),
+      );
+
+  List<Widget> _sessionNotice(SessionStatus? session, Doctor doctor) {
+    final text = switch (session) {
       SessionStatus.notStarted => () {
           final s = doctor.scheduleOn(pktNow());
           return "Doctor hasn't started yet.${s == null ? '' : ' Session starts at ${Fmt.time(s.start)}.'}";
@@ -249,51 +297,23 @@ class TokenScreen extends ConsumerWidget {
       SessionStatus.ended => 'Session ended.',
       _ => null,
     };
-    return [
-      Row(children: [
-        Expanded(
-          child: StatTile(
-            label: 'Now serving',
-            value: day == null || day.currentToken == 0 ? '—' : '${token.tokenPrefix}-${day.currentToken}',
-            bg: called ? AppColors.infoContainer : AppColors.primaryContainer,
-            fg: called ? AppColors.info : AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: Gap.md),
-        Expanded(
-          child: StatTile(
-            label: 'Ahead of you',
-            value: called || token.isNextUp ? '0' : '${pos?.ahead ?? '—'}',
-            bg: called ? AppColors.muted : AppColors.warningContainer,
-            fg: called ? AppColors.textPrimary : AppColors.warning,
-          ),
-        ),
-      ]),
-      const SizedBox(height: Gap.md),
-      if (notice != null) ...[
-        _InfoLine(icon: Icons.info_outline_rounded, text: notice),
-        const SizedBox(height: Gap.md),
-      ],
-      // D-35: checked in again after a skip → called right after the current patient.
-      if (token.isNextUp && !called) ...[
-        const _InfoLine(icon: Icons.campaign_outlined, text: "You're next · called right after the current patient"),
-        const SizedBox(height: Gap.md),
-      ],
-      if (!called && !token.isNextUp)
-        Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Estimated wait', style: AppText.labelSmall),
-              Text(pos == null ? '—' : Fmt.wait(pos.waitMinutes), style: AppText.titleLarge),
-            ]),
-          ),
-          StatusChip(token.status),
-        ]),
-      if (!called && !token.isNextUp) const SizedBox(height: Gap.md),
-    ];
+    return text == null ? const [] : [_note(Icons.info_outline_rounded, text)];
   }
 
-  Future<void> _cancel(BuildContext context, WidgetRef ref, Token token) async {
+  Widget _note(IconData icon, String text) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, Gap.md, 20, 0),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: Gap.sm),
+            Expanded(child: Text(text, style: AppText.labelSmall.copyWith(color: AppColors.textPrimary, fontSize: 13, height: 1.45))),
+          ]),
+        ),
+      );
+
+  Future<void> _cancel(BuildContext context, Token token) async {
     final ok = await confirmDialog(
       context,
       title: 'Cancel token ${token.label}?',
@@ -314,62 +334,359 @@ class TokenScreen extends ConsumerWidget {
   }
 }
 
-/// D-37: amber note while the reception has the token On hold. No push.
-class _OnHoldCard extends StatelessWidget {
-  const _OnHoldCard();
+/// Clinic tile, name, distance and doctor, with a directions button.
+class _ClinicRow extends ConsumerWidget {
+  const _ClinicRow({required this.clinic, required this.doctor});
+  final Clinic clinic;
+  final Doctor doctor;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(Gap.md),
-      decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.card)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text("You're on hold", style: AppText.labelLarge.copyWith(color: AppColors.warning)),
-        const SizedBox(height: 2),
-        Text("The reception paused your turn. You'll be called when they're ready.",
-            style: AppText.bodyMedium.copyWith(color: AppColors.warning)),
-      ]),
-    );
-  }
-}
-
-/// D-35: amber card while the token is Skipped. The slip stays; no "Book again".
-class _SkippedCard extends StatelessWidget {
-  const _SkippedCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(Gap.md),
-      decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.card)),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.directions_walk_rounded, color: AppColors.warning),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(userLocationProvider).value;
+    final km = me == null || clinic.location == null ? null : distanceKm(me, clinic.location!);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, Gap.lg, 20, 0),
+      child: Row(children: [
+        Container(
+          width: 46,
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(12)),
+          child: Text(clinicInitials(clinic.name), style: AppText.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+        ),
         const SizedBox(width: Gap.md),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Your turn passed · Go to reception', style: AppText.labelLarge.copyWith(color: AppColors.warning)),
-            const SizedBox(height: 2),
-            Text("You'll be called right after the patient now with the doctor.",
-                style: AppText.bodyMedium.copyWith(color: AppColors.warning)),
+            Text(clinic.name, style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+            Text('${km == null ? clinic.area : '${km.toStringAsFixed(1)} km'} · ${doctor.name}',
+                style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
+        ),
+        Semantics(
+          button: true,
+          label: 'Directions',
+          excludeSemantics: true,
+          child: Material(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => openDirections(context, clinic),
+              child: const SizedBox.square(dimension: 42, child: Icon(Icons.near_me_outlined, size: 18, color: AppColors.onPrimary)),
+            ),
+          ),
         ),
       ]),
     );
   }
 }
 
-/// Big token number in a soft ring; pulses when called (respects reduce motion).
-class _TokenBadge extends StatefulWidget {
-  const _TokenBadge({required this.label, required this.pulse});
-  final String label;
-  final bool pulse;
+/// Board P5 "At reception": ticket tile, the instruction, the big code and
+/// Show slip. After a skip it says the same; once checked in again it says
+/// to stay near the room (board P8).
+class _ReceptionCard extends StatelessWidget {
+  const _ReceptionCard({required this.token, required this.skipped, required this.nextUp});
+  final Token token;
+  final bool skipped;
+  final bool nextUp;
 
   @override
-  State<_TokenBadge> createState() => _TokenBadgeState();
+  Widget build(BuildContext context) {
+    final (title, sub) = nextUp
+        ? ('Stay near the room', 'We\'ll notify you: "Your turn now"')
+        : skipped
+            ? ('At reception', 'Show this token at the counter')
+            : ('At reception', 'When you arrive, show this token at the counter');
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(20)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(16)),
+              child: const Icon(Icons.confirmation_number_outlined, size: 26, color: AppColors.onPrimary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                Text(sub, style: AppText.labelSmall.copyWith(fontSize: 13, height: 1.4)),
+              ]),
+            ),
+            const SizedBox(width: Gap.sm),
+            Text(token.label, style: AppText.titleLarge.copyWith(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.w800)),
+          ]),
+          if (!nextUp) ...[
+            const SizedBox(height: 14),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              onPressed: () => context.push('/token/${token.id}/slip'),
+              child: const Text('Show slip'),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
-class _TokenBadgeState extends State<_TokenBadge> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+/// D-37: amber note while the reception has the token On hold. No push.
+class _OnHoldCard extends StatelessWidget {
+  const _OnHoldCard();
+
+  @override
+  Widget build(BuildContext context) => _amber(
+        Icons.pause_circle_outline_rounded,
+        "You're on hold",
+        "The reception paused your turn. You'll be called when they're ready.",
+      );
+}
+
+/// D-35 / board P8: amber card while the token is Skipped. The slip stays.
+class _SkippedCard extends StatelessWidget {
+  const _SkippedCard();
+
+  @override
+  Widget build(BuildContext context) => _amber(
+        Icons.directions_walk_rounded,
+        'Your turn passed',
+        "Go to reception. You'll be called right after the patient now with the doctor.",
+      );
+}
+
+Widget _amber(IconData icon, String title, String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [AppColors.warningContainer, Color(0xFFFDE6C4)]),
+          border: Border.all(color: const Color(0xFFF5C98A)),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(color: AppColors.warning, borderRadius: BorderRadius.circular(16)),
+            child: Icon(icon, size: 26, color: AppColors.surface),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: AppText.labelLarge.copyWith(fontSize: 17, color: AppColors.warningText, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.warningText, height: 1.45)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+
+/// Board P8: checked in again after a skip → called right after the current patient.
+class _NextUpCard extends StatelessWidget {
+  const _NextUpCard();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [AppColors.primaryMid, AppColors.primary]),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.22), blurRadius: 24, offset: const Offset(0, 12))],
+          ),
+          child: Row(children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.cream,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: AppColors.cream.withValues(alpha: 0.16), spreadRadius: 6)],
+              ),
+              child: const Icon(Icons.campaign_outlined, color: AppColors.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("You're next", style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                Text('Called right after the current patient', style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+}
+
+/// Board P5b Details tab: who / doctor / clinic / date, and the 4 alerts.
+class _DetailsTab extends StatelessWidget {
+  const _DetailsTab({required this.token, required this.doctor, required this.clinic});
+  final Token token;
+  final Doctor doctor;
+  final Clinic clinic;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = token.patientSnapshot;
+    final age = s.age();
+    final schedule = doctor.scheduleOn(parseDayKey(token.date));
+    Widget row(IconData icon, String label, String value, {Widget? trailing, bool last = false}) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: AppColors.cream))),
+          child: Row(children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 16, color: AppColors.primary),
+            ),
+            const SizedBox(width: Gap.md),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label, style: AppText.labelSmall.copyWith(fontSize: 11)),
+                Text(value, style: AppText.labelMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+            ?trailing,
+          ]),
+        );
+
+    final steps = [
+      (QueueStep.threeAhead, '3', '3 patients ahead of you'),
+      (QueueStep.twoAhead, '2', '2 patients ahead of you'),
+      (QueueStep.oneAhead, '1', "You're next"),
+      (QueueStep.called, '✓', 'Your turn now'),
+    ];
+    final nextIdx = steps.indexWhere((x) => !token.notified.contains(x.$1));
+
+    return ListView(padding: const EdgeInsets.fromLTRB(18, 14, 18, Gap.lg), children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+        child: Column(children: [
+          row(Icons.person_outline_rounded, 'Patient',
+              '${s.name}${s.relation == Relation.self ? '' : ' · ${s.relation.label}'}${age == null ? '' : ' · $age ${s.gender.short}'}'),
+          row(Icons.medical_services_outlined, 'Doctor', '${doctor.name} · ${doctor.specialityEnum.label}'),
+          row(Icons.local_hospital_outlined, 'Clinic', '${clinic.name} · ${clinic.address}'),
+          row(
+            Icons.calendar_today_outlined,
+            'Date and session',
+            '${Fmt.shortDay(token.date)}${schedule == null ? '' : ' · ${Fmt.timeRange(schedule)}'}',
+            trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('Booked', style: AppText.labelSmall.copyWith(fontSize: 11)),
+              Text(DateFormat('h:mm a').format(token.createdAt), style: AppText.labelSmall.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+            ]),
+            last: true,
+          ),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      Text('Alerts for this token', style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+      const SizedBox(height: Gap.sm),
+      Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+        child: Column(children: [
+          _TimelineRow(dot: '✓', title: 'Token booked', sub: DateFormat('h:mm a').format(token.createdAt), done: true, line: true),
+          for (var i = 0; i < steps.length; i++)
+            _TimelineRow(
+              dot: steps[i].$2,
+              title: steps[i].$3,
+              sub: token.notified.contains(steps[i].$1) ? 'Sent' : (i == nextIdx ? 'Coming next' : null),
+              done: token.notified.contains(steps[i].$1),
+              next: i == nextIdx,
+              line: i < steps.length - 1,
+            ),
+        ]),
+      ),
+    ]);
+  }
+}
+
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({required this.dot, required this.title, this.sub, required this.done, this.next = false, required this.line});
+  final String dot;
+  final String title;
+  final String? sub;
+  final bool done;
+  final bool next;
+  final bool line;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = done
+        ? (AppColors.primary, AppColors.onPrimary)
+        : next
+            ? (AppColors.primaryContainer, AppColors.primary)
+            : (AppColors.cream, AppColors.textMuted);
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(
+          width: 22,
+          child: Column(children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: bg,
+                shape: BoxShape.circle,
+                boxShadow: next ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.12), spreadRadius: 4)] : null,
+              ),
+              child: Text(dot, style: AppText.labelSmall.copyWith(color: fg, fontSize: 11, fontWeight: FontWeight.w800)),
+            ),
+            if (line) Expanded(child: Container(width: 2, color: done ? AppColors.primary : AppColors.border)),
+          ]),
+        ),
+        const SizedBox(width: Gap.md),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title,
+                  style: AppText.labelMedium.copyWith(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: done || next ? AppColors.textPrimary : AppColors.textSecondary)),
+              if (sub != null)
+                Text(sub!,
+                    style: AppText.labelSmall.copyWith(
+                        fontSize: 11, color: next ? AppColors.primary : AppColors.textSecondary, fontWeight: next ? FontWeight.w600 : FontWeight.w500)),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Board P5 "Your turn": blue screen, the token in pulsing rings, "Your turn
+/// now", and the clinic card with Call. Pulse off with reduce motion.
+class _CalledView extends StatefulWidget {
+  const _CalledView({required this.token, required this.doctor, required this.clinic});
+  final Token token;
+  final Doctor doctor;
+  final Clinic clinic;
+
+  @override
+  State<_CalledView> createState() => _CalledViewState();
+}
+
+class _CalledViewState extends State<_CalledView> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
+  }
 
   @override
   void dispose() {
@@ -379,102 +696,277 @@ class _TokenBadgeState extends State<_TokenBadge> with SingleTickerProviderState
 
   @override
   Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    if (widget.pulse && !reduceMotion) {
-      if (!_c.isAnimating) _c.repeat(reverse: true);
-    } else {
-      _c.stop();
-    }
-    final badge = Container(
-      width: 220,
-      height: 132,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: widget.pulse ? AppColors.surface : AppColors.onPrimary.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(80),
-        border: Border.all(color: AppColors.onPrimary.withValues(alpha: 0.5), width: 2),
-      ),
-      child: FittedBox(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-          child: Text(widget.label,
-              style: AppText.tokenDisplay.copyWith(color: widget.pulse ? AppColors.info : AppColors.onPrimary)),
+    final t = widget.token;
+    final s = t.patientSnapshot;
+    final who = s.relation == Relation.self ? s.name : '${s.name} (${s.relation.label})';
+    return StatusBarScrim(
+      color: AppColors.info,
+      child: Scaffold(
+        backgroundColor: AppColors.info,
+        body: SafeArea(
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 0),
+              child: Row(children: [
+                const HeaderBackButton(),
+                Expanded(
+                  child: Text('Your token',
+                      textAlign: TextAlign.center,
+                      style: AppText.labelLarge.copyWith(color: AppColors.surface, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 44),
+              ]),
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, box) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: box.maxHeight),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Semantics(
+                        label: 'Token ${t.label}. Your turn now. Please go to ${widget.doctor.name}.',
+                        child: ExcludeSemantics(
+                          child: AnimatedBuilder(
+                            animation: _c,
+                            builder: (_, child) {
+                              final v = Curves.easeInOut.transform(_c.value);
+                              final ring = math.min(240.0, box.maxWidth - 48);
+                              return Container(
+                                width: ring,
+                                height: ring,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF1478B0),
+                                  boxShadow: [BoxShadow(color: AppColors.surface.withValues(alpha: 0.10 * v), spreadRadius: 14 * v)],
+                                ),
+                                child: child,
+                              );
+                            },
+                            child: Container(
+                              width: 190,
+                              height: 190,
+                              decoration: const BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
+                              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                Text('TOKEN', style: AppText.overline.copyWith(color: AppColors.info)),
+                                FittedBox(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: Text(t.label, style: AppText.tokenDisplay.copyWith(fontSize: 62, color: AppColors.info)),
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Text('Your turn now', style: AppText.displaySmall.copyWith(color: AppColors.surface, fontSize: 34, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
+                        child: Text('Please go to ${widget.doctor.name}.',
+                            textAlign: TextAlign.center, style: AppText.bodyLarge.copyWith(color: AppColors.infoContainer, fontSize: 17)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, Gap.xl),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18)),
+                child: Row(children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: AppColors.infoContainer, borderRadius: BorderRadius.circular(12)),
+                    child: Text(clinicInitials(widget.clinic.name), style: AppText.labelMedium.copyWith(color: AppColors.info, fontWeight: FontWeight.w800)),
+                  ),
+                  const SizedBox(width: Gap.md),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(widget.clinic.name, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+                      Text(who, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.info,
+                      foregroundColor: AppColors.surface,
+                      minimumSize: const Size(72, 44),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => callNumber(context, widget.clinic.phone),
+                    child: const Text('Call'),
+                  ),
+                ]),
+              ),
+            ),
+          ]),
         ),
-      ),
-    );
-    return Semantics(
-      label: 'Token ${widget.label}',
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (_, child) => Container(
-          padding: EdgeInsets.all(8 + 8 * _c.value),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(100),
-            color: AppColors.onPrimary.withValues(alpha: widget.pulse ? 0.12 + 0.1 * _c.value : 0.08),
-          ),
-          child: child,
-        ),
-        child: badge,
       ),
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+/// Board P5 "Completed": grey header with the date, the token and a status
+/// chip; the visit; the visit detail; Share slip / Book again. Cancelled and
+/// no-show use the same layout.
+class _FinishedView extends ConsumerWidget {
+  const _FinishedView({required this.token, required this.doctor, required this.clinic});
+  final Token token;
+  final Doctor doctor;
+  final Clinic clinic;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 48,
-        child: OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.primaryContainer, width: 1.5),
-            backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.25),
-            padding: const EdgeInsets.symmetric(horizontal: Gap.sm),
-          ),
-          onPressed: onTap,
-          icon: Icon(icon, size: 18),
-          label: FittedBox(child: Text(label)),
-        ),
-      );
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = token.status;
+    final s = token.patientSnapshot;
+    final completed = status == TokenStatus.completed;
+    final (chipText, chipBg, chipFg) = switch (status) {
+      TokenStatus.completed => ('COMPLETED', AppColors.cream, AppColors.textSecondary),
+      TokenStatus.cancelled => ('CANCELLED', AppColors.dangerContainer, AppColors.dangerText),
+      TokenStatus.noShow => ('NO-SHOW', AppColors.dangerContainer, AppColors.dangerText),
+      _ => (status.label.toUpperCase(), AppColors.cream, AppColors.textSecondary),
+    };
+    final followUp = (ref.watch(myFollowUpsProvider).value ?? const <FollowUp>[])
+        .where((f) => f.patientId == token.patientId && f.doctorId == token.doctorId && f.dueDate.compareTo(token.date) > 0)
+        .firstOrNull;
+    Widget row(String label, String value, {Color? color, bool top = false}) => Container(
+          padding: EdgeInsets.only(top: top ? 12 : 7, bottom: 7),
+          margin: EdgeInsets.only(top: top ? 4 : 0),
+          decoration: BoxDecoration(border: top ? const Border(top: BorderSide(color: AppColors.border)) : null),
+          child: Row(children: [
+            Expanded(child: Text(label, style: AppText.labelSmall.copyWith(fontSize: 14))),
+            Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.right,
+                  style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700, color: color ?? AppColors.textPrimary)),
+            ),
+          ]),
+        );
+    Widget section(String title, List<Widget> children, {bool border = true}) => Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          decoration: BoxDecoration(border: border ? const Border(bottom: BorderSide(color: AppColors.border)) : null),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title, style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 10),
+            ...children,
+          ]),
+        );
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(Gap.md),
-        decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.button)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 20, color: AppColors.warning),
-          const SizedBox(width: Gap.sm),
-          Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.textPrimary))),
-        ]),
-      );
-}
-
-class _NotificationsOffCard extends StatelessWidget {
-  const _NotificationsOffCard({required this.onTurnOn});
-  final VoidCallback onTurnOn;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(Gap.md),
-        decoration: BoxDecoration(color: AppColors.dangerContainer, borderRadius: BorderRadius.circular(Radii.button)),
-        child: Row(children: [
-          const Icon(Icons.notifications_off_outlined, color: AppColors.danger),
-          const SizedBox(width: Gap.sm),
+    return StatusBarScrim(
+      color: AppColors.textSecondary,
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        body: Column(children: [
           Expanded(
-            child: Text('Notifications are off. You might miss your turn.',
-                style: AppText.bodyMedium.copyWith(color: AppColors.danger, fontWeight: FontWeight.w500)),
+            child: ListView(padding: EdgeInsets.zero, children: [
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.textSecondary,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 22),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Row(children: [
+                        const HeaderBackButton(),
+                        Expanded(
+                          child: Text(Fmt.shortDay(token.date),
+                              textAlign: TextAlign.center,
+                              style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                        ),
+                        const SizedBox(width: 44),
+                      ]),
+                      const SizedBox(height: 18),
+                      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Token', style: AppText.labelSmall.copyWith(color: AppColors.border, fontSize: 13)),
+                            Text(token.label,
+                                style: AppText.displaySmall.copyWith(color: AppColors.onPrimary, fontSize: 48, fontWeight: FontWeight.w800, height: 1.05)),
+                          ]),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                          decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(Radii.pill)),
+                          child: Text(chipText, style: AppText.labelSmall.copyWith(color: chipFg, fontSize: 11, fontWeight: FontWeight.w700)),
+                        ),
+                      ]),
+                    ]),
+                  ),
+                ),
+              ),
+              section('Visit', [
+                Row(children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+                    child: Text(Fmt.initials(s.name), style: AppText.labelMedium.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: Gap.md),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(s.name, style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+                      Text('${doctor.name} · ${clinic.name}', style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                ]),
+              ]),
+              section('Visit detail', border: false, [
+                row('Booked at', DateFormat('h:mm a').format(token.createdAt)),
+                if (token.calledAt != null) row('Called at', DateFormat('h:mm a').format(token.calledAt!)),
+                if (completed && token.waitedMinutes != null) row('You waited', Fmt.wait(token.waitedMinutes!)),
+                // D-23: say who cancelled and why.
+                if (status == TokenStatus.cancelled)
+                  row(
+                    'Cancelled',
+                    token.cancelledByClinic
+                        ? 'By clinic${(token.cancelReason ?? '').trim().isEmpty ? '' : ' · ${token.cancelReason!.trim()}'}'
+                        : (token.cancelledAt == null ? 'By you' : 'By you · ${Fmt.dateTime(token.cancelledAt!)}'),
+                    color: AppColors.dangerText,
+                  ),
+                if (followUp != null) row('Follow-up', Fmt.shortDay(followUp.dueDate), color: AppColors.primary, top: true),
+              ]),
+            ]),
           ),
-          TextButton(style: TextButton.styleFrom(foregroundColor: AppColors.danger), onPressed: onTurnOn, child: const Text('Turn on')),
+          Container(
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, Gap.lg),
+                child: Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                      onPressed: () => context.push('/token/${token.id}/slip?share=1'),
+                      child: const Text('Share slip'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                      onPressed: () => context.push('/book/${token.clinicId}/${token.doctorId}?patient=${token.patientId}'),
+                      child: Text(token.cancelledByClinic ? 'Book another day' : 'Book again', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
         ]),
-      );
+      ),
+    );
+  }
 }
