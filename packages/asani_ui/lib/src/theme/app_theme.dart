@@ -39,8 +39,9 @@ ThemeData buildAppTheme() {
         disabledBackgroundColor: AppColors.border,
         // Readable on the grey disabled fill; also colours ButtonSpinner.
         disabledForegroundColor: AppColors.textSecondary,
-        minimumSize: const Size.fromHeight(56),
-        shape: const StadiumBorder(),
+        minimumSize: const Size.fromHeight(54),
+        // Deep forest (D-43): rounded rectangles, not pills.
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         textStyle: AppText.labelLarge,
       ),
     ),
@@ -48,8 +49,8 @@ ThemeData buildAppTheme() {
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
         minimumSize: const Size(kMinTap, kMinTap),
-        side: const BorderSide(color: AppColors.primary, width: 1.2),
-        shape: const StadiumBorder(),
+        side: const BorderSide(color: AppColors.border, width: 1.5),
+        shape: buttonShape,
         textStyle: AppText.labelMedium,
       ),
     ),

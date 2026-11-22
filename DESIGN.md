@@ -31,29 +31,35 @@ All values live in `lib/core/theme/`. Widgets must use tokens, never raw values.
 
 ### 3.1 Colours
 
+Palette **3 · Deep forest** (2026-11-21, D-43; replaces "Monochrome green"): only the logo colours, forest
+`#004741` and cream `#F0EDE4`, plus red/amber/blue for status. Approved exceptions: **lime 400** for follow-up
+cards, **blue** only for "Your turn". The logo itself is never recoloured (green on cream or cream on green).
+Source of truth: `packages/asani_ui/lib/src/theme/colors.dart`; screens: the Artifacts screens board.
+
 | Token | Hex | Use |
 |---|---|---|
-Palette **6 · Monochrome green** (2026-11-17): only shades of the logo green, plus red/amber/blue kept for
-status meaning. Dark mode values are agreed (mockups, D-30) and get their own tokens when dark mode is built.
-
 | `primary` | `#004741` | Logo green: headers, buttons, active states, token number |
-| `primaryContainer` | `#D2E8E1` | Selected chips, active token banner background |
-| `onPrimary` | `#FFFFFF` | Text on primary |
-| `secondary` | `#0B5C55` | Links, secondary actions |
+| `primaryMid` | `#0B5A52` | Header gradient end, chips and active nav tab on green |
+| `primaryLight` | `#2C6E66` | Card strokes on dark covers |
+| `navy` / `primaryDeep` | `#00332E` / `#00221F` | Floating nav, clinic card covers |
+| `primaryContainer` | `#DCE9E5` | Pale green tint: selected tiles, info strips |
+| `primarySoft` | `#9FC0B8` | Inactive icons and dots on green |
+| `onPrimary` | `#F0EDE4` | Text and icons on forest (logo cream) |
+| `onPrimaryMuted` | `#C6D8D2` | Sub-lines on green headers |
+| `cream` / `muted` | `#F0EDE4` | Cream cards, chips, quiet fills |
 | `surface` | `#FFFFFF` | Cards |
-| `background` | `#F2F7F5` | Screen background (soft green-white) |
-| `textPrimary` | `#0C2522` | Headings, body |
-| `textSecondary` | `#4F6662` | Captions, labels |
-| `border` | `#D9E7E2` | Card borders, dividers |
-| `muted` | `#E4EFEB` | Quiet fills (segmented track, disabled chips) |
-| `success` | `#00754F` | Completed, Available |
-| `warning` | `#B45309` | On hold, Not started, Grace |
-| `danger` | `#B91C1C` | Cancelled, errors, On leave |
-| `info` | `#0369A1` | Called / Your turn (with animation) |
-| `primaryMid` | `#0B5C55` | Second green of the header (`primary` → `primaryMid`) |
-| `slate` | `#66807A` | Light end of the finished-token header (`textSecondary` → `slate`) |
-| `headerChip` | `#0B5C55` | Chips and switches with white text on the green header (city pill, Active/Past, date chip) |
-| `textMuted` | `#8FA39E` | Decoration only (chevrons). **Never for text** (fails 4.5:1) |
+| `background` | `#FAF8F3` | Screen background (light cream) |
+| `textPrimary` | `#1A2A27` | Headings, body |
+| `textSecondary` | `#5D6B66` | Captions, labels |
+| `border` / `borderStrong` | `#E3DED1` / `#C9C2B0` | Card borders, dividers / phone frames |
+| `success` | `#2F7D4F` (bg `#DCEFE3`, text `#1E5E3A`) | Completed, Open now |
+| `warning` | `#B45309` (bg `#FEF3E2`, text `#92400E`) | Paused, Skipped, notifications off |
+| `danger` | `#B91C1C` (bg `#FDE8E8`, text `#991B1B`) | Cancelled, errors |
+| `info` | `#0369A1` | **Only** "Your turn" (called) |
+| `lime` → `limeLight` | `#8DAE3A` → `#9DBB4C` (text `#1F3306`) | Follow-up cards |
+| `textMuted` | `#9AA39F` | Decoration only (chevrons). **Never for text** |
+
+Shapes: buttons are rounded rectangles (16, height 54), cards 18, green headers have a 30 bottom radius.
 
 Dark mode (agreed, not built yet): page `#071A18`, card `#0D2522`, line `#173632`, text `#E3F1ED`, muted text
 `#8FB0A8`, header `#00332E`, accent and buttons mint `#6BD1B5` with `#02211C` text.
