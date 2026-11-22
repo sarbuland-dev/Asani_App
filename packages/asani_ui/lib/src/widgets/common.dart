@@ -232,10 +232,14 @@ class TicketBorder extends ShapeBorder {
 
 /// Round translucent back button used on gradient headers.
 class HeaderBackButton extends StatelessWidget {
-  const HeaderBackButton({super.key, this.onPressed, this.icon = Icons.chevron_left_rounded, this.dark = false});
+  const HeaderBackButton({super.key, this.onPressed, this.icon = Icons.chevron_left_rounded, this.dark = false, this.color});
   final VoidCallback? onPressed;
   final IconData icon;
   final bool dark;
+
+  /// Fill behind the icon on a coloured header that is not green (e.g. the
+  /// blue "Your turn" screen). Defaults to the darker header green.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +247,7 @@ class HeaderBackButton extends StatelessWidget {
       button: true,
       label: 'Back',
       child: Material(
-        color: dark ? AppColors.muted : AppColors.primaryMid,
+        color: color ?? (dark ? AppColors.muted : AppColors.primaryMid),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),

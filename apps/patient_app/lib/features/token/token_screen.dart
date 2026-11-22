@@ -664,7 +664,8 @@ class _TimelineRow extends StatelessWidget {
 }
 
 /// Board P5 "Your turn": blue screen, the token in pulsing rings, "Your turn
-/// now", and the clinic card with Call. Pulse off with reduce motion.
+/// now", and a card with the clinic and patient (no Call button: it
+/// distracted people at the door). Pulse off with reduce motion.
 class _CalledView extends StatefulWidget {
   const _CalledView({required this.token, required this.doctor, required this.clinic});
   final Token token;
@@ -708,7 +709,7 @@ class _CalledViewState extends State<_CalledView> with SingleTickerProviderState
             Padding(
               padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 0),
               child: Row(children: [
-                const HeaderBackButton(),
+                const HeaderBackButton(color: AppColors.infoDark),
                 Expanded(
                   child: Text('Your token',
                       textAlign: TextAlign.center,
@@ -792,16 +793,6 @@ class _CalledViewState extends State<_CalledView> with SingleTickerProviderState
                       Text(widget.clinic.name, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
                       Text(who, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ]),
-                  ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.info,
-                      foregroundColor: AppColors.surface,
-                      minimumSize: const Size(72, 44),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => callNumber(context, widget.clinic.phone),
-                    child: const Text('Call'),
                   ),
                 ]),
               ),
