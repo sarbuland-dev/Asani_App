@@ -96,14 +96,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     _header(),
                     // The slip preview overlaps the header's bottom edge.
                     Transform.translate(
-                      offset: const Offset(0, -Gap.xxxl - Gap.sm),
+                      offset: const Offset(0, -54),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: _SlipPreview(name: _cleanName, age: _ageValue, gender: _gender),
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -124,11 +124,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           ),
                           const SizedBox(height: Gap.lg),
                           _label('Age'),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                          // Board: one box, minus on cream, the age, plus on green.
+                          Container(
+                            height: 56,
+                            padding: const EdgeInsets.symmetric(horizontal: Gap.sm),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(Radii.card),
+                              border: Border.all(color: ageInvalid ? AppColors.danger : AppColors.border),
+                            ),
+                            child: Row(children: [
                               _RoundStep(icon: Icons.remove_rounded, label: 'One year less', onTap: _saving ? null : () => _stepAge(-1)),
-                              const SizedBox(width: Gap.sm),
                               Expanded(
                                 child: TextField(
                                   controller: _age,
@@ -136,19 +142,28 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                   keyboardType: TextInputType.number,
                                   textAlign: TextAlign.center,
                                   inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                                  style: AppText.titleMedium,
-                                  decoration: InputDecoration(
+                                  style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w700),
+                                  decoration: const InputDecoration(
                                     hintText: '28',
                                     suffixText: 'years',
-                                    errorText: ageInvalid ? 'Enter an age from 0 to 120' : null,
+                                    filled: false,
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
-                              const SizedBox(width: Gap.sm),
-                              _RoundStep(icon: Icons.add_rounded, label: 'One year more', onTap: _saving ? null : () => _stepAge(1)),
-                            ],
+                              _RoundStep(icon: Icons.add_rounded, label: 'One year more', dark: true, onTap: _saving ? null : () => _stepAge(1)),
+                            ]),
                           ),
+                          if (ageInvalid)
+                            Padding(
+                              padding: const EdgeInsets.only(top: Gap.xs, left: Gap.xs),
+                              child: Text('Enter an age from 0 to 120', style: AppText.labelSmall.copyWith(color: AppColors.danger)),
+                            ),
                           const SizedBox(height: Gap.lg),
                           _label('Gender'),
                           Row(children: [
@@ -160,7 +175,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                   onTap: _saving ? null : () => setState(() => _gender = g),
                                 ),
                               ),
-                              if (g != Gender.values.last) const SizedBox(width: Gap.sm),
+                              if (g != Gender.values.last) const SizedBox(width: 10),
                             ],
                           ]),
                         ],
@@ -171,10 +186,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               ),
             ),
             // Consent and Continue stay on screen; the form scrolls above them.
-            SafeArea(
+            Container(
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+              child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xs, Gap.xl, Gap.xs),
+                padding: const EdgeInsets.fromLTRB(20, Gap.xs, 20, Gap.xs),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -211,7 +228,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     ],
                     FilledButton(
                       onPressed: _valid && !_saving ? _continue : null,
-                      child: _saving ? const ButtonSpinner() : const Text('Continue'),
+                      child: _saving
+                          ? const ButtonSpinner()
+                          : const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Text('Continue'),
+                              SizedBox(width: Gap.xs),
+                              Icon(Icons.chevron_right_rounded),
+                            ]),
                     ),
                     Center(
                       child: TextButton(onPressed: _saving ? null : _useAnotherNumber, child: const Text('Use another number')),
@@ -220,12 +243,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
               ),
             ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  /// Board P2 S-04: back, "Your profile", and the last-step line.
   Widget _header() => Container(
         decoration: const BoxDecoration(
           color: AppColors.primary,
@@ -234,27 +259,24 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.xxxl + Gap.xxl),
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, 70),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
                   HeaderBackButton(onPressed: _saving ? () {} : _useAnotherNumber),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.xs + 2),
-                    decoration: BoxDecoration(color: AppColors.headerChip, borderRadius: BorderRadius.circular(Radii.pill)),
-                    child: Text('Last step', style: AppText.labelMedium.copyWith(color: AppColors.onPrimary)),
+                  Expanded(
+                    child: Text('Your profile',
+                        textAlign: TextAlign.center,
+                        style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
                   ),
+                  const SizedBox(width: 44),
                 ]),
                 const SizedBox(height: Gap.lg),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Gap.sm),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Tell us about you', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
-                    const SizedBox(height: Gap.xs),
-                    Text('This is how clinics will see you.', style: AppText.bodyLarge.copyWith(color: AppColors.primaryContainer)),
-                  ]),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('Last step · this is how clinics will see you.',
+                      style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted)),
                 ),
               ],
             ),
@@ -264,7 +286,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   Widget _label(String text) => Padding(
         padding: const EdgeInsets.only(bottom: Gap.sm),
-        child: Text(text, style: AppText.labelMedium),
+        child: Text(text, style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
       );
 }
 
@@ -279,81 +301,66 @@ class _SlipPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final details = ['Self', age == null ? 'Age' : '$age', gender?.label ?? 'Gender'].join(' · ');
     return Semantics(
-      label: 'Token slip preview: ${name.isEmpty ? 'no name yet' : name}, $details',
+      label: 'Profile preview: ${name.isEmpty ? 'no name yet' : name}, $details',
       excludeSemantics: true,
+      // Board P2 S-04: cream card with the green initials circle.
       child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(Radii.card + 4),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.sm),
-              child: Row(children: [
-                const Icon(Icons.confirmation_number_outlined, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: Gap.xs),
-                Expanded(child: Text('Your token slip', style: AppText.labelSmall)),
-                Text('Preview', style: AppText.labelSmall),
-              ]),
+        padding: const EdgeInsets.all(Gap.lg),
+        decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(20)),
+        child: Row(children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              key: ValueKey(name.isEmpty ? '' : Fmt.initials(name)),
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: name.isEmpty ? AppColors.border : AppColors.primary, shape: BoxShape.circle),
+              child: name.isEmpty
+                  ? const Icon(Icons.person_outline_rounded, color: AppColors.textSecondary)
+                  : Text(Fmt.initials(name),
+                      style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontSize: 19, fontWeight: FontWeight.w700)),
             ),
-            const DashedLine(),
-            Padding(
-              padding: const EdgeInsets.all(Gap.lg),
-              child: Row(children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: name.isEmpty
-                      ? Container(
-                          key: const ValueKey('empty'),
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(color: AppColors.muted, shape: BoxShape.circle),
-                          child: const Icon(Icons.person_outline_rounded, color: AppColors.textSecondary),
-                        )
-                      : InitialsAvatar(key: ValueKey(Fmt.initials(name)), name: name, size: 48),
-                ),
-                const SizedBox(width: Gap.md),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      name.isEmpty ? 'Your name' : name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.titleMedium.copyWith(color: name.isEmpty ? AppColors.textSecondary : AppColors.textPrimary),
-                    ),
-                    Text(details, style: AppText.bodyMedium),
-                  ]),
-                ),
-              ]),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                name.isEmpty ? 'Your name' : name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.titleMedium.copyWith(
+                    fontWeight: FontWeight.w700, color: name.isEmpty ? AppColors.textSecondary : AppColors.textPrimary),
+              ),
+              Text(details, style: AppText.labelSmall.copyWith(fontSize: 13)),
+            ]),
+          ),
+        ]),
       ),
     );
   }
 }
 
-/// Round − / + button next to the age field (56 dp, above the 48 dp minimum).
+/// Minus / plus inside the age box (board: 40 dp squares; the whole box is 56 high).
 class _RoundStep extends StatelessWidget {
-  const _RoundStep({required this.icon, required this.label, required this.onTap});
+  const _RoundStep({required this.icon, required this.label, required this.onTap, this.dark = false});
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) => Semantics(
         button: true,
         label: label,
+        excludeSemantics: true,
         child: Material(
-          color: AppColors.surface,
-          shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+          color: dark ? AppColors.primary : AppColors.cream,
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            customBorder: const CircleBorder(),
+            borderRadius: BorderRadius.circular(12),
             onTap: onTap,
-            child: SizedBox.square(dimension: 56, child: Icon(icon, color: AppColors.primary)),
+            child: SizedBox.square(dimension: 40, child: Icon(icon, color: dark ? AppColors.onPrimary : AppColors.primary)),
           ),
         ),
       );
@@ -374,29 +381,29 @@ class _GenderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? AppColors.primary : AppColors.textSecondary;
+    // Board P2 S-04: selected = solid green with cream text; others cream.
+    final fg = selected ? AppColors.onPrimary : AppColors.textPrimary;
     return Semantics(
       button: true,
       selected: selected,
       label: gender.label,
       excludeSemantics: true,
       child: Material(
-        color: selected ? AppColors.muted : AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Radii.card),
-          side: BorderSide(color: selected ? AppColors.primary : AppColors.border, width: selected ? 1.6 : 1),
-        ),
+        color: selected ? AppColors.primary : AppColors.cream,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(Radii.card),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: Gap.md),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_icon, color: fg, size: 26),
-              const SizedBox(height: Gap.xs),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(gender.label, maxLines: 1, style: AppText.labelMedium.copyWith(color: fg)),
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 56,
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(_icon, color: fg, size: 20),
+              const SizedBox(width: 6),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(gender.label, maxLines: 1, style: AppText.labelMedium.copyWith(color: fg, fontSize: 15)),
+                ),
               ),
             ]),
           ),

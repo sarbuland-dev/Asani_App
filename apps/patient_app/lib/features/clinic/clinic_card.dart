@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:asani_ui/asani_ui.dart';
+import '../../data/location_service.dart';
 import '../../data/providers.dart';
 
 /// "Open today" / "Closed now" (every doctor's session today is over, D-27) /
@@ -69,123 +70,283 @@ class ClinicInitials extends StatelessWidget {
   }
 }
 
-/// Clinic as a paper ticket (Home "All clinics", search results): a tinted
-/// stub with the clinic initials and Open / Closed, a dashed tear line with
-/// two notches, then name, area and doctors, and today's hours or when it
-/// next opens.
+/// What a clinic card shows, worked out once for the big and mini cards.
+class _ClinicFacts {
+  _ClinicFacts(WidgetRef ref, Clinic clinic) {
+    final now = nowFrom(ref);
+    doctors = ref.watch(doctorsByClinicProvider).value?[clinic.id] ?? const <Doctor>[];
+    final info = clinicOpenInfo(doctors, now);
+    suspended = !clinic.status.acceptsBookings;
+    open = info.open && !suspended;
+    when = suspended
+        ? 'online booking paused'
+        : open
+            ? (info.hours == null ? 'Open today' : 'Today ${info.hours}')
+            : (info.nextOpen ?? info.label);
+    final me = ref.watch(userLocationProvider).value;
+    km = me == null || clinic.location == null ? null : distanceKm(me, clinic.location!);
+    final count = clinic.doctorCount > 0 ? clinic.doctorCount : doctors.length;
+    doctorsText = '$count ${count == 1 ? 'doctor' : 'doctors'}';
+  }
+
+  late final List<Doctor> doctors;
+  late final bool suspended;
+  late final bool open;
+  late final String when;
+  late final double? km;
+  late final String doctorsText;
+
+  /// Board chip: "● Open now" (cream), "○ Closed" (red), "❚❚ Booking paused" (amber).
+  (String, Color, Color) get chip => suspended
+      ? ('❚❚ Booking paused', AppColors.warningContainer, AppColors.warningText)
+      : open
+          ? ('● Open now', AppColors.cream, AppColors.primary)
+          : ('○ Closed', AppColors.dangerContainer, AppColors.dangerText);
+
+  String? get distance => km == null ? null : '${km! < 10 ? km!.toStringAsFixed(1) : km!.round()} km';
+}
+
+/// Dark forest cover with soft rings, the status chip and the distance
+/// (board P2 "cover card"). [mirror] flips the light so lists look varied.
+class _Cover extends StatelessWidget {
+  const _Cover({required this.height, required this.facts, required this.mirror});
+  final double height;
+  final _ClinicFacts facts;
+  final bool mirror;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, bg, fg) = facts.chip;
+    Widget chip(String text, Color b, Color f) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: b, borderRadius: BorderRadius.circular(Radii.pill)),
+          child: Text(text, style: AppText.labelSmall.copyWith(color: f, fontSize: 11, fontWeight: FontWeight.w600)),
+        );
+    return SizedBox(
+      height: height,
+      child: Stack(clipBehavior: Clip.hardEdge, children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: mirror ? Alignment.topRight : Alignment.topLeft,
+                end: mirror ? Alignment.bottomLeft : Alignment.bottomRight,
+                colors: const [AppColors.primaryDeep, AppColors.navy, AppColors.primaryMid],
+                stops: const [0, 0.65, 1],
+              ),
+            ),
+          ),
+        ),
+        // Soft light in the top corner and a faint ring.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: mirror ? Alignment.topLeft : Alignment.topRight,
+                radius: 1.2,
+                colors: [AppColors.primarySoft.withValues(alpha: 0.30), AppColors.primarySoft.withValues(alpha: 0)],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: mirror ? null : -30,
+          left: mirror ? -30 : null,
+          top: -40,
+          child: Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.cream.withValues(alpha: 0.07), width: 18),
+            ),
+          ),
+        ),
+        Positioned(left: 12, top: 12, child: chip(label, bg, fg)),
+        if (facts.distance != null)
+          Positioned(right: 12, top: 12, child: chip(facts.distance!, AppColors.cream.withValues(alpha: 0.14), AppColors.cream)),
+      ]),
+    );
+  }
+}
+
+/// Clinic initials on a cream tile with a white edge, sitting on the cover's edge.
+class _CoverTile extends StatelessWidget {
+  const _CoverTile({required this.name, required this.size});
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(size * 0.3),
+          border: Border.all(color: AppColors.surface, width: 3),
+          boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Text(clinicInitials(name),
+            style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: size * 0.34)),
+      );
+}
+
+/// Clinic as a cover card (board P2: Home "Clinics in …", search results):
+/// a dark forest cover with Open now / Closed / Booking paused and the
+/// distance, the initials tile on its edge, then name, area and today's
+/// hours, a View button, and the doctors with their specialities.
 class ClinicCard extends ConsumerWidget {
   const ClinicCard({super.key, required this.clinic, this.highlight = ''});
   final Clinic clinic;
   final String highlight;
 
-  static const _stub = 78.0;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final now = nowFrom(ref);
-    final doctors = ref.watch(doctorsByClinicProvider).value?[clinic.id] ?? const <Doctor>[];
-    final info = clinicOpenInfo(doctors, now);
-    final suspended = !clinic.status.acceptsBookings;
-    final open = info.open && !suspended;
-    final status = suspended ? 'Paused' : (open ? 'Open' : 'Closed');
-    final when = suspended ? 'Online booking not available' : (info.hours ?? info.nextOpen ?? info.label);
-    final doctorsText = '${clinic.doctorCount} ${clinic.doctorCount == 1 ? 'doctor' : 'doctors'}';
-    final (tint, ink) = clinicStatusColors(open: open, suspended: suspended);
+    final f = _ClinicFacts(ref, clinic);
+    final mirror = clinic.id.hashCode.isOdd;
+    final specialities = <String>{for (final d in f.doctors) d.specialityEnum.label.split(' ').first}.take(3).toList();
+    final (status, _, _) = f.chip;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.md),
       child: Semantics(
         button: true,
-        label: '${clinic.name}, ${clinic.area}, $doctorsText. ${open ? info.label : status}. $when',
+        label: '${clinic.name}, ${clinic.area}, ${f.doctorsText}. ${status.substring(2)}. ${f.when}'
+            '${f.distance == null ? '' : ', ${f.distance} away'}',
         excludeSemantics: true,
         child: Material(
           color: AppColors.surface,
-          // Thin outline in the status colour: green open, red closed, grey paused.
-          shape: TicketBorder(notchX: _stub, side: BorderSide(color: suspended ? AppColors.border : ink, width: 1.2)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          elevation: 0,
+          child: InkWell(
+            onTap: () => context.push('/clinic/${clinic.id}'),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _Cover(height: 80, facts: f, mirror: mirror),
+              Stack(clipBehavior: Clip.none, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 30, 14, 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          _HighlightText(clinic.name, highlight, AppText.titleSmall.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text('${clinic.area} · ${f.when}',
+                              style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ]),
+                      ),
+                      const SizedBox(width: Gap.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(10)),
+                        child: Text('View ›',
+                            style: AppText.labelSmall.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                      ),
+                    ]),
+                    if (f.doctors.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        _DoctorFaces(doctors: f.doctors),
+                        const SizedBox(width: Gap.sm),
+                        Expanded(
+                          child: Text(
+                            specialities.isEmpty ? f.doctorsText : '${f.doctorsText} · ${specialities.join(', ')}',
+                            style: AppText.labelSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ]),
+                    ],
+                  ]),
+                ),
+                Positioned(left: 14, top: -26, child: _CoverTile(name: clinic.name, size: 50)),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Up to three overlapping doctor initials.
+class _DoctorFaces extends StatelessWidget {
+  const _DoctorFaces({required this.doctors});
+  final List<Doctor> doctors;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = doctors.take(3).toList();
+    return SizedBox(
+      width: 24 + 18.0 * (shown.length - 1),
+      height: 24,
+      child: Stack(children: [
+        for (var i = 0; i < shown.length; i++)
+          Positioned(
+            left: 18.0 * i,
+            child: Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: i.isEven ? AppColors.primaryContainer : AppColors.cream,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.surface, width: 2),
+              ),
+              child: Text(Fmt.initials(shown[i].name),
+                  style: AppText.labelSmall.copyWith(color: AppColors.primary, fontSize: 9, fontWeight: FontWeight.w700)),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+/// Small cover card for the Home "Recent clinics" row (board P2, 220 wide).
+class ClinicMiniCard extends ConsumerWidget {
+  const ClinicMiniCard({super.key, required this.clinic});
+  final Clinic clinic;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final f = _ClinicFacts(ref, clinic);
+    final (status, _, _) = f.chip;
+    final sub = f.open || f.suspended ? '${clinic.area} · ${f.doctorsText}' : '${clinic.area} · ${f.when.toLowerCase()}';
+    return Semantics(
+      button: true,
+      label: '${clinic.name}, ${clinic.area}. ${status.substring(2)}.',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 220,
+        child: Material(
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => context.push('/clinic/${clinic.id}'),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Stub: initials + open state.
-                  Container(
-                    width: _stub,
-                    color: tint,
-                    padding: const EdgeInsets.symmetric(vertical: Gap.lg, horizontal: Gap.xs),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(clinicInitials(clinic.name),
-                            style: AppText.titleLarge.copyWith(color: ink, fontWeight: FontWeight.w800)),
-                        const SizedBox(height: Gap.xs),
-                        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            // Open = solid dot, closed = hollow ring: not colour alone.
-                            decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: open ? ink : null,
-                                border: open ? null : Border.all(color: ink, width: 1.5)),
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(status,
-                                maxLines: 1,
-                                overflow: TextOverflow.fade,
-                                softWrap: false,
-                                style: AppText.labelSmall.copyWith(color: ink, fontWeight: FontWeight.w700)),
-                          ),
-                        ]),
-                      ],
-                    ),
-                  ),
-                  // Tear line, between the two notches.
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: Gap.md),
-                    child: DashedLine(axis: Axis.vertical),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.xs, Gap.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _HighlightText(clinic.name, highlight, AppText.titleMedium),
-                          const SizedBox(height: 2),
-                          Row(children: [
-                            const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
-                            const SizedBox(width: 2),
-                            Flexible(
-                              child: Text('${clinic.area} · $doctorsText',
-                                  style: AppText.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ),
-                          ]),
-                          const SizedBox(height: Gap.sm),
-                          Row(children: [
-                            Icon(open ? Icons.schedule_rounded : Icons.event_outlined, size: 14, color: AppColors.textSecondary),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(when,
-                                  style: AppText.labelSmall.copyWith(color: AppColors.textPrimary),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ),
-                          ]),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(right: Gap.sm),
-                    child: Center(child: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted)),
-                  ),
-                ],
-              ),
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              _Cover(height: 58, facts: f, mirror: clinic.id.hashCode.isOdd),
+              Stack(clipBehavior: Clip.none, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 24, 12, 10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(clinic.name,
+                        style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(sub, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ]),
+                ),
+                Positioned(left: 12, top: -20, child: _CoverTile(name: clinic.name, size: 40)),
+              ]),
+            ]),
           ),
         ),
       ),

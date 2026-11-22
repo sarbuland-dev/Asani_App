@@ -86,15 +86,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     textInputAction: TextInputAction.search,
                     style: AppText.bodyLarge,
                     onChanged: _onChanged,
+                    // Board P2 S-06: cream field, rounded 14, green search icon.
                     decoration: InputDecoration(
-                      hintText: 'Search clinic or area',
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'Clinic name or area',
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+                      filled: true,
+                      fillColor: AppColors.cream,
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.pill)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(Radii.pill), borderSide: const BorderSide(color: AppColors.primary)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(Radii.pill),
+                          borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(color: AppColors.primary, width: 1.6)),
                       suffixIcon: _controller.text.isEmpty
                           ? null
@@ -179,8 +181,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         avatar: dot ? Container(width: 8, height: 8, decoration: BoxDecoration(color: selected ? AppColors.onPrimary : AppColors.success, shape: BoxShape.circle)) : null,
         labelStyle: AppText.labelMedium.copyWith(color: selected ? AppColors.onPrimary : AppColors.textPrimary),
         selectedColor: AppColors.primary,
-        backgroundColor: AppColors.surface,
-        side: BorderSide(color: selected ? AppColors.primary : AppColors.border),
+        backgroundColor: AppColors.cream,
+        side: BorderSide(color: selected ? AppColors.primary : AppColors.cream),
         shape: const StadiumBorder(),
         onSelected: (_) => setState(() => _filter = value),
       ),
