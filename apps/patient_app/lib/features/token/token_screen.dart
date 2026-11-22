@@ -890,7 +890,8 @@ class _FinishedView extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 22),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       Row(children: [
-                        const HeaderBackButton(),
+                        // Board P5 S-11 Completed: lighter grey button on the grey header.
+                        const HeaderBackButton(color: AppColors.headerChipGrey),
                         Expanded(
                           child: Text(Fmt.shortDay(token.date),
                               textAlign: TextAlign.center,

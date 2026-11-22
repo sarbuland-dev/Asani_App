@@ -71,6 +71,9 @@ abstract final class AppColors {
 
   /// Fill for chips and switches with cream text on the green header.
   static const headerChip = Color(0xFF0B5A52);
+
+  /// Back button / chips on the grey header of a finished token (board P5 S-11 Completed).
+  static const headerChipGrey = Color(0xFF717E79);
   static const avatarWarm = Color(0xFFFEF3E2);
   static const avatarCool = Color(0xFFDCE9E5);
 
