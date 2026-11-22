@@ -106,38 +106,70 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final phone = ref.watch(authStateProvider).value?.pendingPhone;
     final code = _controller.text;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kStatusBarDark,
+      value: kStatusBarLight,
       child: Scaffold(
-      body: SafeArea(
-        child: FillScrollView(
-          padding: const EdgeInsets.all(Gap.xl),
+      backgroundColor: AppColors.surface,
+      body: FillScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              HeaderBackButton(dark: true, onPressed: _changeNumber),
-              const SizedBox(height: Gap.xl),
-              const IconBox(icon: Icons.sms_outlined, size: 52),
-              const SizedBox(height: Gap.lg),
-              Text('Enter the code', style: AppText.headline),
-              const SizedBox(height: Gap.sm),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('Sent to ', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
-                  Text(phone == null ? '' : Fmt.phone(phone), style: AppText.labelMedium),
-                  Text(' · ', style: AppText.bodyMedium),
-                  InkWell(
-                    onTap: _changeNumber,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: Gap.sm),
-                      child: Text('Change', style: AppText.labelMedium.copyWith(color: AppColors.primary)),
+              // Board P1 S-03: green header with back, "Verify number" and the number.
+              Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(Gap.xl - 4, Gap.sm, Gap.xl - 4, 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          HeaderBackButton(onPressed: _changeNumber),
+                          Expanded(
+                            child: Text('Verify number',
+                                textAlign: TextAlign.center,
+                                style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                          ),
+                          const SizedBox(width: 44),
+                        ]),
+                        const SizedBox(height: Gap.xl + 2),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Enter the code',
+                                style: AppText.headline.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                            const SizedBox(height: Gap.sm),
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text('Sent to ', style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted)),
+                                Text(phone == null ? '' : Fmt.phone(phone),
+                                    style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
+                                Text('. ', style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted)),
+                                InkWell(
+                                  onTap: _changeNumber,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: Gap.sm),
+                                    child: Text('Change',
+                                        style: AppText.labelLarge.copyWith(
+                                            color: AppColors.onPrimary, decoration: TextDecoration.underline, decorationColor: AppColors.onPrimary)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ]),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-              const SizedBox(height: Gap.xl),
-              Text('6-digit code', style: AppText.labelMedium),
-              const SizedBox(height: Gap.sm),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Gap.xl, 28, Gap.xl, 0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               // One hidden field drives six boxes; supports SMS autofill.
               Stack(
                 children: [
@@ -175,58 +207,70 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 const SizedBox(height: Gap.md),
                 Text(_error!, style: AppText.bodyMedium.copyWith(color: AppColors.danger)),
               ],
-              const SizedBox(height: Gap.xl),
-              Center(
+              const SizedBox(height: Gap.xl - 2),
+              Align(
+                alignment: Alignment.centerLeft,
                 child: _secondsLeft > 0
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.schedule_rounded, size: 18, color: AppColors.textSecondary),
-                          const SizedBox(width: 6),
-                          Flexible(child: Text("Didn't get it? Resend in ", style: AppText.bodyMedium)),
-                          Text('0:${_secondsLeft.toString().padLeft(2, '0')}', style: AppText.labelMedium),
+                          const SizedBox(width: Gap.sm),
+                          Flexible(child: Text('Resend code in ', style: AppText.bodyLarge.copyWith(fontSize: 15, color: AppColors.textSecondary))),
+                          Text('0:${_secondsLeft.toString().padLeft(2, '0')}', style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
                         ],
                       )
                     : _resendCount >= _maxResends
-                        ? Text('Resend limit reached. Please try again later.',
-                            textAlign: TextAlign.center, style: AppText.bodyMedium)
-                        : TextButton(
+                        ? Text('Resend limit reached. Please try again later.', style: AppText.bodyMedium)
+                        : TextButton.icon(
                             onPressed: _resending || _verifying ? null : _resend,
-                            child: _resending
-                                ? const AsaniLoader(size: 20)
-                                : const Text('Resend code'),
+                            icon: _resending ? const AsaniLoader(size: 20) : const Icon(Icons.refresh_rounded, size: 20),
+                            label: const Text('Resend code'),
                           ),
               ),
               const SizedBox(height: Gap.lg),
               if (Env.isDemo) const DemoNote(text: 'Demo mode: the code is ${DemoBackend.demoOtp}.'),
+                ]),
+              ),
               const Spacer(),
-              FilledButton(
-                onPressed: code.length == 6 && !_verifying ? _verify : null,
-                child: _verifying
-                    ? const ButtonSpinner()
-                    : const Text('Verify'),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xl + 4),
+                  child: FilledButton(
+                    onPressed: code.length == 6 && !_verifying ? _verify : null,
+                    child: _verifying
+                        ? const ButtonSpinner()
+                        : const Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text('Verify'),
+                            SizedBox(width: Gap.xs),
+                            Icon(Icons.chevron_right_rounded),
+                          ]),
+                  ),
+                ),
               ),
             ],
           ),
-        ),
       ),
     ));
   }
 
+  /// Board S-03: filled and empty boxes are cream; the next box is white
+  /// with a green edge; red edges after a wrong code.
   Widget _box(String digit, bool active) {
-    return AspectRatio(
-      aspectRatio: 0.82,
+    final error = _error != null;
+    return SizedBox(
+      height: 58,
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: digit.isNotEmpty ? AppColors.muted : AppColors.surface,
-          borderRadius: BorderRadius.circular(Radii.button),
-          border: Border.all(
-            color: _error != null ? AppColors.danger : (active || digit.isNotEmpty ? AppColors.primary : AppColors.border),
-            width: active ? 2 : 1.2,
-          ),
+          color: active ? AppColors.surface : AppColors.muted,
+          borderRadius: BorderRadius.circular(14),
+          border: error
+              ? Border.all(color: AppColors.danger, width: 1.5)
+              : (active ? Border.all(color: AppColors.primary, width: 2) : null),
         ),
-        child: Text(digit, style: AppText.titleLarge),
+        child: Text(digit, style: AppText.titleLarge.copyWith(fontSize: 24)),
       ),
     );
   }

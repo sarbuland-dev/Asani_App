@@ -56,7 +56,8 @@ class _MarkPainter extends CustomPainter {
   bool shouldRepaint(_MarkPainter old) => old.color != color;
 }
 
-/// Logo tile: white rounded square with the teal mark.
+/// Logo tile: the forest mark on a cream rounded square (D-43; the logo is
+/// only ever green on cream or cream on green).
 class AsaniLogoTile extends StatelessWidget {
   const AsaniLogoTile({super.key, this.size = 72});
   final double size;
@@ -65,9 +66,9 @@ class AsaniLogoTile extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(size * 0.26)),
+        decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(size * 0.29)),
         alignment: Alignment.center,
-        child: AsaniMark(size: size * 0.82),
+        child: AsaniMark(size: size * 0.72),
       );
 }
 
@@ -242,7 +243,7 @@ class HeaderBackButton extends StatelessWidget {
       button: true,
       label: 'Back',
       child: Material(
-        color: dark ? AppColors.muted : AppColors.onPrimary.withValues(alpha: 0.18),
+        color: dark ? AppColors.muted : AppColors.primaryMid,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),

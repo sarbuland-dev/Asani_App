@@ -44,115 +44,157 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Green header: logo, then the promise. The sign-in card overlaps its bottom edge.
-            Container(
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xxxl + Gap.xl),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        const AsaniMark(size: 34, color: AppColors.onPrimary),
-                        const SizedBox(width: Gap.xs),
-                        Text('asani', style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
-                      ]),
-                      const SizedBox(height: Gap.xxl),
-                      Text('Skip the waiting room.', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
-                      const SizedBox(height: Gap.sm),
-                      Text('Book a token, watch the queue, arrive on time.',
-                          style: AppText.bodyLarge.copyWith(color: AppColors.primaryContainer)),
-                    ],
-                  ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarLight,
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        body: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Board P1 S-02: green header with the logo tile and the promise.
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                      ),
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xxl),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AsaniLogoTile(size: 56),
+                              const SizedBox(height: Gap.xl),
+                              Text('Welcome to Asani',
+                                  style: AppText.headline.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                              const SizedBox(height: Gap.sm),
+                              Text("Enter your mobile number. We'll send a 6-digit code by SMS.",
+                                  style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted, height: 1.5)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Gap.xl, 28, Gap.xl, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Mobile number', style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+                          const SizedBox(height: Gap.sm),
+                          _PhoneField(
+                            controller: _controller,
+                            enabled: !_sending,
+                            valid: _valid,
+                            onChanged: () => setState(() {}),
+                            onSubmitted: _send,
+                          ),
+                          if (Env.isDemo) ...[
+                            const SizedBox(height: Gap.lg),
+                            const _DemoNote(text: 'Demo mode: use 300 1234567 to see a sample family and visit history. Any 3XX number works.'),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xl + 4),
+                        child: FilledButton(
+                          onPressed: _valid && !_sending ? _send : null,
+                          child: _sending
+                              ? const ButtonSpinner()
+                              : const Row(mainAxisSize: MainAxisSize.min, children: [
+                                  Text('Send code'),
+                                  SizedBox(width: Gap.xs),
+                                  Icon(Icons.chevron_right_rounded),
+                                ]),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            Transform.translate(
-              offset: const Offset(0, -Gap.xxxl),
-              child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                  padding: const EdgeInsets.all(Gap.xl),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(Radii.card + 4),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                  Text('Welcome', style: AppText.titleLarge),
-                  const SizedBox(height: Gap.xs),
-                  Text('Sign in with your mobile number.', style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary)),
-                  const SizedBox(height: Gap.xl),
-                  Text('Mobile number', style: AppText.labelMedium),
-                  const SizedBox(height: Gap.sm),
-                  Row(
-                    children: [
-                      Container(
-                        height: 56,
-                        padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.muted,
-                          borderRadius: BorderRadius.circular(Radii.button),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Text('+92', style: AppText.labelLarge),
-                      ),
-                      const SizedBox(width: Gap.sm),
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          enabled: !_sending,
-                          keyboardType: TextInputType.phone,
-                          textInputAction: TextInputAction.done,
-                          autofocus: true,
-                          autofillHints: const [AutofillHints.telephoneNumberNational],
-                          style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w500, letterSpacing: 0.5),
-                          inputFormatters: [_PkPhoneFormatter()],
-                          decoration: const InputDecoration(hintText: '300 1234567'),
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => _send(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: Gap.xl),
-                  FilledButton(
-                    onPressed: _valid && !_sending ? _send : null,
-                    child: _sending
-                        ? const ButtonSpinner()
-                        : const Text('Send code'),
-                  ),
-                  const SizedBox(height: Gap.md),
-                  Text("We'll send a 6-digit code by SMS.", textAlign: TextAlign.center, style: AppText.bodyMedium),
-                  ],
-                  ),
-                  ),
-                  const SizedBox(height: Gap.lg),
-                  if (Env.isDemo)
-                    const _DemoNote(text: 'Demo mode: use 300 1234567 to see a sample family and visit history. Any 3XX number works.'),
-                ],
-              ),
-            ),
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// "+92 | 300 1234567 ✓" in one cream field with a green edge (board S-02).
+class _PhoneField extends StatelessWidget {
+  const _PhoneField({
+    required this.controller,
+    required this.enabled,
+    required this.valid,
+    required this.onChanged,
+    required this.onSubmitted,
+  });
+  final TextEditingController controller;
+  final bool enabled;
+  final bool valid;
+  final VoidCallback onChanged;
+  final VoidCallback onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary, width: 1.5),
+      ),
+      child: Row(children: [
+        Text('+92', style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(width: Gap.md),
+        Container(width: 1, height: 24, color: AppColors.border),
+        const SizedBox(width: Gap.md),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.done,
+            autofocus: true,
+            autofillHints: const [AutofillHints.telephoneNumberNational],
+            style: AppText.titleMedium.copyWith(fontSize: 17, letterSpacing: 0.6),
+            inputFormatters: [_PkPhoneFormatter()],
+            decoration: const InputDecoration(
+              hintText: '300 1234567',
+              filled: false,
+              isDense: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+            onChanged: (_) => onChanged(),
+            onSubmitted: (_) => onSubmitted(),
+          ),
+        ),
+        if (valid)
+          Semantics(
+            label: 'Number looks right',
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+              child: const Icon(Icons.check_rounded, size: 15, color: AppColors.onPrimary),
+            ),
+          ),
+      ]),
     );
   }
 }
@@ -175,13 +217,14 @@ class _DemoNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(Gap.md),
-        decoration: BoxDecoration(color: AppColors.infoContainer, borderRadius: BorderRadius.circular(Radii.button)),
+        // Demo builds only. Cream, not blue: blue is kept for "Your turn" (D-43).
+        decoration: BoxDecoration(color: AppColors.muted, borderRadius: BorderRadius.circular(Radii.button)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.info),
+            const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.primary),
             const SizedBox(width: Gap.sm),
-            Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.infoDark))),
+            Expanded(child: Text(text, style: AppText.bodyMedium.copyWith(color: AppColors.textPrimary))),
           ],
         ),
       );
