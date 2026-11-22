@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Native splash: Asani teal with the "a" monogram (shown before Flutter starts). -->
+<!-- Native splash (before Flutter starts): forest green with the cream logo
+     tile, same as the app's splash (S-01, 2026 logo). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/asani_primary" />
     <item>
-        <bitmap android:gravity="center" android:src="@drawable/ic_launcher_foreground" />
+        <bitmap android:gravity="center" android:src="@drawable/splash_logo" />
     </item>
 </layer-list>

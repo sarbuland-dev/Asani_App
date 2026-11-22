@@ -1,28 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar icon for pushes: the Asani "a" mark (AsaniMark painter, 100x100 box)
-     in plain white. Android tints it; it must be one colour on transparent. -->
+<!-- Status-bar icon for pushes: the Asani "a" mark (2026 logo, same paths as
+     AsaniMark / the screens board) in plain white. Android tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <group android:translateX="6" android:translateY="-4">
-        <!-- ring -->
+    <group android:translateX="2" android:translateY="-4">
         <path
-            android:pathData="M22,54 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="13" />
-        <!-- stem -->
-        <path
-            android:pathData="M66,31 L66,77"
+            android:pathData="M43.8,34.3A22,22 0,1 0,60.9 62.8"
             android:strokeColor="#FFFFFFFF"
             android:strokeWidth="13"
-            android:strokeLineCap="round" />
-        <!-- small plus in the counter -->
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
         <path
-            android:pathData="M44,47 L44,61 M37,54 L51,54"
+            android:pathData="M62,34V64Q62,80 75,74L86,62"
             android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="5"
-            android:strokeLineCap="round" />
+            android:strokeWidth="13"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
     </group>
 </vector>

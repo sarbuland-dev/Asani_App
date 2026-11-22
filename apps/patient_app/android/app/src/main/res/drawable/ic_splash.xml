@@ -1,27 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ system splash icon: the white "a" mark (same shape as
-     AsaniMark / ic_notification), scaled to sit inside the round mask. -->
+<!-- Android 12+ system splash icon: the green "a" mark (2026 logo) on the
+     cream icon circle (windowSplashScreenIconBackgroundColor), scaled to sit
+     inside the round mask. Logo colours only: green on cream. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="288dp"
     android:height="288dp"
     android:viewportWidth="100"
     android:viewportHeight="100">
-    <group android:pivotX="50" android:pivotY="50" android:scaleX="0.62" android:scaleY="0.62">
-        <group android:translateX="6" android:translateY="-4">
+    <group android:pivotX="50" android:pivotY="50" android:scaleX="0.46" android:scaleY="0.46">
+        <group android:translateX="2" android:translateY="-4">
             <path
-                android:pathData="M22,54 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0"
-                android:strokeColor="#FFFFFFFF"
-                android:strokeWidth="13" />
-            <path
-                android:pathData="M66,31 L66,77"
-                android:strokeColor="#FFFFFFFF"
+                android:pathData="M43.8,34.3A22,22 0,1 0,60.9 62.8"
+                android:strokeColor="#FF004741"
                 android:strokeWidth="13"
-                android:strokeLineCap="round" />
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round" />
             <path
-                android:pathData="M44,47 L44,61 M37,54 L51,54"
-                android:strokeColor="#FFFFFFFF"
-                android:strokeWidth="5"
-                android:strokeLineCap="round" />
+                android:pathData="M62,34V64Q62,80 75,74L86,62"
+                android:strokeColor="#FF004741"
+                android:strokeWidth="13"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round" />
         </group>
     </group>
 </vector>
