@@ -11,6 +11,7 @@ import '../../core/utils/device.dart';
 import '../../core/utils/launch.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/repositories.dart';
+import '../home/home_screen.dart' show showCityPicker;
 import '../shell/main_shell.dart';
 
 
@@ -28,126 +29,170 @@ class AccountScreen extends ConsumerWidget {
     final simDoctors = sim.doctorsWithMyActiveTokens();
     if (user == null) return const Scaffold(body: SizedBox());
 
+    final on = _alertsOn(user, settings);
+    final city = ref.watch(selectedCityProvider);
+    Widget card(List<Widget> children) => Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: children),
+        );
+
     return StatusBarScrim(
       child: Scaffold(
       body: ListView(
         padding: const EdgeInsets.only(bottom: kNavBarClearance),
         children: [
-          GradientHeader(
-            child: Row(children: [
-              InitialsAvatar(name: user.name, size: 64, bg: AppColors.surface, fg: AppColors.primary),
-              const SizedBox(width: Gap.lg),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(user.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
-                  Text(Fmt.phone(user.phone), style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
-                ]),
-              ),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(Gap.screen),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: Column(children: [
-                  _Tile(icon: Icons.edit_outlined, label: 'Edit name', onTap: () => _editName(context, ref, user.name)),
-                  _Tile(
-                    icon: Icons.notifications_none_rounded,
-                    label: 'Notifications',
-                    value: _alertsOn(user, settings) ? 'On' : 'Off',
-                    valueColor: _alertsOn(user, settings) ? AppColors.success : AppColors.danger,
-                    onTap: () => _toggleNotifications(context, ref, _alertsOn(user, settings)),
-                  ),
-                  _Tile(icon: Icons.shield_outlined, label: 'Privacy Policy', onTap: () => openUrl(context, AppLinks.privacy)),
-                  _Tile(icon: Icons.description_outlined, label: 'Terms', onTap: () => openUrl(context, AppLinks.terms)),
-                  _Tile(icon: Icons.help_outline_rounded, label: 'Contact support', onTap: () => openUrl(context, AppLinks.support)),
-                  const _Tile(icon: Icons.info_outline_rounded, label: 'App version', value: appVersion, last: true),
-                ]),
-              ),
-              // Autostart tip: only Xiaomi/Redmi/POCO phones need it.
-              if (isXiaomi) ...[
-              const SizedBox(height: Gap.lg),
-              AppCard(
-                color: AppColors.warningContainer.withValues(alpha: 0.6),
-                borderColor: AppColors.warningContainer,
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const IconBox(icon: Icons.phone_android_rounded, bg: AppColors.warningContainer, fg: AppColors.warning),
-                  const SizedBox(width: Gap.md),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Using a Xiaomi/Redmi phone?', style: AppText.labelLarge),
-                      Text("Turn on Autostart so you don't miss alerts.", style: AppText.bodyMedium),
-                      const SizedBox(height: Gap.sm),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.warning, side: const BorderSide(color: AppColors.warning)),
-                        onPressed: () => _showMiuiGuide(context),
-                        child: const Text('Show me how'),
+          // Board P6 S-16: "Account" and a cream card with the user and Edit name.
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Gap.xl, 20, 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('Account', style: AppText.headline.copyWith(color: AppColors.onPrimary, fontSize: 26, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 6, 14),
+                    decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(18)),
+                    child: Row(children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                        child: Text(Fmt.initials(user.name),
+                            style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
                       ),
+                      const SizedBox(width: Gap.md),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(user.name, style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(Fmt.phone(user.phone), style: AppText.labelSmall),
+                        ]),
+                      ),
+                      TextButton(onPressed: () => _editName(context, ref, user.name), child: const Text('Edit name')),
                     ]),
                   ),
                 ]),
               ),
-              ],
-              // Demo mode only: in Firebase mode tools/queue-sim moves the real queue.
-              if (Env.isDemo) ...[
-              const SizedBox(height: Gap.lg),
-              // Stand-in for the clinic desktop app until Phase 2 (tools/queue-sim).
-              AppCard(
-                color: AppColors.infoContainer.withValues(alpha: 0.5),
-                borderColor: AppColors.infoContainer,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    const Icon(Icons.science_outlined, color: AppColors.info),
-                    const SizedBox(width: Gap.sm),
-                    Text('Demo tools', style: AppText.labelLarge.copyWith(color: AppColors.infoDark)),
-                  ]),
-                  const SizedBox(height: Gap.xs),
-                  Text('The clinic side is simulated. Queues move forward on their own every 15 seconds.',
-                      style: AppText.bodyMedium),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('Auto-move queues', style: AppText.labelMedium),
-                    value: settings?.autoAdvanceQueue ?? true,
-                    onChanged: (v) {
-                      final repo = ref.read(settingsRepositoryProvider);
-                      repo.update(repo.settings.copyWith(autoAdvanceQueue: v));
-                    },
-                  ),
-                  for (final d in simDoctors)
-                    Padding(
-                      padding: const EdgeInsets.only(top: Gap.xs),
-                      child: OutlinedButton.icon(
-                        onPressed: () => sim.advanceQueue(d.id),
-                        icon: const Icon(Icons.skip_next_rounded),
-                        label: Text('Next patient · ${d.name}'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, Gap.md, 20, 0),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              card([
+                _Tile(
+                  icon: Icons.notifications_none_rounded,
+                  label: 'Notifications',
+                  chip: on ? 'On' : 'Off',
+                  chipOn: on,
+                  onTap: () => _toggleNotifications(context, ref, on),
+                ),
+                _Tile(icon: Icons.location_on_outlined, label: 'City', value: city, onTap: () => showCityPicker(context, ref), last: true),
+              ]),
+              // Autostart tip: only Xiaomi/Redmi/POCO phones need it.
+              if (isXiaomi) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 6, 6),
+                  decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(16)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text.rich(
+                      TextSpan(children: [
+                        const TextSpan(text: 'Using a Xiaomi or Redmi phone? ', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const TextSpan(text: 'Turn on Autostart so alerts arrive on time.'),
+                      ]),
+                      style: AppText.labelSmall.copyWith(color: AppColors.warningText, fontSize: 13, height: 1.5),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        style: TextButton.styleFrom(foregroundColor: AppColors.warningText),
+                        onPressed: () => _showMiuiGuide(context),
+                        child: const Text('Show me how'),
                       ),
                     ),
-                  if (simDoctors.isEmpty)
-                    Text('Book a token for today to move its queue by hand.', style: AppText.labelSmall),
-                ]),
-              ),
-              ],
-              const SizedBox(height: Gap.xl),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final ok = await confirmDialog(context,
-                        title: 'Log out?', message: 'You can sign in again with your phone number.', confirmLabel: 'Log out');
-                    if (ok) await ref.read(authRepositoryProvider).signOut();
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Log out'),
+                  ]),
                 ),
-              ),
+              ],
+              const SizedBox(height: 10),
+              card([
+                _Tile(icon: Icons.shield_outlined, label: 'Privacy Policy', onTap: () => openUrl(context, AppLinks.privacy)),
+                _Tile(icon: Icons.description_outlined, label: 'Terms', onTap: () => openUrl(context, AppLinks.terms)),
+                _Tile(icon: Icons.help_outline_rounded, label: 'Contact support', onTap: () => openUrl(context, AppLinks.support), last: true),
+              ]),
+              // Demo mode only: in Firebase mode tools/queue-sim moves the real queue.
+              if (Env.isDemo) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(16)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Icon(Icons.science_outlined, color: AppColors.primary, size: 20),
+                      const SizedBox(width: Gap.sm),
+                      Text('Demo tools', style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700)),
+                    ]),
+                    const SizedBox(height: Gap.xs),
+                    Text('The clinic side is simulated. Queues move forward on their own every 15 seconds.', style: AppText.labelSmall),
+                    // Own Material so the tile's ripple shows on the cream box.
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Auto-move queues', style: AppText.labelMedium),
+                        value: settings?.autoAdvanceQueue ?? true,
+                        onChanged: (v) {
+                          final repo = ref.read(settingsRepositoryProvider);
+                          repo.update(repo.settings.copyWith(autoAdvanceQueue: v));
+                        },
+                      ),
+                    ),
+                    for (final d in simDoctors)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Gap.xs),
+                        child: OutlinedButton.icon(
+                          onPressed: () => sim.advanceQueue(d.id),
+                          icon: const Icon(Icons.skip_next_rounded),
+                          label: Text('Next patient · ${d.name}'),
+                        ),
+                      ),
+                    if (simDoctors.isEmpty) Text('Book a token for today to move its queue by hand.', style: AppText.labelSmall),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: Gap.lg),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+                    onPressed: () async {
+                      final ok = await confirmDialog(context,
+                          title: 'Log out?', message: 'You can sign in again with your phone number.', confirmLabel: 'Log out');
+                      if (ok) await ref.read(authRepositoryProvider).signOut();
+                    },
+                    child: const Text('Log out'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(foregroundColor: AppColors.danger, minimumSize: const Size.fromHeight(46)),
+                    onPressed: () => _deleteAccount(context, ref),
+                    child: const Text('Delete account'),
+                  ),
+                ),
+              ]),
               const SizedBox(height: Gap.sm),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                onPressed: () => _deleteAccount(context, ref),
-                child: const Text('Delete account'),
-              ),
+              Text('Version $appVersion', textAlign: TextAlign.center, style: AppText.labelSmall),
             ]),
           ),
         ],
@@ -320,32 +365,47 @@ class _TypeDeleteDialogState extends State<_TypeDeleteDialog> {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.label, this.value, this.valueColor, this.onTap, this.last = false});
+  const _Tile({required this.icon, required this.label, this.value, this.chip, this.chipOn = false, this.onTap, this.last = false});
   final IconData icon;
   final String label;
   final String? value;
-  final Color? valueColor;
+  final String? chip;
+  final bool chipOn;
   final VoidCallback? onTap;
   final bool last;
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-        InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-            child: Row(children: [
-              IconBox(icon: icon, size: 38),
-              const SizedBox(width: Gap.md),
-              Expanded(child: Text(label, style: AppText.labelLarge)),
-              if (value != null)
-                Text(value!, style: AppText.labelMedium.copyWith(color: valueColor ?? AppColors.textSecondary)),
-              if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-            ]),
-          ),
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: AppColors.cream))),
+          child: Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 18, color: AppColors.primary),
+            ),
+            const SizedBox(width: Gap.md),
+            Expanded(child: Text(label, style: AppText.bodyLarge.copyWith(fontSize: 15))),
+            if (chip != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: chipOn ? AppColors.successContainer : AppColors.dangerContainer,
+                  borderRadius: BorderRadius.circular(Radii.pill),
+                ),
+                child: Text(chip!,
+                    style: AppText.labelSmall.copyWith(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: chipOn ? AppColors.successText : AppColors.dangerText)),
+              ),
+            if (value != null) Text(value!, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+            if (onTap != null && chip == null) const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+          ]),
         ),
-        if (!last) const Divider(indent: Gap.lg, endIndent: Gap.lg),
-      ]);
+      );
 }
 
 /// Kept for routes that want to jump to the account tab.

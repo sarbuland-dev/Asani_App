@@ -1,5 +1,6 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -253,7 +254,10 @@ class ActiveTokenBanner extends ConsumerWidget {
   }
 }
 
-/// Token row for the Tokens tab and history lists (DESIGN S-12).
+/// Token card for the Tokens tab and history lists (board P6 S-12): the
+/// token tile (dark green while live), patient and a status chip, doctor ·
+/// clinic · day; then a strip with the live queue (active) or what happened
+/// and "Book again" (past).
 class TokenListCard extends ConsumerWidget {
   const TokenListCard({super.key, required this.token});
   final Token token;
@@ -267,84 +271,165 @@ class TokenListCard extends ConsumerWidget {
     final sessionOver = token.status.isOpenForPatient && !active;
     final isToday = token.date == dayKey(pktNow());
     final pos = active && isToday ? ref.watch(tokenPositionProvider(token.id)).value : null;
-    final (tileBg, tileFg) = sessionOver ? (AppColors.muted, AppColors.textSecondary) : switch (token.status) {
-      TokenStatus.booked || TokenStatus.onHold => (AppColors.primaryContainer, AppColors.primary),
-      TokenStatus.arrived || TokenStatus.called => (AppColors.avatarCool, AppColors.secondary),
-      TokenStatus.skipped => (AppColors.warningContainer, AppColors.warning),
-      _ => (AppColors.muted, AppColors.textSecondary),
-    };
+    final status = token.status;
+    final live = active && isToday && pos?.day.sessionStatus == SessionStatus.running;
+    final cancelled = status == TokenStatus.cancelled;
+    final missed = status == TokenStatus.noShow || (status == TokenStatus.skipped && !active);
 
+    final (chipText, chipBg, chipFg) = sessionOver && !missed
+        ? ('Session over', AppColors.cream, AppColors.textSecondary)
+        : switch (status) {
+            TokenStatus.called => ('● Your turn', AppColors.infoContainer, AppColors.info),
+            TokenStatus.completed => ('✓ Completed', AppColors.successContainer, AppColors.successText),
+            TokenStatus.cancelled => ('Cancelled', AppColors.dangerContainer, AppColors.dangerText),
+            TokenStatus.noShow => ('Missed', AppColors.warningContainer, AppColors.warningText),
+            TokenStatus.skipped => active
+                ? ('Turn passed', AppColors.warningContainer, AppColors.warningText)
+                : ('Missed', AppColors.warningContainer, AppColors.warningText),
+            TokenStatus.onHold => ('On hold', AppColors.warningContainer, AppColors.warningText),
+            _ => live
+                ? ('● Live', AppColors.primaryContainer, AppColors.primary)
+                : (isToday ? 'Today' : Fmt.shortDay(token.date).replaceAll(',', ''), AppColors.cream, AppColors.textSecondary),
+          };
+
+    final day = isToday ? 'Today' : Fmt.shortDay(token.date).replaceAll(',', '');
+    final doc = (doctor?.name ?? '').split(' ').take(2).join(' ');
+    final sub = '$doc · ${clinic?.name.split(' ').first ?? ''} · $day';
+
+    // Bottom strip.
+    Widget? strip;
+    if (active && pos != null && (live || status == TokenStatus.skipped || status == TokenStatus.called)) {
+      strip = _strip(
+        cream: true,
+        left: Text.rich(
+          TextSpan(children: [
+            const TextSpan(text: 'Serving '),
+            TextSpan(
+                text: pos.day.currentToken == 0 ? '—' : '${token.tokenPrefix}-${pos.day.currentToken}',
+                style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+            const TextSpan(text: ' · '),
+            TextSpan(
+                text: status == TokenStatus.called
+                    ? 'your turn'
+                    : status == TokenStatus.skipped
+                        ? 'go to reception'
+                        : (pos.ahead == 0 ? "you're next" : '${pos.ahead} ahead'),
+                style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+          ]),
+          style: AppText.labelSmall.copyWith(fontSize: 13),
+        ),
+        action: 'View ›',
+        onAction: () => context.push('/token/${token.id}'),
+      );
+    } else if (!active) {
+      final note = switch (status) {
+        TokenStatus.completed => token.calledAt == null ? 'Visit completed' : 'Seen at ${DateFormat('h:mm a').format(token.calledAt!)}',
+        TokenStatus.cancelled => token.cancelledByClinic
+            ? 'Cancelled by clinic${(token.cancelReason ?? '').trim().isEmpty ? '' : ' · ${token.cancelReason!.trim()}'}'
+            : 'Cancelled by you',
+        _ when missed => 'Not at clinic when called',
+        _ => 'Session over',
+      };
+      strip = _strip(
+        cream: false,
+        left: Text(note, style: AppText.labelSmall.copyWith(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+        action: cancelled && token.cancelledByClinic ? 'Book another day ›' : (cancelled ? null : 'Book again ›'),
+        onAction: () => context.push('/book/${token.clinicId}/${token.doctorId}?patient=${token.patientId}'),
+      );
+    }
+
+    final tileDark = live || status == TokenStatus.called;
+    final tileMuted = cancelled || missed;
     return Padding(
       padding: const EdgeInsets.only(bottom: Gap.md),
-      child: AppCard(
-        onTap: () => context.push('/token/${token.id}'),
-        padding: const EdgeInsets.all(Gap.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 64,
-              padding: const EdgeInsets.symmetric(vertical: Gap.md),
-              decoration: BoxDecoration(color: tileBg, borderRadius: BorderRadius.circular(Radii.button)),
-              child: Column(children: [
-                if (active) FittedBox(child: Text('TOKEN', style: AppText.overline.copyWith(color: tileFg))),
-                FittedBox(
-                  child: Text(token.label, style: AppText.titleLarge.copyWith(color: tileFg, fontWeight: FontWeight.w800)),
+      child: Semantics(
+        button: true,
+        label: 'Token ${token.label}, ${token.patientSnapshot.name}, $sub. ${chipText.replaceAll(RegExp(r'[●✓] '), '')}',
+        child: Material(
+          color: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => context.push('/token/${token.id}'),
+            child: ExcludeSemantics(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: tileDark ? (status == TokenStatus.called ? AppColors.info : AppColors.primary) : AppColors.cream,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text('TOKEN',
+                            style: AppText.overline.copyWith(
+                                fontSize: 8, letterSpacing: 0.8, color: tileDark ? AppColors.onPrimaryMuted : AppColors.textSecondary)),
+                        FittedBox(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(token.label,
+                                style: AppText.titleMedium.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: tileDark ? AppColors.onPrimary : (tileMuted ? AppColors.textMuted : AppColors.primary),
+                                  decoration: cancelled ? TextDecoration.lineThrough : null,
+                                  decorationColor: AppColors.textMuted,
+                                )),
+                          ),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(width: Gap.md),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(
+                            child: Text(token.patientSnapshot.name,
+                                style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(Radii.pill)),
+                            child: Text(chipText, style: AppText.labelSmall.copyWith(color: chipFg, fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(sub, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    ),
+                  ]),
                 ),
+                ?strip,
               ]),
             ),
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Expanded(
-                      child: Text(token.patientSnapshot.name,
-                          style: AppText.titleSmall, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (sessionOver)
-                      const Pill(label: 'Session over', fg: AppColors.textSecondary, bg: AppColors.muted, dot: true)
-                    else
-                      StatusChip(token.status),
-                  ]),
-                  const SizedBox(height: 2),
-                  Text(
-                    active ? (doctor?.name ?? '') : '${doctor?.name ?? ''} · ${clinic?.name ?? ''}',
-                    style: AppText.bodyMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    active
-                        ? '${clinic?.name ?? ''} · ${Fmt.relativeDay(token.date)}'
-                        : [
-                            Fmt.shortDay(token.date),
-                            if (token.status == TokenStatus.completed && token.waitedMinutes != null)
-                              'Waited ${token.waitedMinutes} min',
-                          ].join(' · '),
-                    style: AppText.bodyMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (pos != null) ...[
-                    const SizedBox(height: Gap.xs),
-                    Row(children: [
-                      Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(liveLine(token, pos.day, pos.ahead),
-                            style: AppText.labelSmall.copyWith(color: AppColors.success, fontWeight: FontWeight.w600)),
-                      ),
-                    ]),
-                  ],
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _strip({required bool cream, required Widget left, String? action, required VoidCallback onAction}) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 9, 6, 9),
+        decoration: BoxDecoration(
+          color: cream ? AppColors.cream : AppColors.surface,
+          border: cream ? null : const Border(top: BorderSide(color: AppColors.cream)),
+        ),
+        child: Row(children: [
+          Expanded(child: left),
+          if (action != null)
+            InkWell(
+              onTap: onAction,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Text(action, style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ]),
+      );
 }

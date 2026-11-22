@@ -23,15 +23,27 @@ class ProfileFormScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GradientHeader(
-            child: Row(children: [
-              const HeaderBackButton(),
-              const SizedBox(width: Gap.md),
-              Expanded(
-                child: Text(existing == null ? 'Add family member' : 'Edit profile',
-                    style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
+          // Board P6 S-14: green header with close and the centred title.
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 18),
+                child: Row(children: [
+                  const HeaderBackButton(icon: Icons.close_rounded),
+                  Expanded(
+                    child: Text(existing == null ? 'Add family member' : 'Edit profile',
+                        textAlign: TextAlign.center,
+                        style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 44),
+                ]),
               ),
-            ]),
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(

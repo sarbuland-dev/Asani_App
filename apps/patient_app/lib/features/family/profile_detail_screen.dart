@@ -8,166 +8,256 @@ import '../../data/providers.dart';
 import '../home/home_screen.dart' show followUpBookingPath;
 import 'profile_form.dart';
 
-/// S-15 profile detail: follow-ups + visit history (PRD F-08, F-09).
-class ProfileDetailScreen extends ConsumerWidget {
+/// S-15 profile detail (PRD F-08, F-09; board P6): green header with back,
+/// "Profile" and Edit, the person, and Visits · n | Follow-ups · n tabs.
+/// Visits: the next follow-up (lime) then every token, newest first.
+class ProfileDetailScreen extends ConsumerStatefulWidget {
   const ProfileDetailScreen({super.key, required this.patientId});
   final String patientId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileDetailScreen> createState() => _ProfileDetailScreenState();
+}
+
+class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
+  bool _followUps = false;
+
+  @override
+  Widget build(BuildContext context) {
     final patients = ref.watch(myPatientsProvider);
-    final patient = patients.value?.where((p) => p.id == patientId).firstOrNull;
+    final patient = patients.value?.where((p) => p.id == widget.patientId).firstOrNull;
     if (patient == null) {
       return StatusBarScrim(
-      child: Scaffold(
-        appBar: AppBar(),
-        body: patients.isLoading
-            ? const Center(child: AsaniLoader())
-            : const EmptyState(icon: Icons.person_off_outlined, title: 'Profile not found', message: 'This profile was removed.'),
-      ));
+        child: Scaffold(
+          appBar: AppBar(),
+          body: patients.isLoading
+              ? const Center(child: AsaniLoader())
+              : const EmptyState(icon: Icons.person_off_outlined, title: 'Profile not found', message: 'This profile was removed.'),
+        ),
+      );
     }
-    final tokens = (ref.watch(myTokensProvider).value ?? const <Token>[]).where((t) => t.patientId == patientId).toList()
+    final tokens = (ref.watch(myTokensProvider).value ?? const <Token>[]).where((t) => t.patientId == widget.patientId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final history = tokens.where((t) => !t.status.isOpenForPatient).toList();
-    final active = tokens.where((t) => t.status.isOpenForPatient).toList();
-    final followUps = ref.watch(upcomingFollowUpsProvider).where((f) => f.patientId == patientId).toList();
-    final (bg, fg) = InitialsAvatar.colorsFor(patient.relation);
+    final followUps = ref.watch(upcomingFollowUpsProvider).where((f) => f.patientId == widget.patientId).toList();
+    final visits = tokens.where((t) => t.status == TokenStatus.completed).length;
 
-    return Scaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          GradientHeader(
-            padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.md, Gap.screen, Gap.xl),
-            child: Column(children: [
-              Row(children: [
-                const HeaderBackButton(),
-                const Spacer(),
-                HeaderBackButton(icon: Icons.edit_outlined, onPressed: () => context.push('/family/${patient.id}/edit')),
-              ]),
-              InitialsAvatar(name: patient.name, size: 84, bg: bg, fg: fg),
-              const SizedBox(height: Gap.md),
-              Text(patient.name, style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
-              const SizedBox(height: 2),
-              Text(patientSubtitle(patient), style: AppText.bodyLarge.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.screen, 0, Gap.screen, Gap.xxl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (active.isNotEmpty) ...[
-                  const SectionTitle('Active tokens'),
-                  for (final t in active) _HistoryItem(token: t, last: t == active.last),
-                ],
-                if (followUps.isNotEmpty) ...[
-                  const SectionTitle('Upcoming follow-up'),
-                  for (final f in followUps) _FollowUpTile(followUp: f),
-                ],
-                SectionTitle(
-                  'Visit history',
-                  trailing: Text('${history.where((t) => t.status == TokenStatus.completed).length} visits', style: AppText.labelSmall),
+    Widget tab(String label, bool on, VoidCallback onTap) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: on,
+            child: InkWell(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: on ? AppColors.onPrimary : Colors.transparent, width: 3)),
                 ),
-                if (history.isEmpty)
-                  Text('No visits yet.', style: AppText.bodyMedium)
-                else
-                  for (final t in history) _HistoryItem(token: t, last: t == history.last),
-                const SizedBox(height: Gap.xl),
-                FilledButton(
-                  onPressed: () => context.go('/home'),
-                  child: Text('Book a token for ${patient.name.split(' ').first}'),
-                ),
-              ],
+                child: Text(label,
+                    textAlign: TextAlign.center,
+                    style: AppText.labelMedium.copyWith(color: on ? AppColors.onPrimary : AppColors.primarySoft, fontWeight: FontWeight.w700)),
+              ),
             ),
           ),
-        ],
+        );
+
+    return StatusBarScrim(
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      const HeaderBackButton(),
+                      Expanded(
+                        child: Text('Profile',
+                            textAlign: TextAlign.center,
+                            style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: AppColors.onPrimary),
+                        onPressed: () => context.push('/family/${patient.id}/edit'),
+                        child: const Text('Edit'),
+                      ),
+                    ]),
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(color: AppColors.cream, shape: BoxShape.circle),
+                        child: Text(Fmt.initials(patient.name),
+                            style: AppText.titleMedium.copyWith(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(patient.name,
+                              style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+                          Text(patientSubtitle(patient), style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted, fontSize: 13)),
+                        ]),
+                      ),
+                    ]),
+                    const SizedBox(height: Gap.sm),
+                    Row(children: [
+                      tab('Visits · $visits', !_followUps, () => setState(() => _followUps = false)),
+                      tab('Follow-ups · ${followUps.length}', _followUps, () => setState(() => _followUps = true)),
+                    ]),
+                  ]),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, Gap.xxl),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (_followUps) ...[
+                  if (followUps.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Gap.xl),
+                      child: Text('No follow-ups due.', textAlign: TextAlign.center, style: AppText.bodyMedium),
+                    ),
+                  for (final f in followUps) _FollowUpCard(followUp: f),
+                ] else ...[
+                  if (followUps.isNotEmpty) _FollowUpCard(followUp: followUps.first),
+                  if (tokens.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: Gap.xl),
+                      child: Text('No visits yet.', textAlign: TextAlign.center, style: AppText.bodyMedium),
+                    ),
+                  for (final t in tokens) _VisitCard(token: t),
+                  const SizedBox(height: Gap.md),
+                  FilledButton(
+                    onPressed: () => context.go('/home'),
+                    child: Text('Book a token for ${patient.name.split(' ').first}'),
+                  ),
+                ],
+              ]),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _FollowUpTile extends ConsumerWidget {
-  const _FollowUpTile({required this.followUp});
+/// Lime follow-up card with Book (board P6).
+class _FollowUpCard extends ConsumerWidget {
+  const _FollowUpCard({required this.followUp});
   final FollowUp followUp;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctor = ref.watch(doctorProvider(followUp.doctorId)).value;
-    return AppCard(
-      padding: const EdgeInsets.all(Gap.md),
-      child: Row(children: [
-        const IconBox(icon: Icons.event_outlined, bg: AppColors.warningContainer, fg: AppColors.warning),
-        const SizedBox(width: Gap.md),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(doctor?.name ?? '', style: AppText.labelLarge),
-            Text('Due ${Fmt.shortDay(followUp.dueDate)}', style: AppText.bodyMedium),
-            const SizedBox(height: 4),
-            Pill(label: followUp.status.label, fg: AppColors.warning, bg: AppColors.warningContainer),
-          ]),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size(72, 44)),
-          onPressed: () => context.push(followUpBookingPath(followUp)),
-          child: const Text('Book'),
-        ),
-      ]),
+    final doc = (doctor?.name ?? '').split(' ').take(2).join(' ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(gradient: AppColors.limeGradient, borderRadius: BorderRadius.circular(18)),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('FOLLOW-UP DUE',
+                  style: AppText.labelSmall.copyWith(color: AppColors.onLimeMuted, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
+              Text('${Fmt.shortDay(followUp.dueDate)} · $doc',
+                  style: AppText.labelMedium.copyWith(color: AppColors.onLime, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          Material(
+            color: AppColors.onLime,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => context.push(followUpBookingPath(followUp)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text('Book', style: AppText.labelMedium.copyWith(color: AppColors.cream, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
 
-/// Timeline item: date, status, clinic · doctor, token #, wait time.
-class _HistoryItem extends ConsumerWidget {
-  const _HistoryItem({required this.token, required this.last});
+/// One visit: token tile, date, doctor · clinic · wait, and a status chip.
+class _VisitCard extends ConsumerWidget {
+  const _VisitCard({required this.token});
   final Token token;
-  final bool last;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctor = ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = ref.watch(clinicProvider(token.clinicId)).value;
-    final completed = token.status == TokenStatus.completed;
-    final dotColor = completed ? AppColors.success : (token.status.isOpenForPatient ? AppColors.primary : AppColors.danger);
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        SizedBox(
-          width: 24,
-          child: Column(children: [
-            const SizedBox(height: 18),
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: dotColor, width: 2.5), color: AppColors.surface),
-            ),
-            if (!last) Expanded(child: Container(width: 2, color: AppColors.border)),
-          ]),
-        ),
-        const SizedBox(width: Gap.sm),
-        Expanded(
+    final status = token.status;
+    final completed = status == TokenStatus.completed;
+    final (chip, bg, fg) = switch (status) {
+      TokenStatus.completed => ('Done', AppColors.successContainer, AppColors.successText),
+      TokenStatus.cancelled => ('Cancelled', AppColors.dangerContainer, AppColors.dangerText),
+      TokenStatus.noShow => ('Missed', AppColors.warningContainer, AppColors.warningText),
+      _ when status.isOpenForPatient => ('Active', AppColors.primaryContainer, AppColors.primary),
+      _ => (status.label, AppColors.cream, AppColors.textSecondary),
+    };
+    final doc = (doctor?.name ?? '').split(' ').take(2).join(' ');
+    final sub = [
+      doc,
+      clinic?.name ?? '',
+      if (completed && token.waitedMinutes != null) 'waited ${token.waitedMinutes} min',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppColors.border)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/token/${token.id}'),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: Gap.md),
-            child: AppCard(
-              onTap: () => context.push('/token/${token.id}'),
-              padding: const EdgeInsets.all(Gap.md),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(child: Text(Fmt.longDay(token.date), style: AppText.labelLarge)),
-                  StatusChip(token.status),
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
+                child: FittedBox(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(token.label,
+                        style: AppText.labelLarge.copyWith(
+                            color: completed || status.isOpenForPatient ? AppColors.primary : AppColors.textSecondary,
+                            fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: Gap.md),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(Fmt.shortDay(token.date), style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+                  Text(sub, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
-                const SizedBox(height: 2),
-                Text('${clinic?.name ?? ''} · ${doctor?.name ?? ''}', style: AppText.bodyMedium),
-                const SizedBox(height: Gap.sm),
-                Wrap(spacing: Gap.sm, runSpacing: Gap.xs, children: [
-                  Pill(label: 'Token ${token.label}', fg: AppColors.textSecondary, bg: AppColors.muted),
-                  if (completed && token.waitedMinutes != null)
-                    Pill(label: 'Waited ${token.waitedMinutes} min', fg: AppColors.textSecondary, bg: AppColors.muted),
-                ]),
-              ]),
-            ),
+              ),
+              const SizedBox(width: Gap.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(Radii.pill)),
+                child: Text(chip, style: AppText.labelSmall.copyWith(color: fg, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+            ]),
           ),
         ),
-      ]),
+      ),
     );
   }
 }

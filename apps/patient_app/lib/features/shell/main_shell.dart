@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:asani_ui/asani_ui.dart';
 
 /// Tabs: Home · Tokens · Family · Account (DESIGN.md §4).
-/// Floating teal pill bar; the selected tab grows into a white pill with its
-/// teal icon and label (contrast 5.5:1), the others show the icon only and
-/// say their name on long-press.
+/// Floating dark green pill bar (board, D-43); the selected tab grows into a
+/// green pill with its cream icon and label, the others show the icon only
+/// and say their name on long-press.
 class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.shell});
   final StatefulNavigationShell shell;
@@ -28,13 +28,14 @@ class MainShell extends StatelessWidget {
         child: SafeArea(
           minimum: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
           child: Container(
-            height: 72,
+            // Board (D-43): darkest green pill, soft shadow.
+            height: 70,
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: AppColors.navy,
               borderRadius: BorderRadius.circular(Radii.pill),
-              boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 18, offset: const Offset(0, 6))],
+              boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.28), blurRadius: 28, offset: const Offset(0, 12))],
             ),
-            padding: const EdgeInsets.all(Gap.sm),
+            padding: const EdgeInsets.all(9),
             child: Row(
               children: [
                 for (var i = 0; i < _items.length; i++)
@@ -101,14 +102,14 @@ class _NavItem extends StatelessWidget {
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
-                color: selected ? AppColors.surface : Colors.transparent,
+                color: selected ? AppColors.primaryMid : Colors.transparent,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
-              padding: EdgeInsets.symmetric(horizontal: showLabel ? 14 : 4, vertical: 8),
+              padding: EdgeInsets.fromLTRB(showLabel ? 16 : 4, 14, showLabel ? 22 : 4, 14),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(selected ? activeIcon : icon, color: selected ? AppColors.primary : AppColors.onPrimary.withValues(alpha: 0.85), size: 24),
+                  Icon(selected ? activeIcon : icon, color: selected ? AppColors.onPrimary : AppColors.primarySoft, size: 24),
                   if (showLabel) ...[
                     const SizedBox(width: Gap.sm),
                     Flexible(
@@ -118,7 +119,7 @@ class _NavItem extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.fade,
                           softWrap: false,
-                          style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+                          style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),

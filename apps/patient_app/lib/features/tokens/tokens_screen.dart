@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:asani_core/asani_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:asani_ui/asani_ui.dart';
@@ -22,18 +24,30 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = ref.watch(_past ? myPastTokensProvider : myActiveTokensProvider);
+    final activeCount = ref.watch(myActiveTokensProvider).value?.length;
     return StatusBarScrim(
       child: Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          GradientHeader(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const SizedBox(height: Gap.sm),
-              Text('My tokens', style: AppText.headline.copyWith(color: AppColors.onPrimary)),
-              const SizedBox(height: Gap.lg),
-              _Segmented(past: _past, onChanged: (v) => setState(() => _past = v)),
-            ]),
+          // Board P6 S-12: green header, "My tokens", Active · n | Past.
+          Container(
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, Gap.xl, 20, 18),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('My tokens',
+                      style: AppText.headline.copyWith(color: AppColors.onPrimary, fontSize: 26, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 14),
+                  _Segmented(past: _past, activeCount: activeCount, onChanged: (v) => setState(() => _past = v)),
+                ]),
+              ),
+            ),
           ),
           Expanded(
             child: tokens.when(
@@ -58,7 +72,16 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.lg, Gap.screen, kNavBarClearance),
                       children: [
-                        for (final t in list) TokenListCard(token: t),
+                        // Past: grouped by month (board), newest first.
+                        for (var i = 0; i < list.length; i++) ...[
+                          if (_past && (i == 0 || _month(list[i].date) != _month(list[i - 1].date)))
+                            Padding(
+                              padding: EdgeInsets.only(top: i == 0 ? 0 : Gap.sm, bottom: Gap.sm),
+                              child: Text(_month(list[i].date),
+                                  style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+                            ),
+                          TokenListCard(token: list[i]),
+                        ],
                         // Past list: the live query holds the latest 100; older ones on demand.
                         if (_past) const _LoadOlder(),
                       ],
@@ -70,6 +93,8 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
     ));
   }
 }
+
+String _month(String dayKey) => DateFormat('MMMM y').format(parseDayKey(dayKey));
 
 class _LoadOlder extends ConsumerWidget {
   const _LoadOlder();
@@ -88,8 +113,9 @@ class _LoadOlder extends ConsumerWidget {
 }
 
 class _Segmented extends StatelessWidget {
-  const _Segmented({required this.past, required this.onChanged});
+  const _Segmented({required this.past, required this.activeCount, required this.onChanged});
   final bool past;
+  final int? activeCount;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -107,11 +133,13 @@ class _Segmented extends StatelessWidget {
               height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? AppColors.surface : Colors.transparent,
+                color: selected ? AppColors.cream : Colors.transparent,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
               child: Text(label,
-                  style: AppText.labelMedium.copyWith(color: selected ? AppColors.primary : AppColors.onPrimary)),
+                  style: AppText.labelMedium.copyWith(
+                      color: selected ? AppColors.primary : AppColors.onPrimaryMuted,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600)),
             ),
           ),
         ),
@@ -120,8 +148,8 @@ class _Segmented extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.headerChip, borderRadius: BorderRadius.circular(Radii.pill)),
-      child: Row(children: [seg('Active', false), seg('Past', true)]),
+      decoration: BoxDecoration(color: AppColors.primaryMid, borderRadius: BorderRadius.circular(Radii.pill)),
+      child: Row(children: [seg(activeCount == null || activeCount == 0 ? 'Active' : 'Active · $activeCount', false), seg('Past', true)]),
     );
   }
 }

@@ -107,168 +107,302 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     }
   }
 
+  void _stepAge(int by) {
+    final now = _ageValue ?? 0;
+    if (_age.text.isEmpty && by < 0) return;
+    setState(() => _age.text = '${(now + by).clamp(0, 120)}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final patients = ref.watch(myPatientsProvider).value ?? const [];
     final dup = _duplicate(patients);
+    final name = _name.text.trim();
+    final rel = _isSelf ? 'Self' : _relation.label;
+    final details = [rel, if (_ageValue != null) '$_ageValue years', if (_gender != null) _gender!.label].join(' · ');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Board P6 S-14: live preview of the profile as you type.
+        Semantics(
+          label: 'Preview: ${name.isEmpty ? 'no name yet' : name}, $details',
+          excludeSemantics: true,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(color: AppColors.primaryMid, borderRadius: BorderRadius.circular(20)),
+            child: Row(children: [
+              Container(
+                width: 58,
+                height: 58,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.cream,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: AppColors.cream.withValues(alpha: 0.18), spreadRadius: 4)],
+                ),
+                child: name.isEmpty
+                    ? const Icon(Icons.person_outline_rounded, color: AppColors.primary)
+                    : Text(Fmt.initials(name), style: AppText.titleMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name.isEmpty ? 'Name' : name,
+                      style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  Text(details, style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted, fontSize: 13)),
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.cream.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(Radii.pill)),
+                child: Text('Preview', style: AppText.labelSmall.copyWith(color: AppColors.onPrimary, fontSize: 11, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
+        ),
+        const SizedBox(height: Gap.lg),
         _label('Full name'),
         TextField(
           controller: _name,
           textCapitalization: TextCapitalization.words,
           style: AppText.bodyLarge,
-          decoration: const InputDecoration(hintText: 'e.g. Shazia Begum'),
+          decoration: const InputDecoration(
+            hintText: 'e.g. Shazia Begum',
+            prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.primary),
+          ),
           onChanged: (_) => setState(() => _ignoreDuplicate = false),
         ),
         if (dup != null) ...[
           const SizedBox(height: Gap.sm),
           Container(
-            padding: const EdgeInsets.all(Gap.md),
-            decoration: BoxDecoration(
-              color: AppColors.warningContainer,
-              borderRadius: BorderRadius.circular(Radii.button),
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 6, 6),
+            decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+                const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
                 const SizedBox(width: Gap.sm),
                 Expanded(
                   child: Text.rich(
-                    TextSpan(style: AppText.bodyMedium.copyWith(color: AppColors.textPrimary), children: [
-                      const TextSpan(text: 'Looks like '),
+                    TextSpan(style: AppText.labelSmall.copyWith(color: AppColors.warningText), children: [
+                      const TextSpan(text: 'A profile named '),
                       TextSpan(text: dup.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const TextSpan(text: ' already exists. Use that instead?'),
+                      const TextSpan(text: ' already exists on this number.'),
                     ]),
                   ),
                 ),
               ]),
-              const SizedBox(height: Gap.sm),
-              Row(children: [
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: AppColors.warning, minimumSize: const Size(0, 40)),
-                  onPressed: () => widget.onSaved(dup),
-                  child: const Text('Use existing'),
-                ),
-                const SizedBox(width: Gap.sm),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 TextButton(
-                  style: TextButton.styleFrom(foregroundColor: AppColors.warning),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.warningText),
                   onPressed: () => setState(() => _ignoreDuplicate = true),
                   child: const Text('Add anyway'),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: AppColors.warningText),
+                  onPressed: () => widget.onSaved(dup),
+                  child: const Text('Use existing'),
                 ),
               ]),
             ]),
           ),
         ],
-        const SizedBox(height: Gap.lg),
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              _label('Age (years)'),
-              TextField(
-                controller: _age,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
-                style: AppText.bodyLarge,
-                decoration: const InputDecoration(hintText: 'e.g. 55'),
-                onChanged: (_) => setState(() {}),
-              ),
-            ]),
-          ),
-          if (!_isSelf) ...[
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _label('Relation'),
-                DropdownButtonFormField<Relation>(
-                  initialValue: _relation,
-                  isExpanded: true,
-                  style: AppText.bodyLarge,
-                  borderRadius: BorderRadius.circular(Radii.button),
-                  items: [for (final r in _relations) DropdownMenuItem(value: r, child: Text(r.label))],
-                  onChanged: (r) => setState(() => _relation = r ?? _relation),
-                ),
-              ]),
-            ),
-          ],
-        ]),
-        const SizedBox(height: Gap.lg),
-        _label('Gender'),
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: AppColors.muted, borderRadius: BorderRadius.circular(Radii.pill)),
-          child: Row(children: [
-            for (final g in Gender.values)
-              Expanded(
-                child: Semantics(
-                  selected: _gender == g,
+        if (!_isSelf) ...[
+          const SizedBox(height: Gap.lg),
+          _label('Relation'),
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.8 / (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(1.0, 1.8),
+            children: [
+              for (final r in _relations)
+                Semantics(
                   button: true,
+                  selected: _relation == r,
+                  label: r.label,
+                  excludeSemantics: true,
                   child: GestureDetector(
-                    onTap: () => setState(() => _gender = g),
+                    onTap: () => setState(() => _relation = r),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      height: 44,
+                      duration: const Duration(milliseconds: 160),
                       alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        color: _gender == g ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(Radii.pill),
+                        borderRadius: BorderRadius.circular(12),
+                        border: _relation == r ? null : Border.all(color: const Color(0xFFB9D3CA)),
+                        gradient: _relation == r
+                            ? const LinearGradient(colors: [AppColors.primaryMid, AppColors.primary])
+                            : const LinearGradient(
+                                begin: Alignment(-0.3, -1), end: Alignment(0.3, 1), colors: [Color(0xFFE8F1EE), Color(0xFFCDE2DA)]),
                       ),
-                      child: Text(g.label,
-                          style: AppText.labelMedium.copyWith(color: _gender == g ? AppColors.onPrimary : AppColors.textSecondary)),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(_relation == r ? '✓ ${r.label}' : r.label,
+                            style: AppText.labelSmall.copyWith(
+                                fontWeight: FontWeight.w700, color: _relation == r ? AppColors.onPrimary : AppColors.primary)),
+                      ),
                     ),
                   ),
                 ),
+            ],
+          ),
+        ],
+        const SizedBox(height: Gap.lg),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          SizedBox(
+            width: 132,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _label('Age (years)'),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  _stepButton(Icons.remove_rounded, 'One year less', false, () => _stepAge(-1)),
+                  Expanded(
+                    child: TextField(
+                      controller: _age,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                      style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w700),
+                      decoration: const InputDecoration(
+                        hintText: '–',
+                        filled: false,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  _stepButton(Icons.add_rounded, 'One year more', true, () => _stepAge(1)),
+                ]),
               ),
-          ]),
-        ),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _label('Gender'),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  for (final g in Gender.values)
+                    Expanded(
+                      child: Semantics(
+                        selected: _gender == g,
+                        button: true,
+                        label: g.label,
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _gender = g),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _gender == g ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(g.label,
+                                  style: AppText.labelMedium.copyWith(
+                                      fontSize: 13,
+                                      color: _gender == g ? AppColors.onPrimary : AppColors.textSecondary,
+                                      fontWeight: _gender == g ? FontWeight.w700 : FontWeight.w600)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
         if (!_isSelf) ...[
           const SizedBox(height: Gap.lg),
-          _label('Phone (optional)'),
-          Row(children: [
-            Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.muted,
-                borderRadius: BorderRadius.circular(Radii.button),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Text('+92', style: AppText.labelLarge),
+          _label('Phone (optional, if they have their own number)'),
+          Container(
+            height: 54,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _phoneOk ? AppColors.border : AppColors.danger),
             ),
-            const SizedBox(width: Gap.sm),
-            Expanded(
-              child: TextField(
-                controller: _phone,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-                style: AppText.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: '300 1234567',
-                  errorText: _phoneOk ? null : 'Enter 10 digits starting with 3',
+            clipBehavior: Clip.antiAlias,
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppColors.cream,
+                  border: Border(right: BorderSide(color: AppColors.border)),
                 ),
-                onChanged: (_) => setState(() {}),
+                child: Text('+92', style: AppText.labelLarge.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
               ),
+              Expanded(
+                child: TextField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                  style: AppText.bodyLarge,
+                  decoration: const InputDecoration(
+                    hintText: '3XX XXXXXXX',
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ]),
+          ),
+          if (!_phoneOk)
+            Padding(
+              padding: const EdgeInsets.only(top: Gap.xs),
+              child: Text('Enter 10 digits starting with 3', style: AppText.labelSmall.copyWith(color: AppColors.danger)),
             ),
-          ]),
-          const SizedBox(height: Gap.xs),
-          Text('If they have their own number.', style: AppText.labelSmall),
         ],
         const SizedBox(height: Gap.xl),
         FilledButton(
           onPressed: _valid && !_saving ? _save : null,
-          child: _saving
-              ? const ButtonSpinner()
-              : const Text('Save'),
+          child: _saving ? const ButtonSpinner() : const Text('Save profile'),
         ),
       ],
     );
   }
 
+  Widget _stepButton(IconData icon, String label, bool dark, VoidCallback onTap) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: Material(
+          color: dark ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: onTap,
+            child: SizedBox.square(dimension: 36, child: Icon(icon, size: 20, color: dark ? AppColors.onPrimary : AppColors.primary)),
+          ),
+        ),
+      );
+
   Widget _label(String text) => Padding(
         padding: const EdgeInsets.only(bottom: Gap.sm),
-        child: Text(text, style: AppText.labelMedium),
+        child: Text(text, style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
       );
 }
 
