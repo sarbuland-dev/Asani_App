@@ -1,23 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:asani_ui/asani_ui.dart';
 
-import '../../core/router/app_router.dart' show splashMinDuration;
+import '../../core/router/app_router.dart' show splashDoneProvider, splashMinDuration;
 
 /// S-01 (PRD D-25, board P1): cream logo tile, name and tagline on the
 /// forest green with two faint rings behind, shown about 1.5 s on every
 /// launch. The logo loader appears only if loading takes longer than that;
 /// after 10 s it also says to check the internet.
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   static const _slow = Duration(seconds: 10);
   Timer? _spinnerTimer;
   Timer? _slowTimer;
@@ -27,6 +28,8 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // The 1.5 s minimum counts from the first frame the user actually sees.
+    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(splashDoneProvider.notifier).start());
     _spinnerTimer = Timer(splashMinDuration, () => setState(() => _showSpinner = true));
     _slowTimer = Timer(_slow, () => setState(() => _slowNow = true));
   }
@@ -56,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
         alignment: Alignment.center,
         children: [
           // Decoration only: two thin rings centred a little below the logo.
-          Positioned.fill(child: OverflowBox(maxWidth: 520, maxHeight: 520, child: ring(520))),
+          Positioned.fill(child: OverflowBox(minWidth: 0, minHeight: 0, maxWidth: 520, maxHeight: 520, child: ring(520))),
           ring(360),
           Padding(
             padding: const EdgeInsets.all(Gap.xl),

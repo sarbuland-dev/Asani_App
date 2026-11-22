@@ -35,13 +35,22 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// S-01 stays on screen at least this long on every launch (PRD D-25).
 const splashMinDuration = Duration(milliseconds: 1500);
 
-/// Turns true once the splash has been shown for [splashMinDuration].
+/// Turns true once the splash has been ON SCREEN for [splashMinDuration].
+/// The count starts when the splash draws its first frame ([start]), not when
+/// the app starts loading: on a slow phone the old timer ran out before the
+/// splash was visible, so it was skipped.
 class SplashTimer extends Notifier<bool> {
+  Timer? _timer;
+
   @override
   bool build() {
-    final timer = Timer(splashMinDuration, () => state = true);
-    ref.onDispose(timer.cancel);
+    ref.onDispose(() => _timer?.cancel());
     return false;
+  }
+
+  void start() {
+    if (state || _timer != null) return;
+    _timer = Timer(splashMinDuration, () => state = true);
   }
 }
 
