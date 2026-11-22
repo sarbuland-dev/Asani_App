@@ -49,7 +49,10 @@ class _SplashScreenState extends State<SplashScreen> {
         );
     return Scaffold(
       backgroundColor: AppColors.primary,
-      body: Stack(
+      // SizedBox.expand: the Stack fills the screen so the content is truly
+      // centred (it used to shrink to its content and sit at the top).
+      body: SizedBox.expand(
+        child: Stack(
         alignment: Alignment.center,
         children: [
           // Decoration only: two thin rings centred a little below the logo.
@@ -91,6 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
