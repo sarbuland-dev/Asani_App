@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/models.dart';
 import '../errors/app_exception.dart';
-import 'package:asani_ui/asani_ui.dart';
+import 'package:asani_ui/asani_ui.dart' hide AppColors;
+import 'package:clinic_web/core/theme/web_colors.dart';
 
-export 'package:asani_ui/asani_ui.dart';
+export 'package:asani_ui/asani_ui.dart' hide AppColors;
+export '../theme/web_colors.dart';
 export 'error_state.dart';
 
 /// Standard page: title row with actions, then content.

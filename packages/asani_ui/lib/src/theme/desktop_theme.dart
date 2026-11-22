@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'colors.dart';
+import 'web_colors.dart';
 import 'spacing.dart';
 import 'typography.dart';
 
@@ -12,13 +12,13 @@ export 'typography.dart';
 /// buttons size to their content instead of filling the width.
 ThemeData buildDesktopAppTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.primary,
-    primary: AppColors.primary,
-    onPrimary: AppColors.onPrimary,
-    primaryContainer: AppColors.primaryContainer,
-    secondary: AppColors.secondary,
-    surface: AppColors.surface,
-    error: AppColors.danger,
+    seedColor: WebColors.primary,
+    primary: WebColors.primary,
+    onPrimary: WebColors.onPrimary,
+    primaryContainer: WebColors.primaryContainer,
+    secondary: WebColors.secondary,
+    surface: WebColors.surface,
+    error: WebColors.danger,
   );
   final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button));
   OutlineInputBorder border(Color c, [double w = 1]) =>
@@ -27,22 +27,22 @@ ThemeData buildDesktopAppTheme() {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.background,
+    scaffoldBackgroundColor: WebColors.background,
     textTheme: AppText.textTheme(),
     visualDensity: VisualDensity.standard,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.surface,
-      foregroundColor: AppColors.textPrimary,
+      backgroundColor: WebColors.surface,
+      foregroundColor: WebColors.textPrimary,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: AppText.titleLarge,
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-        disabledBackgroundColor: AppColors.border,
-        disabledForegroundColor: AppColors.textMuted,
+        backgroundColor: WebColors.primary,
+        foregroundColor: WebColors.onPrimary,
+        disabledBackgroundColor: WebColors.border,
+        disabledForegroundColor: WebColors.textMuted,
         minimumSize: const Size(64, kMinTap),
         padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
         shape: const StadiumBorder(),
@@ -51,17 +51,17 @@ ThemeData buildDesktopAppTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primary,
+        foregroundColor: WebColors.primary,
         minimumSize: const Size(kMinTap, 44),
         padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-        side: const BorderSide(color: AppColors.primary, width: 1.2),
+        side: const BorderSide(color: WebColors.primary, width: 1.2),
         shape: const StadiumBorder(),
         textStyle: AppText.labelMedium,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.primary,
+        foregroundColor: WebColors.primary,
         minimumSize: const Size(kMinTap, 40),
         shape: buttonShape,
         textStyle: AppText.labelMedium,
@@ -69,56 +69,56 @@ ThemeData buildDesktopAppTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface,
+      fillColor: WebColors.surface,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: 14),
-      hintStyle: AppText.bodyLarge.copyWith(color: AppColors.textMuted),
+      hintStyle: AppText.bodyLarge.copyWith(color: WebColors.textMuted),
       labelStyle: AppText.bodyMedium,
-      border: border(AppColors.border),
-      enabledBorder: border(AppColors.border),
-      focusedBorder: border(AppColors.primary, 1.6),
-      errorBorder: border(AppColors.danger),
-      focusedErrorBorder: border(AppColors.danger, 1.6),
+      border: border(WebColors.border),
+      enabledBorder: border(WebColors.border),
+      focusedBorder: border(WebColors.primary, 1.6),
+      errorBorder: border(WebColors.danger),
+      focusedErrorBorder: border(WebColors.danger, 1.6),
     ),
     checkboxTheme: CheckboxThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4))),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       width: 480,
-      backgroundColor: AppColors.textPrimary,
-      contentTextStyle: AppText.bodyMedium.copyWith(color: AppColors.onPrimary),
-      actionTextColor: AppColors.primaryContainer,
+      backgroundColor: WebColors.textPrimary,
+      contentTextStyle: AppText.bodyMedium.copyWith(color: WebColors.onPrimary),
+      actionTextColor: WebColors.primaryContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: AppColors.surface,
+      backgroundColor: WebColors.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.sheet)),
     ),
     popupMenuTheme: PopupMenuThemeData(
-      color: AppColors.surface,
+      color: WebColors.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button)),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: AppColors.surface,
-      selectedColor: AppColors.primaryContainer,
-      side: const BorderSide(color: AppColors.border),
+      backgroundColor: WebColors.surface,
+      selectedColor: WebColors.primaryContainer,
+      side: const BorderSide(color: WebColors.border),
       labelStyle: AppText.labelMedium,
       shape: const StadiumBorder(),
       showCheckmark: false,
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: AppColors.primary,
-      unselectedLabelColor: AppColors.textSecondary,
-      indicatorColor: AppColors.primary,
+      labelColor: WebColors.primary,
+      unselectedLabelColor: WebColors.textSecondary,
+      indicatorColor: WebColors.primary,
       labelStyle: AppText.labelLarge,
       unselectedLabelStyle: AppText.labelLarge,
-      dividerColor: AppColors.border,
+      dividerColor: WebColors.border,
     ),
-    dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
+    dividerTheme: const DividerThemeData(color: WebColors.border, thickness: 1, space: 1),
     tooltipTheme: TooltipThemeData(
-      decoration: BoxDecoration(color: AppColors.textPrimary, borderRadius: BorderRadius.circular(8)),
-      textStyle: AppText.labelSmall.copyWith(color: AppColors.onPrimary),
+      decoration: BoxDecoration(color: WebColors.textPrimary, borderRadius: BorderRadius.circular(8)),
+      textStyle: AppText.labelSmall.copyWith(color: WebColors.onPrimary),
     ),
   );
 }

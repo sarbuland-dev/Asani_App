@@ -1,7 +1,8 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 
-import 'package:asani_ui/asani_ui.dart';
+import 'package:asani_ui/asani_ui.dart' hide AppColors;
+import 'package:clinic_web/core/theme/web_colors.dart';
 
 /// Ticket-style token slip, same as the patient app (D-16: the receptionist
 /// matches it with the slip on the patient's phone).

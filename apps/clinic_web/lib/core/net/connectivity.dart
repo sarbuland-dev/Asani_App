@@ -2,7 +2,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:asani_ui/asani_ui.dart';
+import 'package:asani_ui/asani_ui.dart' hide AppColors;
+import 'package:clinic_web/core/theme/web_colors.dart';
 
 /// Online or not. If the check itself fails we assume online.
 final onlineProvider = StreamProvider<bool>((ref) async* {

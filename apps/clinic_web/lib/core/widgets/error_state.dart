@@ -1,4 +1,4 @@
-import 'package:asani_ui/asani_ui.dart';
+import 'package:asani_ui/asani_ui.dart' hide AppColors;
 import 'package:flutter/material.dart';
 
 import '../errors/app_exception.dart';
