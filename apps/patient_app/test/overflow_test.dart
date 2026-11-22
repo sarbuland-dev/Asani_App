@@ -177,7 +177,6 @@ void main() {
       }
 
       await openAndClose('city picker', '/home', find.text('Lahore'));
-      await openAndClose('edit name dialog', '/account', find.text('Edit name'));
       await openAndClose('autostart guide', '/account', find.text('Show me how'));
       await openAndClose('log out dialog', '/account', find.text('Log out'));
       await openAndClose('delete account dialog', '/account', find.text('Delete account'));

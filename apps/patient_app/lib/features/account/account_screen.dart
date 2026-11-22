@@ -46,7 +46,8 @@ class AccountScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: kNavBarClearance),
         children: [
-          // Board P6 S-16: "Account" and a cream card with the user and Edit name.
+          // Board P6 S-16: "Account" and a cream card with the user. The name is
+          // changed from Family > the Self profile > Edit (that also updates the account).
           Container(
             decoration: const BoxDecoration(
               color: AppColors.primary,
@@ -60,7 +61,7 @@ class AccountScreen extends ConsumerWidget {
                   Text('Account', style: AppText.headline.copyWith(color: AppColors.onPrimary, fontSize: 26, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 6, 14),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(18)),
                     child: Row(children: [
                       Container(
@@ -78,7 +79,6 @@ class AccountScreen extends ConsumerWidget {
                           Text(Fmt.phone(user.phone), style: AppText.labelSmall),
                         ]),
                       ),
-                      TextButton(onPressed: () => _editName(context, ref, user.name), child: const Text('Edit name')),
                     ]),
                   ),
                 ]),
@@ -227,13 +227,6 @@ class AccountScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _editName(BuildContext context, WidgetRef ref, String current) async {
-    final name = await showDialog<String>(context: context, builder: (_) => _EditNameDialog(initial: current));
-    if (name == null || name.trim().length < 2) return;
-    await ref.read(authRepositoryProvider).updateName(name);
-    if (context.mounted) showSnack(context, 'Name updated.');
-  }
-
   /// Double confirmation: dialog, then type DELETE (DESIGN S-16).
   Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
     final first = await confirmDialog(
@@ -289,41 +282,6 @@ class AccountScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// Owns its text controller, so it is disposed only after the dialog's
-/// closing animation (disposing it right after showDialog returns crashes).
-class _EditNameDialog extends StatefulWidget {
-  const _EditNameDialog({required this.initial});
-  final String initial;
-
-  @override
-  State<_EditNameDialog> createState() => _EditNameDialogState();
-}
-
-class _EditNameDialogState extends State<_EditNameDialog> {
-  late final _controller = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: Text('Edit name', style: AppText.titleLarge),
-        content: TextField(
-          controller: _controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'Full name'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
-        ],
-      );
 }
 
 /// Second step of account deletion: type DELETE (DESIGN S-16).
