@@ -198,7 +198,7 @@ class _TokenScreenState extends ConsumerState<TokenScreen> {
                 : ListView(padding: const EdgeInsets.only(bottom: Gap.lg), children: [
                     if (skipped && isToday) const _SkippedCard(),
                     if (onHold && isToday) const _OnHoldCard(),
-                    if (token.isNextUp) const _NextUpCard(),
+                    if (token.isNextUp) _NextUpCard(checkedInAt: token.priorityAt),
                     if (isToday && !skipped && !onHold && !token.isNextUp) ..._sessionNotice(session, doctor),
                     if (!isToday)
                       _note(Icons.event_available_outlined,
@@ -498,7 +498,10 @@ Widget _amber(IconData icon, String title, String text) => Padding(
 
 /// Board P8: checked in again after a skip → called right after the current patient.
 class _NextUpCard extends StatelessWidget {
-  const _NextUpCard();
+  const _NextUpCard({this.checkedInAt});
+
+  /// D-50: when the skipped patient checked in again (`priorityAt`).
+  final DateTime? checkedInAt;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -526,6 +529,12 @@ class _NextUpCard extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text("You're next", style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
                 Text('Called right after the current patient', style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted)),
+                if (checkedInAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Checked in at reception · ${DateFormat('h:mm a').format(checkedInAt!)}',
+                        style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted)),
+                  ),
               ]),
             ),
           ]),
@@ -607,7 +616,10 @@ class _DetailsTab extends StatelessWidget {
             _TimelineRow(
               dot: steps[i].$2,
               title: steps[i].$3,
-              sub: token.notified.contains(steps[i].$1) ? 'Sent' : (i == nextIdx ? 'Coming next' : null),
+              // D-50: "Sent 6:05 PM" when the time is known; a skipped step (N-3) shows "Skipped".
+              sub: token.notified.contains(steps[i].$1)
+                  ? (token.notifiedAt[steps[i].$1] == null ? 'Skipped' : 'Sent ${DateFormat('h:mm a').format(token.notifiedAt[steps[i].$1]!)}')
+                  : (i == nextIdx ? 'Coming next' : null),
               done: token.notified.contains(steps[i].$1),
               next: i == nextIdx,
               line: i < steps.length - 1,

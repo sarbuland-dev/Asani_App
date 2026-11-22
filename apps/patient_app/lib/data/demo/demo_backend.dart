@@ -547,7 +547,7 @@ class DemoBackend
       final ahead = patientsAhead(day.activeNumbers, t.number);
       final r = nextQueueNotification(status: t.status, ahead: ahead, alreadyNotified: t.notified, someoneWithDoctor: withDoctor);
       if (r.send == null) continue;
-      _tokens[t.id] = t.copyWith(notified: r.notified);
+      _tokens[t.id] = t.copyWith(notified: r.notified, notifiedAt: {...t.notifiedAt, r.send!: DateTime.now()});
       final step = r.send!;
       final (title, body) = switch (step) {
         QueueStep.threeAhead => ('3 patients ahead of you', 'Token ${t.label} · ${doctor.name}. Please start heading to the clinic.'),

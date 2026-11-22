@@ -29,6 +29,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   int _step = 0;
   String? _patientId;
   String? _date;
+
+  /// D-50: which month of the booking window the calendar shows (‹ › arrows).
+  int _monthIdx = 0;
   bool _booking = false;
   bool _bookingSlow = false; // > 6 s: say we're still working
   Timer? _slowTimer;
@@ -388,8 +391,18 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final inWindow = {for (final d in dates) dayKey(d)};
     final first = dateOnly(now).subtract(Duration(days: now.weekday - 1));
     final last = dates.isEmpty ? first : dates.last.add(Duration(days: 7 - dates.last.weekday));
-    final days = [for (var d = first; !d.isAfter(last); d = d.add(const Duration(days: 1))) d];
-    final months = {DateFormat('MMMM').format(dates.isEmpty ? now : dates.first), if (dates.isNotEmpty) DateFormat('MMMM').format(dates.last)};
+    final allDays = [for (var d = first; !d.isAfter(last); d = d.add(const Duration(days: 1))) d];
+    // D-50: one month at a time, with ‹ › when the window crosses into the next month.
+    final months = <DateTime>{for (final d in dates.isEmpty ? [dateOnly(now)] : dates) DateTime(d.year, d.month)}.toList();
+    final monthIdx = _monthIdx.clamp(0, months.length - 1);
+    final month = months[monthIdx];
+    bool inMonth(DateTime d) => d.year == month.year && d.month == month.month;
+    // Whole weeks that touch this month; days of other months stay blank.
+    final days = <DateTime?>[
+      for (var w = 0; w < allDays.length; w += 7)
+        if (allDays.skip(w).take(7).any(inMonth))
+          for (final d in allDays.skip(w).take(7)) inMonth(d) ? d : null,
+    ];
 
     final selectedDate = _date == null ? null : parseDayKey(_date!);
     final selectedDay = _date == null ? null : ref.watch(queueDayProvider((doctorId: doctor.id, date: _date!))).value;
@@ -407,7 +420,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             border: Border.all(color: AppColors.border),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(months.join(' – '), style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w700)),
+            Row(children: [
+              Expanded(child: Text(DateFormat('MMMM').format(month), style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w700))),
+              IconButton(
+                tooltip: 'Previous month',
+                onPressed: monthIdx > 0 ? () => setState(() => _monthIdx = monthIdx - 1) : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              IconButton(
+                tooltip: 'Next month',
+                onPressed: monthIdx < months.length - 1 ? () => setState(() => _monthIdx = monthIdx + 1) : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ]),
             const SizedBox(height: 10),
             Row(children: [
               for (final w in const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
@@ -422,8 +447,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               crossAxisSpacing: 4,
               childAspectRatio: 0.95,
               children: [
-                for (final d in days)
+                for (final dd in days)
+                  if (dd == null)
+                    const SizedBox.shrink()
+                  else
                   Builder(builder: (context) {
+                    final d = dd;
                     final key = dayKey(d);
                     final open = inWindow.contains(key);
                     final day = open ? ref.watch(queueDayProvider((doctorId: doctor.id, date: key))).value : null;

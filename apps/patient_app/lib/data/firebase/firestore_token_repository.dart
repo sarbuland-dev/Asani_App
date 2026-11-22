@@ -34,6 +34,14 @@ Token? _token(fs.DocumentSnapshot<Map<String, dynamic>> doc) {
     m['createdAt'] ??= DateTime.now().millisecondsSinceEpoch;
     final notified = m['notified'];
     m['notified'] = notified is Map ? [for (final k in notified.keys) _notifiedKeys[k]?.name].whereType<String>().toList() : const <String>[];
+    // D-50: keep when each alert was sent ("Sent 6:05 PM" on the Details tab).
+    m['notifiedAt'] = notified is Map
+        ? {
+            for (final e in notified.entries)
+              if (_notifiedKeys[e.key] != null && e.value is fs.Timestamp)
+                _notifiedKeys[e.key]!.name: (e.value as fs.Timestamp).millisecondsSinceEpoch,
+          }
+        : const <String, int>{};
     return Token.fromMap(m);
   } catch (e) {
     AppLogger.warn('Skipping token ${doc.id}: $e');

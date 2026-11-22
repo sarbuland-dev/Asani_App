@@ -433,6 +433,7 @@ class Token {
     required this.bookedByUserId,
     this.status = TokenStatus.booked,
     this.notified = const {},
+    this.notifiedAt = const {},
     required this.createdAt,
     this.calledAt,
     this.completedAt,
@@ -453,6 +454,10 @@ class Token {
   final String? bookedByUserId;
   final TokenStatus status;
   final Set<QueueStep> notified;
+
+  /// D-50: when each alert was sent (from `token.notified` timestamps); may be
+  /// missing for steps marked done without a push (N-3).
+  final Map<QueueStep, DateTime> notifiedAt;
   final DateTime createdAt;
   final DateTime? calledAt;
   final DateTime? completedAt;
@@ -476,6 +481,7 @@ class Token {
   Token copyWith({
     TokenStatus? status,
     Set<QueueStep>? notified,
+    Map<QueueStep, DateTime>? notifiedAt,
     DateTime? calledAt,
     DateTime? completedAt,
     DateTime? cancelledAt,
@@ -495,6 +501,7 @@ class Token {
         bookedByUserId: bookedByUserId,
         status: status ?? this.status,
         notified: notified ?? this.notified,
+        notifiedAt: notifiedAt ?? this.notifiedAt,
         createdAt: createdAt,
         calledAt: calledAt ?? this.calledAt,
         completedAt: completedAt ?? this.completedAt,
@@ -517,6 +524,7 @@ class Token {
         'source': 'app',
         'status': status.name,
         'notified': notified.map((s) => s.name).toList(),
+        'notifiedAt': {for (final e in notifiedAt.entries) e.key.name: _ms(e.value)},
         'createdAt': _ms(createdAt),
         'calledAt': _ms(calledAt),
         'completedAt': _ms(completedAt),
@@ -538,6 +546,10 @@ class Token {
         bookedByUserId: m['bookedByUserId'] as String?,
         status: TokenStatus.parse(m['status']),
         notified: _strings(m['notified']).map(QueueStep.parse).whereType<QueueStep>().toSet(),
+        notifiedAt: {
+          for (final e in ((m['notifiedAt'] as Map?) ?? const {}).entries)
+            if (QueueStep.parse(e.key) case final step? when _dt(e.value) != null) step: _dt(e.value)!,
+        },
         createdAt: _dt(m['createdAt']) ?? DateTime.now(),
         calledAt: _dt(m['calledAt']),
         completedAt: _dt(m['completedAt']),

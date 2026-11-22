@@ -20,39 +20,15 @@ class ProfileFormScreen extends ConsumerWidget {
       return const LoadingScreen();
     }
     return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Board P6 S-14: green header with close and the centred title.
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 18),
-                child: Row(children: [
-                  const HeaderBackButton(icon: Icons.close_rounded),
-                  Expanded(
-                    child: Text(existing == null ? 'Add family member' : 'Edit profile',
-                        textAlign: TextAlign.center,
-                        style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(width: 44),
-                ]),
-              ),
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(Gap.xl),
+      // Board P6 S-14 (D-50): the form draws the green header with the preview card inside.
+      body: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: Gap.xl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ProfileForm(
                     existing: existing,
+                    headerTitle: existing == null ? 'Add family member' : 'Edit profile',
                     onSaved: (p) {
                       showSnack(context, existing == null ? '${p.name} added.' : 'Profile saved.');
                       context.pop(p);
@@ -85,9 +61,6 @@ class ProfileFormScreen extends ConsumerWidget {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
 }

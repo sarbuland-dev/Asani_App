@@ -10,9 +10,13 @@ import '../../data/providers.dart';
 /// S-14 profile form (PRD F-07). Used as a full screen and in a bottom sheet.
 /// Calls [onSaved] with the saved (or chosen existing) profile.
 class ProfileForm extends ConsumerStatefulWidget {
-  const ProfileForm({super.key, this.existing, required this.onSaved});
+  const ProfileForm({super.key, this.existing, required this.onSaved, this.headerTitle});
   final Patient? existing;
   final void Function(Patient patient) onSaved;
+
+  /// Full-screen form (D-50): draws the green header with this title and the
+  /// live preview card inside it, as on the board. The add sheet leaves it null.
+  final String? headerTitle;
 
   @override
   ConsumerState<ProfileForm> createState() => _ProfileFormState();
@@ -121,11 +125,8 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     final rel = _isSelf ? 'Self' : _relation.label;
     final details = [rel, if (_ageValue != null) '$_ageValue years', if (_gender != null) _gender!.label].join(' · ');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Board P6 S-14: live preview of the profile as you type.
-        Semantics(
+    // Board P6 S-14: live preview of the profile as you type.
+    final preview = Semantics(
           label: 'Preview: ${name.isEmpty ? 'no name yet' : name}, $details',
           excludeSemantics: true,
           child: Container(
@@ -162,8 +163,8 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
               ),
             ]),
           ),
-        ),
-        const SizedBox(height: Gap.lg),
+        );
+    final fields = <Widget>[
         _label('Full name'),
         TextField(
           controller: _name,
@@ -381,8 +382,42 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
           onPressed: _valid && !_saving ? _save : null,
           child: _saving ? const ButtonSpinner() : const Text('Save profile'),
         ),
-      ],
-    );
+    ];
+    final title = widget.headerTitle;
+    if (title == null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [preview, const SizedBox(height: Gap.lg), ...fields]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                const HeaderBackButton(icon: Icons.close_rounded),
+                Expanded(
+                  child: Text(title,
+                      textAlign: TextAlign.center,
+                      style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: 44),
+              ]),
+              const SizedBox(height: Gap.md),
+              preview,
+            ]),
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, 0),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: fields),
+      ),
+    ]);
   }
 
   Widget _stepButton(IconData icon, String label, bool dark, VoidCallback onTap) => Semantics(

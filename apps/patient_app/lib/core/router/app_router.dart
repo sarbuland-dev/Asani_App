@@ -133,7 +133,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/family/new', builder: (_, _) => const ProfileFormScreen()),
       GoRoute(path: '/family/:patientId', builder: (_, s) => ProfileDetailScreen(patientId: s.pathParameters['patientId']!)),
       GoRoute(path: '/family/:patientId/edit', builder: (_, s) => ProfileFormScreen(patientId: s.pathParameters['patientId'])),
-      GoRoute(path: '/notifications', builder: (_, s) => PrimerScreen(next: s.uri.queryParameters['next'])),
+      // S-17 primer as a bottom sheet (board P4, D-50).
+      GoRoute(path: '/notifications', pageBuilder: (_, s) => BottomSheetPage(key: s.pageKey, child: PrimerScreen(next: s.uri.queryParameters['next']))),
       GoRoute(path: '/inbox', builder: (_, _) => const NotificationsListScreen()), // S-19, D-45
     ],
   );

@@ -25,10 +25,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   late final _controller = TextEditingController(text: widget.initialQuery);
   late String _query = widget.initialQuery;
-  String? _filter; // null = All, '__open' = Open today, otherwise an area
   Timer? _debounce;
-
-  static const _openToday = '__open';
 
   @override
   void dispose() {
@@ -52,33 +49,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final city = ref.watch(selectedCityProvider);
     final clinicsAsync = ref.watch(clinicsProvider(city));
-    final byClinic = ref.watch(doctorsByClinicProvider).value ?? const {};
-    final now = pktNow();
     final all = clinicsAsync.value ?? const <Clinic>[];
     final areas = (all.map((c) => c.area).toSet().toList()..sort());
-
-    final results = all.where((c) {
-      if (!c.matches(_query)) return false;
-      if (_filter == _openToday) return clinicOpenInfo(byClinic[c.id] ?? const [], now).open; // D-27: open now
-      if (_filter != null) return c.area == _filter;
-      return true;
-    }).toList();
+    // D-50 "Recent": clinics this account booked before, latest first.
+    final recent = (ref.watch(recentClinicsProvider).value ?? const <Clinic>[]).take(3).toList();
+    final q = _query.trim();
+    final results = all.where((c) => c.matches(_query)).toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kStatusBarDark,
+      value: kStatusBarLight,
       child: Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
+      body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.screen, Gap.sm),
-              child: Row(children: [
-                if (!widget.embedded) ...[
-                  const HeaderBackButton(dark: true),
-                  const SizedBox(width: Gap.sm),
-                ],
+            // Board P2 S-06 (D-50): back button + cream field inside the green header.
+            Container(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.screen, Gap.md),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                const HeaderBackButton(),
+                const SizedBox(width: Gap.sm),
                 Expanded(
                   child: TextField(
                     controller: _controller,
@@ -105,19 +103,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ),
                 ),
               ]),
-            ),
-            SizedBox(
-              height: 52,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: Gap.screen, vertical: Gap.sm),
-                children: [
-                  _chip('All', null),
-                  _chip('Open now', _openToday, dot: true),
-                  for (final a in areas) _chip(a, a),
-                ],
+              const SizedBox(height: Gap.sm),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text('Clinics in $city · type a clinic name or area',
+                    style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted, fontSize: 13)),
+              ),
+              ]),
+                ),
               ),
             ),
+            if (recent.isNotEmpty)
+              SizedBox(
+                height: 52,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.screen, vertical: Gap.sm),
+                  children: [
+                    Center(child: Text('Recent', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary))),
+                    const SizedBox(width: Gap.sm),
+                    for (final c in recent)
+                      Padding(
+                        padding: const EdgeInsets.only(right: Gap.sm),
+                        child: ActionChip(
+                          label: Text(c.name),
+                          backgroundColor: AppColors.cream,
+                          side: const BorderSide(color: AppColors.cream),
+                          shape: const StadiumBorder(),
+                          onPressed: () => _setQuery(c.name),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             Expanded(
               child: clinicsAsync.when(
                 loading: () => const Padding(padding: EdgeInsets.all(Gap.screen), child: SkeletonList()),
@@ -140,10 +158,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               for (final a in areas)
                                 ActionChip(
                                   label: Text(a),
-                                  onPressed: () {
-                                    setState(() => _filter = null);
-                                    _setQuery(a);
-                                  },
+                                  onPressed: () => _setQuery(a),
                                 ),
                             ],
                           ),
@@ -155,7 +170,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: Gap.md),
                             child: Text(
-                              '${results.length} ${results.length == 1 ? 'clinic' : 'clinics'} in $city',
+                              q.isEmpty
+                                  ? '${results.length} ${results.length == 1 ? 'clinic' : 'clinics'} in $city'
+                                  : "${results.length} ${results.length == 1 ? 'clinic matches' : 'clinics match'} '$q'",
                               style: AppText.bodyMedium,
                             ),
                           ),
@@ -166,27 +183,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ],
         ),
-      ),
     ));
-  }
-
-  Widget _chip(String label, String? value, {bool dot = false}) {
-    final selected = _filter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: Gap.sm),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        showCheckmark: false,
-        avatar: dot ? Container(width: 8, height: 8, decoration: BoxDecoration(color: selected ? AppColors.onPrimary : AppColors.success, shape: BoxShape.circle)) : null,
-        labelStyle: AppText.labelMedium.copyWith(color: selected ? AppColors.onPrimary : AppColors.textPrimary),
-        selectedColor: AppColors.primary,
-        backgroundColor: AppColors.cream,
-        side: BorderSide(color: selected ? AppColors.primary : AppColors.cream),
-        shape: const StadiumBorder(),
-        onSelected: (_) => setState(() => _filter = value),
-      ),
-    );
   }
 }
 
