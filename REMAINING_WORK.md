@@ -184,8 +184,7 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
       numbers. Proposal: empty default ("Payment details will be shared by Asani") until Sarbuland types the real ones.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)
-- [ ] Deploy `firestore.rules` and `firestore.indexes.json` to asani-b2b17 (needs Sarbuland's go-ahead, AGENTS §7).
-      Until then, in Firebase mode: the notifications list (D-45) and "seen" can't be read/written, the Super Admin
-      can't read PMDC numbers / same-doctor suggestions (D-32/D-33), and the new indexes (Doctors tab, Load older)
-      are missing. Command: `firebase deploy --only firestore:rules,firestore:indexes --project asani-b2b17`.
+- [x] 2026-11-22 Rules and indexes deployed to asani-b2b17 (Sarbuland's go-ahead).
+- [ ] After Blaze: add the TTL policy on `notifications.expireAt` (D-45; Firestore refused it with billing disabled).
+      Add to `firestore.indexes.json` → fieldOverrides: `{"collectionGroup":"notifications","fieldPath":"expireAt","ttl":true,"indexes":[]}`.
 

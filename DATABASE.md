@@ -57,7 +57,7 @@ Doc ID = Firebase Auth uid.
 | `route` | string | Where a tap goes (`/token/{id}` or a booking route) |
 | `tokenId` | string \| null | |
 | `createdAt` | timestamp | |
-| `expireAt` | timestamp | `createdAt` + 30 days; **TTL policy** deletes it (field override in `firestore.indexes.json`) |
+| `expireAt` | timestamp | `createdAt` + 30 days. A **TTL policy** on it will delete old entries, but TTL needs Blaze (REMAINING_WORK §11); until then the app simply hides entries older than 30 days |
 
 Written only by functions (`lib/inbox.ts`), with every push, even when alerts are off. The owner reads it; no client writes.
 
