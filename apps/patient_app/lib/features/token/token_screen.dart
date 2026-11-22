@@ -30,6 +30,9 @@ class TokenScreen extends ConsumerStatefulWidget {
 class _TokenScreenState extends ConsumerState<TokenScreen> {
   bool _details = false;
 
+  /// True while the cancel request runs: the whole screen shows the loader.
+  bool _cancelling = false;
+
   @override
   Widget build(BuildContext context) {
     final tokenAsync = ref.watch(tokenProvider(widget.tokenId));
@@ -46,6 +49,10 @@ class _TokenScreenState extends ConsumerState<TokenScreen> {
     if (doctor == null || clinic == null) return const LoadingScreen(message: 'Loading your token…');
 
     final status = token.status;
+    if (_cancelling) {
+      // No going back half-way through a cancel.
+      return const PopScope(canPop: false, child: LoadingScreen(message: 'Cancelling your token…'));
+    }
     if (status == TokenStatus.called) return _CalledView(token: token, doctor: doctor, clinic: clinic);
     // D-35: Skipped is paused (the clinic can recall it), not finished.
     if (!status.isOpenForPatient) return _FinishedView(token: token, doctor: doctor, clinic: clinic);
@@ -322,14 +329,17 @@ class _TokenScreenState extends ConsumerState<TokenScreen> {
       cancelLabel: 'Keep it',
       danger: true,
     );
-    if (!ok) return;
-    // The function can take a few seconds; don't leave the user guessing (DESIGN.md principle 4).
-    if (context.mounted) showSnack(context, 'Cancelling token ${token.label}…');
+    if (!ok || !mounted) return;
+    // The function can take a few seconds; don't leave the user guessing (DESIGN.md
+    // principle 4): the full-screen logo loader over a blurred screen (D-36).
+    setState(() => _cancelling = true);
     try {
       await ref.read(tokenRepositoryProvider).cancelToken(token.id);
       if (context.mounted) showSnack(context, 'Token ${token.label} cancelled.');
     } catch (e) {
       if (context.mounted) showSnack(context, AppException.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 }
