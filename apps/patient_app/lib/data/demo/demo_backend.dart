@@ -435,7 +435,7 @@ class DemoBackend
   @override
   Stream<QueueAlert> get alerts => _alerts.stream;
 
-  // ---------------------------------------------------------------- notifications list (D-43)
+  // ---------------------------------------------------------------- notifications list (D-45)
   final _inbox = <AppNotification>[];
   DateTime? _seenAt;
 
@@ -555,7 +555,7 @@ class DemoBackend
         QueueStep.oneAhead => ("You're next", 'Token ${t.label} · Please be at the reception.'),
         QueueStep.called => ('Your turn now', 'Token ${t.label} · Please go to ${doctor.name}.'),
       };
-      // D-43: in the list even when alerts are off.
+      // D-45: in the list even when alerts are off.
       _inbox.insert(0, AppNotification(id: 'n_${_inbox.length}_${t.id}', type: 'queue', title: title, body: body, route: '/token/${t.id}', tokenId: t.id, createdAt: DateTime.now()));
       if (!_settings.notificationsAllowed || _me?.queueAlertsEnabled == false) continue;
       _alerts.add(QueueAlert(tokenId: t.id, step: step, title: title, body: body));

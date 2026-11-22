@@ -77,7 +77,7 @@ Future<void> main() async {
     overrides.add(queueRepositoryProvider.overrideWithValue(FirestoreQueueRepository()));
     // Step 11: follow-ups from Firestore.
     overrides.add(followUpRepositoryProvider.overrideWithValue(FirestoreFollowUpRepository()));
-    // D-43: in-app notifications list (written by functions with every push).
+    // D-45: in-app notifications list (written by functions with every push).
     overrides.add(notificationRepositoryProvider.overrideWithValue(FirestoreNotificationRepository()));
   }
 

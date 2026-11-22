@@ -128,7 +128,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/family/:patientId', builder: (_, s) => ProfileDetailScreen(patientId: s.pathParameters['patientId']!)),
       GoRoute(path: '/family/:patientId/edit', builder: (_, s) => ProfileFormScreen(patientId: s.pathParameters['patientId'])),
       GoRoute(path: '/notifications', builder: (_, s) => PrimerScreen(next: s.uri.queryParameters['next'])),
-      GoRoute(path: '/inbox', builder: (_, _) => const NotificationsListScreen()), // S-19, D-43
+      GoRoute(path: '/inbox', builder: (_, _) => const NotificationsListScreen()), // S-19, D-45
     ],
   );
 });

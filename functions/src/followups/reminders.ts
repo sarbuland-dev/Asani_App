@@ -113,7 +113,7 @@ async function send(
   if (!f.ownerUid) return 0;
   // Tapping opens booking pre-filled (PRD F-09).
   const route = `/book/${f.clinicId}/${f.doctorId}?patient=${f.patientId}&date=${f.dueDate}`;
-  await saveToInbox(db, f.ownerUid, { type: 'followUp', title, body, route }); // D-43
+  await saveToInbox(db, f.ownerUid, { type: 'followUp', title, body, route }); // D-45
   const devices = await db.collection('users').doc(f.ownerUid).collection('devices').get();
   const tokens = devices.docs.map((d) => d.data().fcmToken).filter((t): t is string => typeof t === 'string');
   if (tokens.length === 0) return 0;

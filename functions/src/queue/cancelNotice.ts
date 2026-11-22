@@ -62,7 +62,7 @@ export async function notifyClinicCancel(db: Firestore, messaging: Messaging, to
       clinicNames.set(t.clinicId, String((await db.collection('clinics').doc(t.clinicId).get()).data()?.name ?? 'the clinic'));
     }
     const { title, body } = cancelMessage(`${t.tokenPrefix ?? 'A'}-${t.number}`, clinicNames.get(t.clinicId)!, t.cancelReason);
-    // D-43: in the in-app list even when no phone gets the push.
+    // D-45: in the in-app list even when no phone gets the push.
     await saveToInbox(db, uid, { type: 'cancel', title, body, route: rebookRoute({ clinicId: t.clinicId, doctorId: t.doctorId, patientId: t.patientId }), tokenId });
     const devices = await db.collection('users').doc(uid).collection('devices').get();
     const targets = devices.docs.filter((d) => typeof d.data().fcmToken === 'string');

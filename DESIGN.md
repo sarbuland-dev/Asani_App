@@ -311,6 +311,11 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
 - Loading: 3 skeleton doctor cards. Empty: icon + "No {label} doctors on Asani in {city} yet." [Search clinics]
   (switches to the Clinics tab). Offline: standard banner, cached list stays.
 
+### S-19 Notifications list (D-45)
+- Home header: bell (`notifications_outlined`) with a badge of the unread count (99+).
+- `/inbox`: "Notifications"; the last 30 days, newest first: title (bold while unread on this visit), text and
+  date-time; tap → the push's route. Empty: "No notifications in the last 30 days." Opening marks all read.
+
 ### S-18 Location permission primer (D-31)
 Shown once, the first time the Doctors tab is opened (before the system prompt, like S-17):
 icon `location_on` in a `primaryContainer` circle, title "Find doctors near you", body "We use your location

@@ -139,7 +139,7 @@ class _Header extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  // S-19 / D-43: notifications list with the unread count.
+                  // S-19 / D-45: notifications list with the unread count.
                   const NotificationsBell(color: AppColors.onPrimary),
                 ],
               ),

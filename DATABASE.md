@@ -45,8 +45,21 @@ Doc ID = Firebase Auth uid.
 | `consentAcceptedAt` | timestamp | Terms + privacy accepted |
 | `consentVersion` | string | e.g. `2026-11-v1` |
 | `selfPatientId` | string | ID of the user's "Self" profile in `patients` |
+| `notificationsSeenAt` | timestamp (optional) | D-45: last time the notifications list was opened; newer entries are unread. Written by the app |
 | `queueAlertsEnabled` | bool | Account-wide "Queue alerts" switch (Account screen), same on every phone. Missing = `true`. Queue notifications are sent only when `true` (D-18). The phone's own notification permission is stored on the device, not here |
 | `createdAt`, `updatedAt`, `lastLoginAt` | timestamp | |
+
+### `users/{uid}/notifications/{id}` (D-45)
+| Field | Type | Notes |
+|---|---|---|
+| `type` | string | `queue` / `cancel` / `skip` / `followUp` |
+| `title`, `body` | string | Same text as the push |
+| `route` | string | Where a tap goes (`/token/{id}` or a booking route) |
+| `tokenId` | string \| null | |
+| `createdAt` | timestamp | |
+| `expireAt` | timestamp | `createdAt` + 30 days; **TTL policy** deletes it (field override in `firestore.indexes.json`) |
+
+Written only by functions (`lib/inbox.ts`), with every push, even when alerts are off. The owner reads it; no client writes.
 
 ### `users/{uid}/devices/{deviceId}`
 | Field | Type | Notes |

@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../repositories/repositories.dart';
 
-/// users/{uid}/notifications (PRD D-43): written by Cloud Functions with every
+/// users/{uid}/notifications (PRD D-45): written by Cloud Functions with every
 /// push; the app only reads it and stores `users/{uid}.notificationsSeenAt`.
 class FirestoreNotificationRepository implements NotificationRepository {
   FirestoreNotificationRepository({FirebaseAuth? auth, fs.FirebaseFirestore? db})

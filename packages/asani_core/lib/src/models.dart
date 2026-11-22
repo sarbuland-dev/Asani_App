@@ -603,7 +603,7 @@ class FollowUp {
       );
 }
 
-/// users/{uid}/notifications/{id}: one sent push, for the in-app list (PRD D-43).
+/// users/{uid}/notifications/{id}: one sent push, for the in-app list (PRD D-45).
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -627,7 +627,7 @@ class AppNotification {
   final String? tokenId;
   final DateTime createdAt;
 
-  /// Unread = newer than the last time the list was opened (D-43).
+  /// Unread = newer than the last time the list was opened (D-45).
   bool unreadSince(DateTime? seenAt) => seenAt == null || createdAt.isAfter(seenAt);
 
   factory AppNotification.fromMap(String id, Map<String, Object?> m) => AppNotification(

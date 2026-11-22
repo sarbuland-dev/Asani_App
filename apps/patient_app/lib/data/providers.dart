@@ -189,7 +189,7 @@ final clockProvider = StreamProvider<DateTime>(
 
 DateTime nowFrom(WidgetRef ref) => ref.watch(clockProvider).value ?? pktNow();
 
-// ---- Notifications list (PRD D-43) ----
+// ---- Notifications list (PRD D-45) ----
 final notificationsProvider = StreamProvider<List<AppNotification>>((ref) {
   ref.watch(currentUserProvider.select((u) => u?.uid)); // per signed-in user
   return ref.watch(notificationRepositoryProvider).watchNotifications();

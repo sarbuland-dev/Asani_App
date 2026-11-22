@@ -64,7 +64,7 @@ test('existing fields still work: name and city', async () => {
   await assertFails(updateDoc(doc(me(), 'users/u1'), { name: 'X' }));
 });
 
-// ---- D-43: in-app notifications list ----
+// ---- D-45: in-app notifications list ----
 test('notifications: owner reads own list, nobody writes; seen time is a timestamp', async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), 'users/u1/notifications/n1'), { title: "You're next", route: '/token/t1' });

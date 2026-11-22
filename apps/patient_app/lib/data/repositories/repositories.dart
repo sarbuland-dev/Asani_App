@@ -53,7 +53,7 @@ class QueueAlert {
   final String body;
 }
 
-/// In-app notifications list (PRD D-43): every push we sent, last 30 days.
+/// In-app notifications list (PRD D-45): every push we sent, last 30 days.
 abstract interface class NotificationRepository {
   /// Newest first, last 30 days.
   Stream<List<AppNotification>> watchNotifications();

@@ -77,7 +77,7 @@ async function sendToOwner(
   body: string,
 ): Promise<SentLog> {
   if (!uid) return { tokenId, step, devices: 0, skipped: 'no-devices' };
-  // D-43: saved to the in-app list even if alerts are off or no phone gets it.
+  // D-45: saved to the in-app list even if alerts are off or no phone gets it.
   await saveToInbox(db, uid, { type: 'queue', title, body, route: `/token/${tokenId}`, tokenId });
   const userRef = db.collection('users').doc(uid);
   const [user, devices] = await Promise.all([userRef.get(), userRef.collection('devices').get()]);

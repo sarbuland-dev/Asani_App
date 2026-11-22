@@ -178,6 +178,11 @@ Rules:
 ### F-12 Crash reporting and basic analytics (P0)
 - Crashlytics on. Analytics events: `login_success`, `token_booked`, `token_cancelled`, `notification_opened`, `doctor_search` (speciality key only). No personal data in events.
 
+### F-15 Notifications list (P1) (D-45)
+- Home header: bell with the unread count → **Notifications** (S-19): every push of the last 30 days, newest first (title, text, time).
+- Saved by the backend with every push (`users/{uid}/notifications`), even if the push was blocked or alerts are off.
+- Opening the list marks all read (`users.notificationsSeenAt`); a tap opens the token, or booking for follow-ups / clinic cancel.
+
 ### F-13 Search by doctor speciality (P0) (D-31)
 Flow: **Search → Doctors tab → speciality chip → doctor card → booking for that clinic + doctor** → the same steps as F-04 (patient, date, confirm) with the same rules (BR-1..BR-7).
 
@@ -301,6 +306,7 @@ Flow: **Search → Doctors tab → speciality chip → doctor card → booking f
 | D-42 | 2026-11-23 | **Upcoming bookings page** (clinic web, C-17). The clinic picks a day from tomorrow up to its longest booking window and sees each doctor's tokens for that day (token, patient, app or walk-in, when booked, cancelled marked), with booked / max. **View only**: check-in still happens on the day (BW-5). |
 | D-43 | 2026-11-22 | **Palette "Deep forest"** replaces D-30's "Monochrome green" in **both apps** (shared `asani_ui` tokens): logo forest `#004741` + cream `#F0EDE4`; lime 400 for follow-ups; blue only for "Your turn"; logo never recoloured. The patient app UI is rebuilt from the Artifacts screens board **batch by batch** (palette, then P1…P9), each batch reviewed before the next. Maps are a **drawn map tile** (no map library, no API key); tap / Directions open Google Maps. |
 | D-44 | 2026-11-22 | **Clinic web keeps the old colours for now** (narrows D-43). Only the patient app moves to Deep forest. The old "Monochrome green" palette lives in `asani_ui` as `WebColors`; the desktop theme and clinic web code use it (`AppColors` in the clinic web is an alias for `WebColors`). Shared widgets drawn on the web (loader, chips) may show small Deep forest differences. The web is redesigned later. |
+| D-45 | 2026-11-23 | **Notifications list in the app** (S-19). A bell on Home with the **unread count** opens a list of **every push we send** (the 4 queue alerts, cancelled by clinic, missed your turn, follow-up reminders), saved by the backend **even when the phone blocks pushes or queue alerts are off**. Kept **30 days**. Opening the list **marks all read** (unread ones bold on that visit). A tap opens the same place as the push. |
 
 ## 10. Open questions (confirm before building the related part)
 

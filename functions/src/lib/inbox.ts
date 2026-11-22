@@ -2,7 +2,7 @@ import { Firestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 
 /**
- * In-app notifications list (PRD D-43, DESIGN S-19).
+ * In-app notifications list (PRD D-45, DESIGN S-19).
  * Every push we send is also saved to users/{uid}/notifications, even when
  * the phone blocks pushes or queue alerts are off, so nothing is missed.
  * Kept 30 days: `expireAt` drives a Firestore TTL policy; the app also

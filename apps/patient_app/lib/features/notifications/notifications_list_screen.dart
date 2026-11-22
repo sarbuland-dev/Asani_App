@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/error_state.dart';
 import '../../data/providers.dart';
 
-/// S-19 Notifications list (PRD D-43). Plain placeholder UI.
+/// S-19 Notifications list (PRD D-45). Plain placeholder UI.
 /// Every push of the last 30 days; opening the list marks all read; a tap
 /// opens the same place as the push.
 class NotificationsListScreen extends ConsumerStatefulWidget {
@@ -27,7 +27,7 @@ class _NotificationsListScreenState extends ConsumerState<NotificationsListScree
     if (!_marked && seen.hasValue) {
       _marked = true;
       _seenBefore = seen.value;
-      // Mark everything read once the list is open (D-43).
+      // Mark everything read once the list is open (D-45).
       WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(notificationRepositoryProvider).markAllSeen());
     }
     return Scaffold(

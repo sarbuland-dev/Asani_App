@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import { INBOX_DAYS, inboxEntry } from './inbox';
 
-test('D-43: inbox entry keeps the push text and route, expires after 30 days', () => {
+test('D-45: inbox entry keeps the push text and route, expires after 30 days', () => {
   const now = new Date('2026-11-23T10:00:00Z');
   const e = inboxEntry({ type: 'queue', title: "You're next", body: 'Token A-11 · Please be at the reception.', route: '/token/t1', tokenId: 't1' }, now);
   assert.equal(e.title, "You're next");

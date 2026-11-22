@@ -2,7 +2,7 @@ import 'package:asani_core/asani_core.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('D-43: a notification is unread when newer than the last opening', () {
+  test('D-45: a notification is unread when newer than the last opening', () {
     final n = AppNotification.fromMap('n1', {
       'type': 'queue',
       'title': "You're next",
