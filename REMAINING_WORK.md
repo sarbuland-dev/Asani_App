@@ -183,6 +183,12 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
 - [ ] **Bank details:** "How to pay" is editable in Super Admin → Settings but starts with fake IBAN / JazzCash
       numbers. Proposal: empty default ("Payment details will be shared by Asani") until Sarbuland types the real ones.
 
+## 12. Clinic web UI redesign to the board (Deep forest, 2026-11-24)
+- [ ] Board approval for every web screen (W-01 login animation still open).
+- [ ] D-51: remove the QR standee card from `apps/clinic_web/lib/features/settings/clinic_settings_screen.dart`
+      (and `core/widgets/qr_view.dart` if nothing else uses it) and the print templates screen.
+- [ ] Open question: does **Arrived & Print** still print the Asani clinic form (C-07), or nothing at all?
+
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)
 - [x] 2026-11-22 Rules and indexes deployed to asani-b2b17 (Sarbuland's go-ahead).
 - [ ] After Blaze: add the TTL policy on `notifications.expireAt` (D-45; Firestore refused it with billing disabled).

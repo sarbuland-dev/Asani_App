@@ -38,6 +38,7 @@ It uses the **same Firebase project** as the patient app (same Auth, Firestore, 
 | D-09 | Clinic form is printed on **arrival**. |
 | D-04 | Patient notifications (3, 2, 1 ahead, Your turn) are sent by the backend, not by the clinic app. |
 | D-10 | Anything unclear is confirmed with Sarbuland before building. |
+| D-51 | 2026-11-24, full text in PRD.md §9: **no QR standee and no Print templates screen** (clinics provide their own); lime only for follow-ups on the web screens. |
 | D-17 | **Monorepo in the same `Asani_app` repo** (see §2.1). Patient app moves once into `apps/patient_app`; clinic web is `apps/clinic_web`; shared code in `packages/asani_core`. |
 
 ### 2.1 Repository structure (D-17, confirmed 2026-11-12)
@@ -281,7 +282,6 @@ The search only looks at **today's tokens of this clinic**, so a code is always 
 - Clinic name (read-only; changed by Super Admin), address, area, phone, map location.
 - **Map location is required** (D-31): pick on a map or paste a Google Maps link / "lat, lng"; Save is disabled without it. Used for Directions and for "nearest first" in the patient app's Doctors tab.
 - Print format (Thermal 80 / A5 / None).
-- **Clinic QR standee**: download/print a poster with the clinic QR ("Scan to book your token with Asani").
 
 ### C-14 Data export (P1, clinic login)
 - Export a date range of visits to **CSV / Excel**: date, token, doctor, patient name, age/sex, phone, status, wait time.
@@ -416,10 +416,10 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | W-16 | Daily summary |
 | W-17 | Doctors list + Add/Edit doctor (schedule, leave, deactivate) |
 | W-18 | Change password (clinic login) |
-| W-19 | Clinic settings + QR standee |
+| W-19 | Clinic settings (no QR standee, D-51) |
 | W-20 | Billing (plan, invoices, payment instructions) |
 | W-21 | Help |
-| W-22 | Print templates (Thermal 80, A5) |
+| ~~W-22~~ | ~~Print templates~~ (removed, D-51) |
 
 ### Super Admin
 | ID | Screen |
@@ -483,7 +483,7 @@ Backend functions needed (names indicative): `queueAction`, `clinicCreateWalkIn`
 
 | Phase | Scope |
 |---|---|
-| **2a: Clinic MVP (pilot)** | W-01..W-13, W-17, W-18, W-19, W-22 · C-01..C-08, C-11..C-13 · A-04 (to onboard pilot clinics) |
+| **2a: Clinic MVP (pilot)** | W-01..W-13, W-17, W-18, W-19 · C-01..C-08, C-11..C-13 · A-04 (to onboard pilot clinics) |
 | **2b: Clinic complete** | C-09 follow-ups, C-10 summary, C-14 export, C-15 billing banner, C-16 help |
 | **3: Super Admin complete** | A-01..A-03, A-05..A-08 (automatic invoices, defaulters, activity log, dashboard) |
 
