@@ -191,7 +191,7 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
 
 ## 13. Move to Supabase (D-52, 2026-11-24)
 Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase prod) and §11 (TTL) are replaced by it.
-- [ ] Phase 0: plan approved by Sarbuland; open questions S-1…S-7 answered.
+- [x] 2026-11-24 Phase 0: plan approved by Sarbuland; open questions S-1…S-7 answered (plan §7).
 - [ ] Phase 1: setup, tables, RLS, seed · 2: booking + queue in Postgres · 3: push + `pg_cron`
 - [ ] Phase 4: patient email login · 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.

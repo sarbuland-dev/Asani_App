@@ -1,6 +1,6 @@
 # 10 — Moving the backend from Firebase to Supabase (D-52)
 
-Status: **plan, waiting for Sarbuland's OK** (2026-11-24). Nothing is built yet.
+Status: **plan approved** by Sarbuland (2026-11-24), open questions answered (§7). Building phase by phase.
 Decision: PRD.md §9 **D-52**. All earlier decisions D-01…D-51 keep their behaviour; only the backend under them changes.
 
 ---
@@ -191,7 +191,7 @@ exist yet; they are created in phase 8 (the checklist grows from each phase's "h
 1. **Phase 1:** create a free Supabase account and a project **`asani-dev`**, region **South Asia (Mumbai)**. Send me the
    project URL and the **anon** key (public). Keep the service role key and DB password to yourself; I'll tell you where to
    paste them locally (git-ignored files).
-2. **Phase 1:** install the Supabase CLI and **Docker Desktop** (for local tests). I give the steps.
+2. **Phase 1:** install the Supabase CLI (no Docker, S-1). I give the steps.
 3. **Phase 3:** in the Firebase console (`asani-b2b17`, stays on Spark): download a service account key for FCM; I give the
    steps to store it as a Supabase secret.
 4. **Phase 4:** create the Brevo (or Resend) account; I give the SMTP steps.
@@ -211,14 +211,16 @@ exist yet; they are created in phase 8 (the checklist grows from each phase's "h
 | **Realtime free limits** (200 connections, 2M messages/month) | Fine for a pilot of a few clinics, not for scale | One channel per screen, unsubscribe on leave; re-check before scaling |
 | **Edge Function cold start** | First push after idle a little slower | Fine for pushes; booking and queue actions are SQL (no cold start) |
 
-## 7. Open questions (answer before the phase that needs them)
+## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
-| # | Question | Options | Recommendation |
-|---|---|---|---|
-| S-1 | Local development | (a) Docker Desktop + Supabase CLI locally **and** the free cloud project for phones; (b) cloud project only | **(a)**: tests run locally without touching dev data. Phase 1 |
-| S-2 | **Link to app account**: what happens to the walk-in profile? | (a) it becomes a **new family member** of the account; (b) reception picks **which family member** it is (or "new member") and its visits move there | **(b)**: avoids "Shazia" twice in the family. Phase 6 |
-| S-3 | D-22 walk-in lookup by full phone: keep showing the app account's family profiles to reception? | (a) keep (patient is in front of reception); (b) hide until linked | **(a)**: same as today, in person. Phase 6 |
-| S-4 | Can a patient change their phone later (`updatePhone`)? | (a) yes, in Account, `phone-taken` checked, owned profiles get the new contact phone; (b) no | **(a)**. Phase 4 |
-| S-5 | `phone-taken`: compare with other **app accounts** only, or also walk-in profiles? | (a) app accounts only; (b) both | **(a)**: walk-ins with that phone are linked later at reception. Phase 4 |
-| S-6 | SMTP provider | (a) Brevo (300/day, no domain needed to start); (b) Resend (100/day, needs a domain) | **(a)** until we have a domain (Q-06). Phase 4 |
-| S-7 | Pause risk for the pilot | (a) Pro plan; (b) keep-alive ping; (c) decide later | **(c)** now, decide before the pilot. Phase 8 |
+| # | Question | Answer |
+|---|---|---|
+| S-1 | Local development | **Cloud project only** (no Docker). Migrations are pushed to the free `asani-dev` project with the Supabase CLI; pgTAP tests run against it inside a transaction that is rolled back, so test rows never stay |
+| S-2 | **Link to app account**: what happens to the walk-in profile? | Reception picks **which family member** it is, or **"New member"**. Picking a member moves the walk-in's visits (tokens, follow-ups) to that profile and marks the walk-in profile `merged` (`merged_into`); "New member" gives the walk-in profile the account as owner |
+| S-3 | D-22 walk-in lookup by full phone: show the app account's family profiles? | **Yes**, labelled **"App account (number not verified)"** |
+| S-4 | Can a patient change their phone later? | **Yes**, in Account (`updatePhone`), `phone-taken` checked; the account's own profiles get the new contact phone |
+| S-5 | `phone-taken` compares with… | **Other app accounts only** (walk-in profiles with that phone are linked at reception) |
+| S-6 | SMTP provider | **Brevo** free plan (300 emails/day) until we have a domain (Q-06) |
+| S-7 | Pause risk for the pilot | **Decide before the pilot.** Note: the **Pro plan is the safe choice for real clinics** (no pausing, daily backups) |
+
+With S-1 the "Docker Desktop" item in §5 is dropped; the CLI is still needed.
