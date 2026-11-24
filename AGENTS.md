@@ -21,6 +21,7 @@ Asani is a clinic token and live-queue system for small and medium private clini
 | `tools/queue-sim`, `tools/admin-scripts` | ✅ Active | Dev tooling |
 | root `pubspec.yaml` | ✅ Active | Dart pub workspace; run `flutter pub get` **at the root**; one `pubspec.lock` at the root |
 | `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md v0.4). One login per clinic, no staff/doctor accounts; the clinic manages its own doctors. Two backends: in-memory demo (default) and Firebase (`--dart-define=BACKEND=firebase`, clinic/admin functions in `functions/src/clinic` + `functions/src/admin`) |
+| `supabase/`, `tools/db-test` | ✅ Active (D-52) | The backend is moving from Firebase to Supabase phase by phase (docs/10-supabase-migration.md). Firebase stays for push (FCM) only. Cloud project only, no Docker. Never edit a pushed migration; add a new one |
 | Clinic desktop (.exe) | ⛔ Dropped | Replaced by Flutter Web (D-06 updated). **Do not create** `apps/clinic_desktop` |
 
 The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
@@ -144,6 +145,10 @@ firebase emulators:start --import=./emulator-data --export-on-exit
 
 # Rules tests
 cd functions && npm run test:rules
+
+# Supabase (D-52): apply migrations + seed to the dev project, then run the pgTAP tests (rolled back)
+npx supabase@latest db push --include-seed
+cd tools/db-test && node run.js
 
 # Queue simulator (acts as receptionist)
 cd tools/queue-sim

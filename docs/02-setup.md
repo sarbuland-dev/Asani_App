@@ -50,6 +50,48 @@ Layout (PRD-CLINIC-WEB §2.1):
 
 ---
 
+## 2b. Supabase (D-52, the new backend)
+
+We use the **cloud project only** (no Docker, docs/10 §7 S-1). Firebase stays for push (FCM) only.
+
+**One-time, owner (Sarbuland):**
+1. Sign up at supabase.com (free plan) → **New project**: name `asani-dev`, region **South Asia (Mumbai)**, a strong
+   database password (keep it in your password manager, never in the repo).
+2. Project → **Connect** → copy the **Session pooler** URI (`postgresql://postgres.<ref>:[YOUR-PASSWORD]@aws-…pooler.supabase.com:5432/postgres`),
+   put the password in it and save it as one line in **`supabase/.db-url.local`** (git-ignored).
+3. Project → **Settings → API**: send the agent the **Project URL** and the **anon / publishable key** (both public).
+   The **service_role / secret key** stays private (only for Edge Function secrets and admin tools later).
+
+**Supabase CLI** (no global install needed; `npx` downloads it the first time, about 30 MB):
+```powershell
+npx supabase@latest --version
+npx supabase@latest login                         # opens the browser once
+npx supabase@latest link --project-ref <ref>      # <ref> = the id in the project URL; asks for the DB password
+```
+
+**Apply the tables, security and seed** (from the repo root):
+```powershell
+npx supabase@latest db push --include-seed
+```
+`db push` applies only new files in `supabase/migrations`, in name order. Never edit a migration that was already pushed;
+add a new one.
+
+**Run the database tests** (RLS today; booking/queue from phase 2). Each test file runs in a transaction that is rolled
+back, so nothing stays in the dev database:
+```powershell
+cd tools/db-test; npm install; node run.js
+```
+
+| Folder | What |
+|---|---|
+| `supabase/migrations/` | Tables, RLS, Postgres functions (in order) |
+| `supabase/seed.sql` | Dev clinics and doctors (same as the demo backend) |
+| `supabase/tests/database/` | pgTAP tests |
+| `supabase/functions/` | Edge Functions (from phase 3) |
+| `tools/db-test/` | Test runner for the cloud database |
+
+---
+
 ## 3. Firebase projects (one-time, owner only)
 
 Create **two** projects in the Firebase console:

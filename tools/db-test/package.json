@@ -1,0 +1,11 @@
+{
+  "name": "asani-db-test",
+  "private": true,
+  "description": "Runs the pgTAP tests in supabase/tests against the Supabase dev database (D-52)",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

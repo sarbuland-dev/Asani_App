@@ -1,0 +1,29 @@
+# Supabase CLI config (D-52). We use the cloud project only (S-1), so the [db]/[api] ports below
+# are just CLI defaults. Auth settings that matter (email OTP, SMTP, templates, redirect URLs) are set
+# in the dashboard for the cloud project; see docs/10-supabase-migration.md and docs/02-setup.md.
+project_id = "asani-dev"
+
+[api]
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+site_url = "http://localhost:8092"
+additional_redirect_urls = ["http://localhost:8092/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+otp_length = 6
+otp_expiry = 600
+max_frequency = "60s"

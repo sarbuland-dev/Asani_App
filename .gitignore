@@ -31,6 +31,13 @@ functions/lib/
 
 # Local dev test logins (never commit)
 tools/admin-scripts/*.local.txt
+
+# Supabase (D-52): DB URL, CLI temp files, local secrets
+supabase/.db-url.local
+supabase/.temp/
+supabase/.branches/
+supabase/functions/.env*
+**/*.local.json
 packages/asani_core/build/
 
 # Local Claude Code settings (per machine)
