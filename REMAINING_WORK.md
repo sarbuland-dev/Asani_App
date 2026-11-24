@@ -189,6 +189,13 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
       (and `core/widgets/qr_view.dart` if nothing else uses it) and the print templates screen.
 - [ ] Open question: does **Arrived & Print** still print the Asani clinic form (C-07), or nothing at all?
 
+## 13. Move to Supabase (D-52, 2026-11-24)
+Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase prod) and §11 (TTL) are replaced by it.
+- [ ] Phase 0: plan approved by Sarbuland; open questions S-1…S-7 answered.
+- [ ] Phase 1: setup, tables, RLS, seed · 2: booking + queue in Postgres · 3: push + `pg_cron`
+- [ ] Phase 4: patient email login · 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
+- [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
+
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)
 - [x] 2026-11-22 Rules and indexes deployed to asani-b2b17 (Sarbuland's go-ahead).
 - [ ] After Blaze: add the TTL policy on `notifications.expireAt` (D-45; Firestore refused it with billing disabled).
