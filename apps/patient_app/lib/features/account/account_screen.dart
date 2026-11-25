@@ -10,6 +10,7 @@ import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/device.dart';
 import '../../core/utils/launch.dart';
 import '../../data/providers.dart';
+import '../auth/phone_field.dart';
 import '../../data/repositories/repositories.dart';
 import '../home/home_screen.dart' show showCityPicker;
 import '../shell/main_shell.dart';
@@ -76,6 +77,8 @@ class AccountScreen extends ConsumerWidget {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(user.name, style: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if (user.email.isNotEmpty)
+                            Text(user.email, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                           Text(Fmt.phone(user.phone), style: AppText.labelSmall),
                         ]),
                       ),
@@ -96,7 +99,15 @@ class AccountScreen extends ConsumerWidget {
                   chipOn: on,
                   onTap: () => _toggleNotifications(context, ref, on),
                 ),
-                _Tile(icon: Icons.location_on_outlined, label: 'City', value: city, onTap: () => showCityPicker(context, ref), last: true),
+                _Tile(icon: Icons.location_on_outlined, label: 'City', value: city, onTap: () => showCityPicker(context, ref)),
+                // D-52 (S-4): the number is not verified; one number per Asani account.
+                _Tile(
+                  icon: Icons.phone_outlined,
+                  label: 'Mobile number',
+                  value: Fmt.phone(user.phone),
+                  onTap: () => _changePhone(context, ref, user.phone),
+                  last: true,
+                ),
               ]),
               // Autostart tip: only Xiaomi/Redmi/POCO phones need it.
               if (isXiaomi) ...[
@@ -176,7 +187,7 @@ class AccountScreen extends ConsumerWidget {
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
                     onPressed: () async {
                       final ok = await confirmDialog(context,
-                          title: 'Log out?', message: 'You can sign in again with your phone number.', confirmLabel: 'Log out');
+                          title: 'Log out?', message: 'You can sign in again with your email.', confirmLabel: 'Log out');
                       if (ok) await ref.read(authRepositoryProvider).signOut();
                     },
                     child: const Text('Log out'),
@@ -359,7 +370,14 @@ class _Tile extends StatelessWidget {
                     style: AppText.labelSmall.copyWith(
                         fontSize: 11, fontWeight: FontWeight.w600, color: chipOn ? AppColors.successText : AppColors.dangerText)),
               ),
-            if (value != null) Text(value!, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+            if (value != null)
+              Flexible(
+                child: Text(value!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+              ),
             if (onTap != null && chip == null) const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
           ]),
         ),
@@ -368,3 +386,56 @@ class _Tile extends StatelessWidget {
 
 /// Kept for routes that want to jump to the account tab.
 void goAccount(BuildContext context) => context.go('/account');
+
+/// Account → Mobile number (D-52, S-4): change the contact number. Not verified; `phone-taken`
+/// when another Asani account uses it. The account's family profiles get the new number.
+Future<void> _changePhone(BuildContext context, WidgetRef ref, String current) async {
+  final controller = TextEditingController(text: PhoneUtils.formatLocal(PhoneUtils.normalizeLocal(current)));
+  String? error;
+  var saving = false;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) {
+        Future<void> save() async {
+          setState(() {
+            saving = true;
+            error = null;
+          });
+          try {
+            await ref.read(authRepositoryProvider).updatePhone(controller.text);
+            if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            if (context.mounted) showSnack(context, 'Mobile number updated.');
+          } catch (e) {
+            setState(() => error = AppException.messageOf(e));
+          } finally {
+            if (dialogContext.mounted) setState(() => saving = false);
+          }
+        }
+
+        final valid = PhoneUtils.isValidLocal(controller.text);
+        return AlertDialog(
+          title: const Text('Mobile number'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            PkPhoneField(
+              controller: controller,
+              enabled: !saving,
+              autofocus: true,
+              error: error != null,
+              onChanged: () => setState(() => error = null),
+              onSubmitted: valid && !saving ? save : null,
+            ),
+            const SizedBox(height: Gap.sm),
+            Text(error ?? 'Clinics use this number to find your visits.',
+                style: AppText.labelSmall.copyWith(color: error != null ? AppColors.danger : AppColors.textSecondary)),
+          ]),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+            FilledButton(onPressed: valid && !saving ? save : null, child: saving ? const ButtonSpinner() : const Text('Save number')),
+          ],
+        );
+      },
+    ),
+  );
+  controller.dispose();
+}

@@ -109,15 +109,15 @@ void main() {
       await visit('intro', '/intro');
       await tester.runAsync(() => backend.update(backend.settings.copyWith(introSeen: true)));
       await settle();
-      await visit('phone', '/login/phone');
-      await tester.runAsync(() => backend.sendCode('+923001234567'));
+      await visit('email', '/login/email');
+      await tester.runAsync(() => backend.sendEmailOtp('demo@asani.pk'));
       await settle();
       await visit('otp', '/login/otp');
-      await tester.runAsync(() => backend.verifyCode(DemoBackend.demoOtp));
+      await tester.runAsync(() => backend.verifyEmailOtp('demo@asani.pk', DemoBackend.demoOtp));
       await settle();
       await visit('name & consent', '/login/profile');
       await tester.runAsync(() async {
-        await backend.completeProfile(name: 'Muhammad Abdullah Khan Niazi', age: 34, gender: Gender.male);
+        await backend.createProfile(name: 'Muhammad Abdullah Khan Niazi', age: 34, gender: Gender.male, phone: '3001234567');
         await backend.update(backend.settings.copyWith(primerShown: true, notificationsAllowed: false));
         final today = dayKey(DateTime.now());
         final shazia = (await backend.watchMyPatients().first).firstWhere((p) => p.name == 'Shazia Begum');

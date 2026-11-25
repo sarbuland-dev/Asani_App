@@ -101,3 +101,16 @@ abstract final class PhoneUtils {
     return '${d.substring(0, 3)} ${d.substring(3, d.length.clamp(3, 10))}';
   }
 }
+
+/// Login email checks (D-52). Deliberately loose: the email code proves the address.
+abstract final class EmailUtils {
+  static final _pattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
+
+  /// Trimmed and lower case, as Supabase stores it.
+  static String normalize(String input) => input.trim().toLowerCase();
+
+  static bool isValid(String input) {
+    final e = normalize(input);
+    return e.length <= 254 && _pattern.hasMatch(e);
+  }
+}

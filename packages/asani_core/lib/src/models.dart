@@ -13,6 +13,8 @@ class AppUser {
     required this.uid,
     required this.phone,
     required this.name,
+    this.email = '',
+    this.phoneVerified = false,
     this.city = 'Lahore',
     this.selfPatientId,
     this.consentAcceptedAt,
@@ -21,8 +23,16 @@ class AppUser {
   });
 
   final String uid;
-  final String phone; // E.164, e.g. +923001234567
+
+  /// E.164, e.g. +923001234567. Empty until profile setup. Not verified (D-52).
+  final String phone;
   final String name;
+
+  /// Login email (D-52: patients log in with an email code).
+  final String email;
+
+  /// Always false for now (D-52): the phone is typed in profile setup, never checked by SMS.
+  final bool phoneVerified;
   final String city;
   final String? selfPatientId;
   final DateTime? consentAcceptedAt;
@@ -35,6 +45,7 @@ class AppUser {
   bool get hasProfile => name.trim().isNotEmpty && consentAcceptedAt != null;
 
   AppUser copyWith({
+    String? phone,
     String? name,
     String? city,
     String? selfPatientId,
@@ -44,8 +55,10 @@ class AppUser {
   }) =>
       AppUser(
         uid: uid,
-        phone: phone,
+        phone: phone ?? this.phone,
         name: name ?? this.name,
+        email: email,
+        phoneVerified: phoneVerified,
         city: city ?? this.city,
         selfPatientId: selfPatientId ?? this.selfPatientId,
         consentAcceptedAt: consentAcceptedAt ?? this.consentAcceptedAt,
@@ -57,6 +70,8 @@ class AppUser {
         'uid': uid,
         'phone': phone,
         'name': name,
+        'email': email,
+        'phoneVerified': phoneVerified,
         'role': 'patient',
         'city': city,
         'selfPatientId': selfPatientId,
@@ -67,8 +82,10 @@ class AppUser {
 
   factory AppUser.fromMap(Map<String, Object?> m) => AppUser(
         uid: m['uid'] as String,
-        phone: m['phone'] as String,
+        phone: (m['phone'] as String?) ?? '',
         name: (m['name'] as String?) ?? '',
+        email: (m['email'] as String?) ?? '',
+        phoneVerified: (m['phoneVerified'] as bool?) ?? false,
         city: (m['city'] as String?) ?? 'Lahore',
         selfPatientId: m['selfPatientId'] as String?,
         consentAcceptedAt: _dt(m['consentAcceptedAt']),
@@ -106,11 +123,11 @@ class Patient {
   int? age([DateTime? now]) => birthYear == null ? null : (now ?? DateTime.now()).year - birthYear!;
   bool get isSelf => relation == Relation.self;
 
-  Patient copyWith({String? name, int? birthYear, Gender? gender, Relation? relation, String? patientPhone, PatientStatus? status}) =>
+  Patient copyWith({String? phone, String? name, int? birthYear, Gender? gender, Relation? relation, String? patientPhone, PatientStatus? status}) =>
       Patient(
         id: id,
         ownerUid: ownerUid,
-        phone: phone,
+        phone: phone ?? this.phone,
         name: name ?? this.name,
         birthYear: birthYear ?? this.birthYear,
         gender: gender ?? this.gender,

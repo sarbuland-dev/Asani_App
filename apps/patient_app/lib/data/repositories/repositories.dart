@@ -7,19 +7,34 @@ import 'package:asani_core/asani_core.dart';
 enum AuthStatus { signedOut, codeSent, needsProfile, signedIn }
 
 class AuthState {
-  const AuthState(this.status, {this.user, this.pendingPhone});
+  const AuthState(this.status, {this.user, this.pendingEmail});
   final AuthStatus status;
   final AppUser? user;
-  final String? pendingPhone;
+
+  /// The email a login code was sent to (S-03).
+  final String? pendingEmail;
 }
 
+/// Patient login (D-52): "Continue with email" + a 6-digit email code, then profile setup with a
+/// required, unverified phone. Every method throws [AppException] with one of these codes:
+/// `invalid-email`, `invalid-code`, `code-expired`, `too-many-requests`, `phone-taken`,
+/// `invalid-phone`, `network` (plus `unknown`).
 abstract interface class AuthRepository {
   Stream<AuthState> watchAuth();
   AuthState get current;
-  Future<void> sendCode(String e164Phone);
-  Future<void> verifyCode(String code);
-  /// First login: creates the account and the "Self" patient profile.
-  Future<void> completeProfile({required String name, required int age, required Gender gender});
+
+  /// Sends a 6-digit code to [email] (valid 10 minutes). Also used to resend.
+  Future<void> sendEmailOtp(String email);
+
+  /// Signs in with the code; the router then shows profile setup or Home.
+  Future<void> verifyEmailOtp(String email, String code);
+
+  /// First login: creates the account and the "Self" profile. [phone] is any accepted
+  /// Pakistani mobile format; it is saved as +923XXXXXXXXX and not verified.
+  Future<void> createProfile({required String name, required int age, required Gender gender, required String phone});
+
+  /// Account → Phone: one phone = one app account (`phone-taken`).
+  Future<void> updatePhone(String phone);
   Future<void> updateName(String name);
   Future<void> setCity(String city);
   /// Account-wide queue alerts on/off (D-18), synced to every phone.

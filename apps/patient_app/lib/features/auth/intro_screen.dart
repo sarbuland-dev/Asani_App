@@ -49,7 +49,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
   Future<void> _finish() async {
     final repo = ref.read(settingsRepositoryProvider);
     await repo.update(repo.settings.copyWith(introSeen: true));
-    if (mounted) context.go('/login/phone');
+    if (mounted) context.go('/login/email');
   }
 
   void _next() {
@@ -215,7 +215,7 @@ class _PageState extends ConsumerState<_Page> with SingleTickerProviderStateMixi
   Future<void> _skip() async {
     final repo = ref.read(settingsRepositoryProvider);
     await repo.update(repo.settings.copyWith(introSeen: true));
-    if (mounted) context.go('/login/phone');
+    if (mounted) context.go('/login/email');
   }
 
   @override

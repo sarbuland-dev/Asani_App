@@ -257,6 +257,19 @@ Not yet: D-24 Next order, D-35 skip repeat, D-38 undo and `priority_at` live in 
 - Deploy / secrets need `supabase/.access-token.local` (a scoped personal access token: Edge Functions + Secrets
   read & write). See docs/02 §2b.
 
+**Phase 4 (2026-11-25): patient email login.**
+- DB: `supabase/migrations/20261125000300_patient_auth.sql`: `create_profile(p_name, p_age, p_gender, p_phone)` (users row +
+  Self profile in one transaction, `phone_verified = false`, idempotent) and `update_phone(p_phone)`; errors
+  `invalid-phone`, `phone-taken`, `invalid-argument`, `unauthenticated`. Tests `04_patient_auth.test.sql` (20).
+- App: `AuthRepository` = `sendEmailOtp`, `verifyEmailOtp`, `createProfile`, `updatePhone`, `updateName`, `setCity`,
+  `setQueueAlerts`, `cancelLogin`, `signOut`, `deleteAccount` (delete comes in phase 6). Error codes in `AppException`.
+  `SupabaseAuthRepository` (`lib/data/supabase/`), demo version in `DemoBackend` (code `123456`).
+  Screens: S-02 "Continue with email", S-03 "Check your email", S-04 + mobile number, Account → Mobile number.
+- `--dart-define=BACKEND=supabase` (URL and publishable key default to asani-dev in `Env`). In phase 4 only login is on
+  Supabase; clinics, tokens and family still run on demo data. Pushes are off in this mode until phase 5 saves the
+  device to Supabase. `BACKEND=firebase` can no longer log in (email needs Supabase).
+- Dashboard settings (OTP 600 s / 6 digits, code-only templates, Brevo SMTP): docs/02 §2b.
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

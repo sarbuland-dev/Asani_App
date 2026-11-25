@@ -15,6 +15,8 @@ import 'data/firebase/firestore_patient_repository.dart';
 import 'data/firebase/firestore_token_repository.dart';
 import 'data/firebase/firestore_notification_repository.dart';
 import 'data/providers.dart';
+import 'data/supabase/supabase_auth_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,24 +27,23 @@ Future<void> main() async {
   // Demo backend: demo mode, plus device settings in Firebase mode.
   final backend = await DemoBackend.create();
 
-  // Login: Firebase with --dart-define=BACKEND=firebase, demo otherwise (D-11).
+  // Login: Supabase with --dart-define=BACKEND=supabase (D-52), Firebase with BACKEND=firebase, demo otherwise (D-11).
   final overrides = [backendProvider.overrideWithValue(backend)];
-  if (Env.useFirebase) {
+  if (Env.useSupabase) {
+    try {
+      await Supabase.initialize(url: Env.supabaseUrl, publishableKey: Env.supabaseAnonKey);
+    } catch (e) {
+      runApp(_SetupError('Supabase setup failed.\n\n$e'));
+      return;
+    }
+    // Phase 4: real email-code login; clinics, tokens and family stay on demo data until phase 5.
+    overrides.add(authRepositoryProvider.overrideWithValue(SupabaseAuthRepository(backend)));
+  } else if (Env.useFirebase) {
     try {
       await FirebaseSetup.init();
     } catch (e) {
       // Not configured yet (FIREBASE_SETUP.md): say so instead of a blank screen.
-      runApp(MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('Firebase setup is not finished.\n\n$e', textAlign: TextAlign.center),
-            ),
-          ),
-        ),
-      ));
+      runApp(_SetupError('Firebase setup is not finished.\n\n$e'));
       return;
     }
     backend.stopSimulator(); // queues move via tools/queue-sim (step 9)
@@ -82,4 +83,20 @@ Future<void> main() async {
   }
 
   runApp(ProviderScope(overrides: overrides, child: const AsaniApp()));
+}
+
+/// Shown instead of a blank screen when the backend cannot start.
+class _SetupError extends StatelessWidget {
+  const _SetupError(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Padding(padding: const EdgeInsets.all(24), child: Text(message, textAlign: TextAlign.center)),
+          ),
+        ),
+      );
 }

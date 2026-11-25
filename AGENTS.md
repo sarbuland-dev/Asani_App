@@ -61,7 +61,7 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 2. **Flow:** search a **clinic** → pick a **doctor at that clinic**, **or** (D-31) pick a **speciality** in the Doctors tab → doctor card (nearest clinic first) → booking. Specialities come from a **fixed list** (chips, no free-text doctor search). The same doctor at two clinics is **one card** only after the Super Admin links the records (D-32); the system never links on its own.
 3. **Platforms:** patient app is Flutter for **Android and iOS**.
 4. **Language:** English UI only.
-5. **Patient identity:** the phone number identifies the *family account*; each patient is a *profile* (`patients` collection). Tokens point to `patientId`.
+5. **Patient identity:** the patient logs in with an **email code** (D-52); the account's **phone** (required, not verified, one phone = one app account) is the family's contact number at clinics; each patient is a *profile* (`patients`). Tokens point to `patientId`. Walk-ins are never linked to an account automatically.
 6. **Token numbers** are assigned only by the `bookToken` Cloud Function inside a transaction. The client never writes a token number.
 7. **One login per clinic** (PRD-CLINIC-WEB.md D-07, D-18): the clinic's email + password, set by the manager from an invite email; the receptionist uses the same login. No receptionist or doctor accounts; doctors are records the clinic adds itself (D-19). Roles (`clinic` + `clinicId`, or `superAdmin`) are custom claims set only by Cloud Functions.
 

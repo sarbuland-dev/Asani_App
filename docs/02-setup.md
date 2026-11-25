@@ -94,6 +94,31 @@ cd tools/db-test; npm install; node run.js
 | `supabase/tests/database/` | pgTAP tests |
 | `supabase/functions/` | Edge Functions (`send-push`) |
 
+**Patient email login (D-52, phase 4): Supabase dashboard settings** (owner, once per project):
+1. **Authentication → Sign In / Providers → Email**: Email provider on; **Email OTP Expiration = 600** seconds;
+   **Email OTP Length = 6**.
+2. **Authentication → Emails → Templates**: in **Magic Link** *and* **Confirm signup**, set
+   - Subject: `Your Asani login code`
+   - Body (no link, only the code):
+     ```html
+     <h2>Your Asani login code</h2>
+     <p>Enter this code in the Asani app:</p>
+     <p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
+     <p>It expires in 10 minutes. If you did not ask for it, you can ignore this email.</p>
+     ```
+3. **Custom SMTP with Brevo** (Supabase's built-in email only reaches your own team's addresses, about 2 per hour,
+   for testing):
+   - brevo.com → sign up (free, 300 emails/day) → **Senders, Domains & Dedicated IPs → Senders → Add a sender**
+     (e.g. `no-reply@…` or your Gmail) and confirm it from the email Brevo sends.
+   - **SMTP & API → SMTP → Generate a new SMTP key**. Note the server `smtp-relay.brevo.com`, port `587`, your
+     **SMTP login** (looks like `xxxx@smtp-brevo.com`) and the key. Never commit the key.
+   - Supabase **Authentication → Emails → SMTP Settings → Enable custom SMTP**: sender email = the Brevo sender,
+     sender name `Asani`, host `smtp-relay.brevo.com`, port `587`, username = SMTP login, password = SMTP key.
+   - **Authentication → Rate Limits**: raise "emails sent" to about 100 per hour once SMTP works.
+   - Until we have our own domain (Q-06) codes may land in spam; tell testers to check spam.
+4. Run the app: `flutter run --flavor dev --dart-define=BACKEND=supabase` (phase 4: login is real, the other data
+   is still demo).
+
 **Edge Functions (deploy / secrets)** need a personal access token: supabase.com/dashboard/account/tokens →
 Generate new token, preset Read-only plus **Edge Functions** and **Secrets** read & write. Save it as one line in
 `supabase/.access-token.local` (git-ignored). Then:

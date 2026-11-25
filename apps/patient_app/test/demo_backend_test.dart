@@ -10,9 +10,10 @@ void main() {
   late DemoBackend backend;
 
   Future<void> signIn(String phone) async {
-    await backend.sendCode(phone);
-    await backend.verifyCode(DemoBackend.demoOtp);
-    await backend.completeProfile(name: 'Ali Khan', age: 28, gender: Gender.male);
+    final email = 'u${phone.replaceAll('+', '')}@test.pk';
+    await backend.sendEmailOtp(email);
+    await backend.verifyEmailOtp(email, DemoBackend.demoOtp);
+    await backend.createProfile(name: 'Ali Khan', age: 28, gender: Gender.male, phone: phone);
   }
 
   setUp(() async {
@@ -23,13 +24,34 @@ void main() {
 
   tearDown(() => backend.dispose());
 
-  test('wrong OTP is rejected, correct OTP signs in', () async {
-    await backend.sendCode('+923001112222');
-    expect(() => backend.verifyCode('000000'), throwsA(isA<AppException>()));
-    await backend.verifyCode(DemoBackend.demoOtp);
+  test('wrong code is rejected, correct email code signs in (D-52)', () async {
+    expect(() => backend.sendEmailOtp('not-an-email'), throwsA(isA<AppException>().having((e) => e.code, 'code', 'invalid-email')));
+    await backend.sendEmailOtp('Sara@Example.com');
+    expect(backend.current.pendingEmail, 'sara@example.com');
+    expect(() => backend.verifyEmailOtp('sara@example.com', '000000'),
+        throwsA(isA<AppException>().having((e) => e.code, 'code', 'invalid-code')));
+    await backend.verifyEmailOtp('sara@example.com', DemoBackend.demoOtp);
     expect(backend.current.status, AuthStatus.needsProfile);
-    await backend.completeProfile(name: 'Sara', age: 31, gender: Gender.female);
+    expect(() => backend.createProfile(name: 'Sara', age: 31, gender: Gender.female, phone: '12345'),
+        throwsA(isA<AppException>().having((e) => e.code, 'code', 'invalid-phone')));
+    await backend.createProfile(name: 'Sara', age: 31, gender: Gender.female, phone: '0300 1112222');
     expect(backend.current.status, AuthStatus.signedIn);
+    expect(backend.current.user?.phone, '+923001112222');
+    expect(backend.current.user?.phoneVerified, isFalse);
+  });
+
+  test('one phone = one app account (phone-taken, D-52)', () async {
+    await signIn('+923001112222');
+    await backend.signOut();
+    await backend.sendEmailOtp('other@test.pk');
+    await backend.verifyEmailOtp('other@test.pk', DemoBackend.demoOtp);
+    expect(() => backend.createProfile(name: 'Other', age: 40, gender: Gender.male, phone: '3001112222'),
+        throwsA(isA<AppException>().having((e) => e.code, 'code', 'phone-taken')));
+    await backend.createProfile(name: 'Other', age: 40, gender: Gender.male, phone: '3001113333');
+    expect(() => backend.updatePhone('3001112222'), throwsA(isA<AppException>().having((e) => e.code, 'code', 'phone-taken')));
+    await backend.updatePhone('3001114444');
+    expect(backend.current.user?.phone, '+923001114444');
+    expect((await backend.watchMyPatients().first).every((p) => p.phone == '+923001114444'), isTrue);
   });
 
   test('demo account gets family and history', () async {

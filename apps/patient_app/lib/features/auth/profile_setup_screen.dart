@@ -8,8 +8,10 @@ import '../../core/errors/app_exception.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../core/utils/launch.dart';
 import '../../data/providers.dart';
+import 'phone_field.dart';
 
-/// S-04 first login ("sign up"): name, age, gender + consent (PRD F-01, D-15).
+/// S-04 first login ("sign up"): name, age, gender, phone + consent (PRD F-01, D-15, D-52).
+/// The phone is required but not verified; one phone = one app account (`phone-taken`).
 /// Creates the account and the "Self" patient profile; the router then
 /// moves to Home.
 ///
@@ -27,10 +29,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   final _name = TextEditingController();
   final _age = TextEditingController();
+  final _phone = TextEditingController();
   Gender? _gender;
   bool _agreed = false;
   bool _saving = false;
   String? _error;
+  String? _phoneError;
   late final _termsTap = TapGestureRecognizer()..onTap = () => openUrl(context, AppLinks.terms);
   late final _privacyTap = TapGestureRecognizer()..onTap = () => openUrl(context, AppLinks.privacy);
 
@@ -38,6 +42,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   void dispose() {
     _name.dispose();
     _age.dispose();
+    _phone.dispose();
     _termsTap.dispose();
     _privacyTap.dispose();
     super.dispose();
@@ -51,7 +56,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   bool get _valid =>
-      _cleanName.length >= 2 && _cleanName.length <= _maxName && _ageValue != null && _gender != null && _agreed;
+      _cleanName.length >= 2 &&
+      _cleanName.length <= _maxName &&
+      _ageValue != null &&
+      _gender != null &&
+      PhoneUtils.isValidLocal(_phone.text) &&
+      _agreed;
 
   Future<void> _continue() async {
     if (!_valid || _saving) return;
@@ -59,9 +69,21 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() {
       _saving = true;
       _error = null;
+      _phoneError = null;
     });
     try {
-      await ref.read(authRepositoryProvider).completeProfile(name: _cleanName, age: _ageValue!, gender: _gender!);
+      await ref
+          .read(authRepositoryProvider)
+          .createProfile(name: _cleanName, age: _ageValue!, gender: _gender!, phone: _phone.text);
+    } on AppException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (e.code == 'phone-taken' || e.code == 'invalid-phone') {
+          _phoneError = e.message;
+        } else {
+          _error = e.message;
+        }
+      });
     } catch (e) {
       if (mounted) setState(() => _error = AppException.messageOf(e));
     } finally {
@@ -69,7 +91,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
   }
 
-  Future<void> _useAnotherNumber() => ref.read(authRepositoryProvider).signOut();
+  Future<void> _useAnotherEmail() => ref.read(authRepositoryProvider).signOut();
 
   /// − / + next to the age field. Empty counts as 0, so + gives 1.
   void _stepAge(int by) {
@@ -178,6 +200,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               if (g != Gender.values.last) const SizedBox(width: 10),
                             ],
                           ]),
+                          const SizedBox(height: Gap.lg),
+                          _label('Mobile number'),
+                          PkPhoneField(
+                            controller: _phone,
+                            enabled: !_saving,
+                            error: _phoneError != null,
+                            onChanged: () => setState(() => _phoneError = null),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: Gap.xs, left: Gap.xs),
+                            child: Text(
+                              _phoneError ?? 'Clinics use this number to find your visits. One number per Asani account.',
+                              style: AppText.labelSmall.copyWith(color: _phoneError != null ? AppColors.danger : AppColors.textSecondary),
+                            ),
+                          ),
+                          const SizedBox(height: Gap.lg),
                         ],
                       ),
                     ),
@@ -237,7 +275,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             ]),
                     ),
                     Center(
-                      child: TextButton(onPressed: _saving ? null : _useAnotherNumber, child: const Text('Use another number')),
+                      child: TextButton(onPressed: _saving ? null : _useAnotherEmail, child: const Text('Use another email')),
                     ),
                   ],
                 ),
@@ -264,7 +302,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  HeaderBackButton(onPressed: _saving ? () {} : _useAnotherNumber),
+                  HeaderBackButton(onPressed: _saving ? () {} : _useAnotherEmail),
                   Expanded(
                     child: Text('Your profile',
                         textAlign: TextAlign.center,

@@ -8,12 +8,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import 'package:asani_ui/asani_ui.dart';
-import 'package:asani_core/asani_core.dart';
 import '../../data/demo/demo_backend.dart';
 import '../../data/providers.dart';
-import 'phone_screen.dart';
+import 'email_screen.dart';
 
-/// S-03: 6-digit code, resend after 60 s (PRD F-01).
+/// S-03: 6-digit email code (D-52), valid 10 minutes, resend after 60 s (PRD F-01).
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
@@ -55,16 +54,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.dispose();
   }
 
-  String? get _phone => ref.read(authStateProvider).value?.pendingPhone;
+  String? get _email => ref.read(authStateProvider).value?.pendingEmail;
 
   Future<void> _verify() async {
-    if (_controller.text.length != 6 || _verifying) return;
+    final email = _email;
+    if (_controller.text.length != 6 || _verifying || email == null) return;
     setState(() {
       _verifying = true;
       _error = null;
     });
     try {
-      await ref.read(authRepositoryProvider).verifyCode(_controller.text);
+      await ref.read(authRepositoryProvider).verifyEmailOtp(email, _controller.text);
     } catch (e) {
       if (mounted) {
         setState(() => _error = AppException.messageOf(e));
@@ -76,11 +76,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   Future<void> _resend() async {
-    final phone = _phone;
-    if (phone == null || _resending || _resendCount >= _maxResends) return;
+    final email = _email;
+    if (email == null || _resending || _resendCount >= _maxResends) return;
     setState(() => _resending = true);
     try {
-      await ref.read(authRepositoryProvider).sendCode(phone);
+      await ref.read(authRepositoryProvider).sendEmailOtp(email);
       if (!mounted) return;
       _controller.clear();
       setState(() {
@@ -96,14 +96,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
   }
 
-  void _changeNumber() {
+  void _changeEmail() {
     ref.read(authRepositoryProvider).cancelLogin();
-    context.go('/login/phone');
+    context.go('/login/email');
   }
 
   @override
   Widget build(BuildContext context) {
-    final phone = ref.watch(authStateProvider).value?.pendingPhone;
+    final email = ref.watch(authStateProvider).value?.pendingEmail;
     final code = _controller.text;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kStatusBarLight,
@@ -113,7 +113,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Board P1 S-03: green header with back, "Verify number" and the number.
+              // Board P1 S-03: green header with back, "Check your email" and the address.
               Container(
                 decoration: const BoxDecoration(
                   color: AppColors.primary,
@@ -127,9 +127,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          HeaderBackButton(onPressed: _changeNumber),
+                          HeaderBackButton(onPressed: _changeEmail),
                           Expanded(
-                            child: Text('Verify number',
+                            child: Text('Check your email',
                                 textAlign: TextAlign.center,
                                 style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontSize: 17, fontWeight: FontWeight.w700)),
                           ),
@@ -146,11 +146,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text('Sent to ', style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted)),
-                                Text(phone == null ? '' : Fmt.phone(phone),
+                                Text(email ?? '',
                                     style: AppText.labelLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w700)),
                                 Text('. ', style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted)),
                                 InkWell(
-                                  onTap: _changeNumber,
+                                  onTap: _changeEmail,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(vertical: Gap.sm),
                                     child: Text('Change',
@@ -170,7 +170,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(Gap.xl, 28, Gap.xl, 0),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              // One hidden field drives six boxes; supports SMS autofill.
+              // One hidden field drives six boxes; supports one-time-code autofill.
               Stack(
                 children: [
                   Row(

@@ -53,7 +53,8 @@ class DemoBackend
   AppSettings _settings = const AppSettings();
 
   // Login flow (not persisted).
-  String? _pendingPhone;
+  String? _pendingEmail;
+  DateTime? _codeSentAt;
   int _failedAttempts = 0;
 
   static Future<DemoBackend> create() async {
@@ -214,56 +215,69 @@ class DemoBackend
   AuthState get current {
     final me = _me;
     if (me != null) return AuthState(me.hasProfile ? AuthStatus.signedIn : AuthStatus.needsProfile, user: me);
-    if (_pendingPhone != null) return AuthState(AuthStatus.codeSent, pendingPhone: _pendingPhone);
+    if (_pendingEmail != null) return AuthState(AuthStatus.codeSent, pendingEmail: _pendingEmail);
     return const AuthState(AuthStatus.signedOut);
   }
 
   @override
   Stream<AuthState> watchAuth() => _watch(() => current);
 
+  /// Demo: no email is sent; the code is always [demoOtp] (valid 10 minutes, like Supabase).
   @override
-  Future<void> sendCode(String e164Phone) async {
+  Future<void> sendEmailOtp(String email) async {
+    if (!EmailUtils.isValid(email)) throw AppException.invalidEmail;
     await _latency(800);
-    _pendingPhone = e164Phone;
+    _pendingEmail = EmailUtils.normalize(email);
+    _codeSentAt = DateTime.now();
     _failedAttempts = 0;
     _changed();
   }
 
   @override
-  Future<void> verifyCode(String code) async {
+  Future<void> verifyEmailOtp(String email, String code) async {
     await _latency(700);
-    final phone = _pendingPhone;
-    if (phone == null) throw AppException.generic;
+    final pending = _pendingEmail;
+    if (pending == null || pending != EmailUtils.normalize(email)) throw AppException.codeExpired;
     if (_failedAttempts >= 5) throw AppException.tooManyAttempts;
+    if (DateTime.now().difference(_codeSentAt ?? DateTime.now()) > const Duration(minutes: 10)) throw AppException.codeExpired;
     if (code != demoOtp) {
       _failedAttempts++;
       throw AppException.wrongCode;
     }
-    final uid = 'u_${phone.replaceAll('+', '')}';
-    _users.putIfAbsent(uid, () => AppUser(uid: uid, phone: phone, name: ''));
+    final uid = 'u_${pending.replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+    _users.putIfAbsent(uid, () => AppUser(uid: uid, phone: '', email: pending, name: ''));
     _currentUid = uid;
-    _pendingPhone = null;
+    _pendingEmail = null;
     _changed();
   }
 
   @override
   void cancelLogin() {
-    _pendingPhone = null;
+    _pendingEmail = null;
     _changed();
   }
 
+  /// One phone = one app account (D-52).
+  void _checkPhoneFree(String e164, String myUid) {
+    if (_users.values.any((u) => u.uid != myUid && u.phone == e164)) throw AppException.phoneTaken;
+  }
+
   @override
-  Future<void> completeProfile({required String name, required int age, required Gender gender}) async {
+  Future<void> createProfile({required String name, required int age, required Gender gender, required String phone}) async {
     await _latency(500);
     final me = _me;
-    if (me == null) throw const AppException('session-expired', 'Session expired. Please log in again.');
-    final isDemo = me.phone == DemoSeed.demoPhone;
+    if (me == null) throw AppException.sessionExpired;
+    if (!PhoneUtils.isValidLocal(phone)) throw AppException.invalidPhone;
+    final e164 = PhoneUtils.toE164(phone);
+    _checkPhoneFree(e164, me.uid);
+    // Demo mode: phone 300 1234567 gets a sample family and visit history.
+    final isDemo = e164 == DemoSeed.demoPhone;
     final now = DateTime.now();
     name = name.trim().replaceAll(RegExp(r'\s+'), ' ');
     final self = Patient(
       id: _newId('p'),
       ownerUid: me.uid,
-      phone: me.phone,
+      phone: e164,
       name: name,
       gender: gender,
       birthYear: now.year - age,
@@ -272,6 +286,7 @@ class DemoBackend
     );
     _patients[self.id] = self;
     _users[me.uid] = me.copyWith(
+      phone: e164,
       name: name.trim(),
       selfPatientId: self.id,
       consentAcceptedAt: now,
@@ -289,6 +304,21 @@ class DemoBackend
       for (final f in demo.followUps) {
         _followUps[f.id] = f;
       }
+    }
+    _changed();
+  }
+
+  @override
+  Future<void> updatePhone(String phone) async {
+    await _latency(400);
+    final me = _me;
+    if (me == null) throw AppException.sessionExpired;
+    if (!PhoneUtils.isValidLocal(phone)) throw AppException.invalidPhone;
+    final e164 = PhoneUtils.toE164(phone);
+    _checkPhoneFree(e164, me.uid);
+    _users[me.uid] = me.copyWith(phone: e164);
+    for (final p in _patients.values.where((p) => p.ownerUid == me.uid).toList()) {
+      _patients[p.id] = p.copyWith(phone: e164);
     }
     _changed();
   }

@@ -64,17 +64,18 @@ Design for older and less tech-comfortable users: large text, few steps, clear s
 
 Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2** = later
 
-### F-01 Phone OTP login (P0)
+### F-01 Email code login (P0) (D-52, was phone OTP)
 - On the very first launch, three short intro pages explain the app before login; they can be skipped and are not shown again (D-29).
-- User enters a Pakistani mobile number (`+92` prefix fixed, 10 digits after it, starting with `3`).
-- Receives a 6-digit OTP via Firebase Phone Auth; auto-read on Android where possible.
-- Resend OTP after 60 seconds. Clear error messages for wrong code, expired code, too many attempts.
-- First login ("Tell us about you"): ask for the user's **name, age and gender**, accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this (D-15). "Use another number" signs out.
-- The number field accepts `3001234567`, `03001234567`, `923001234567` and `+92 300 1234567`. Resend is limited to 3 times per login.
-- After login, call `linkPatientProfiles`: any patient profiles created earlier for this phone number (e.g. by a receptionist in future) are attached to the account.
+- **"Continue with email"**: the user enters an email and receives a **6-digit code** by email (Supabase email OTP; no password, no magic link). The code is valid **10 minutes**.
+- Resend after 60 seconds, at most 3 times per login. Clear error messages for invalid email, wrong code, expired code, too many attempts and no internet.
+- First login ("Tell us about you"): **name, age, gender and mobile number** (`+92 3XX XXXXXXX`), accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this (D-15). "Use another email" signs out.
+- The mobile number is **required but not verified** (`phoneVerified = false`). **One phone = one app account**: a number already used by another account shows "This number is already used by another Asani account" (`phone-taken`). The field accepts `3001234567`, `03001234567`, `923001234567` and `+92 300 1234567`.
+- The number can be changed later in **Account → Mobile number** (same checks; the account's family profiles get the new number).
+- **No auto-linking**: walk-in profiles a clinic created with the same number are **not** attached on login (the number is not verified). Reception links them in person (D-52, phase 6).
+- Clinic or Super Admin logins cannot use the patient app (they are signed out).
 - Session persists; the user stays logged in until logout.
 
-**Acceptance:** valid number + correct OTP → Home. Wrong OTP → error, can retry. Returning user is not asked for name again.
+**Acceptance:** valid email + correct code → profile setup (first time) or Home. Wrong code → error, can retry. Returning user is not asked for details again. A number already on another account is refused.
 
 ### F-02 Clinic search and discovery (P0)
 - Search has two tabs: **Clinics** | **Doctors** (D-31). Both use the selected city. This feature (F-02) is the **Clinics** tab and stays exactly as it is; the Doctors tab is F-13.

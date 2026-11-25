@@ -9,7 +9,7 @@ import '../../data/repositories/repositories.dart';
 import '../../features/account/account_screen.dart';
 import '../../features/auth/intro_screen.dart';
 import '../../features/auth/otp_screen.dart';
-import '../../features/auth/phone_screen.dart';
+import '../../features/auth/email_screen.dart';
 import '../../features/auth/profile_setup_screen.dart';
 import '../../features/auth/splash_screen.dart';
 import '../../features/booking/booking_screen.dart';
@@ -85,9 +85,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthStatus.signedOut:
           // First launch: intro pages once, then phone login (D-29).
           if (!ref.read(settingsRepositoryProvider).settings.introSeen) return loc == '/intro' ? null : '/intro';
-          return loc == '/login/phone' ? null : '/login/phone';
+          return loc == '/login/email' ? null : '/login/email';
         case AuthStatus.codeSent:
-          return (loc == '/login/otp' || loc == '/login/phone') ? null : '/login/otp';
+          return (loc == '/login/otp' || loc == '/login/email') ? null : '/login/otp';
         case AuthStatus.needsProfile:
           return loc == '/login/profile' ? null : '/login/profile';
         case AuthStatus.signedIn:
@@ -98,7 +98,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/intro', builder: (_, _) => const IntroScreen()),
-      GoRoute(path: '/login/phone', builder: (_, _) => const PhoneScreen()),
+      GoRoute(path: '/login/email', builder: (_, _) => const EmailScreen()),
       GoRoute(path: '/login/otp', builder: (_, _) => const OtpScreen()),
       GoRoute(path: '/login/profile', builder: (_, _) => const ProfileSetupScreen()),
       StatefulShellRoute.indexedStack(

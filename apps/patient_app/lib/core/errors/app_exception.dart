@@ -20,10 +20,17 @@ class AppException implements Exception {
   static AppException duplicateToken(String name, String label) =>
       AppException('duplicate-token', '$name already has token $label with this doctor on this day.');
 
-  // Auth (PRD F-01)
+  // Auth (PRD F-01, D-52: email code login, unverified phone)
+  static const invalidEmail = AppException('invalid-email', 'Please enter a valid email address.');
   static const wrongCode = AppException('invalid-code', "That code isn't right. Please check and try again.");
+  static const codeExpired = AppException('code-expired', 'This code has expired. Please request a new one.');
   static const tooManyAttempts =
-      AppException('too-many-attempts', 'Too many attempts. Please wait a few minutes and try again.');
+      AppException('too-many-requests', 'Too many attempts. Please wait a few minutes and try again.');
+  static const phoneTaken =
+      AppException('phone-taken', 'This number is already used by another Asani account. Please use a different number.');
+  static const invalidPhone = AppException('invalid-phone', 'Please enter a valid mobile number, e.g. 300 1234567.');
+  static const noInternet = AppException('network', 'No internet connection. Please try again.');
+  static const sessionExpired = AppException('session-expired', 'Session expired. Please log in again.');
 
   static const generic = AppException('unknown', 'Something went wrong. Please try again.');
 

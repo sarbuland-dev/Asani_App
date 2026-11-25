@@ -39,20 +39,14 @@ class FirebaseAuthRepository implements AuthRepository {
   StreamSubscription<User?>? _authSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSub;
 
-  bool _resolved = false;
-  AuthState _current = const AuthState(AuthStatus.signedOut);
-
-  // OTP flow
-  String? _pendingPhone;
-  String? _verificationId;
-  int? _resendToken;
-  ConfirmationResult? _webConfirmation; // web uses reCAPTCHA + ConfirmationResult
-
   void dispose() {
     _authSub?.cancel();
     _userSub?.cancel();
     _states.close();
   }
+
+  bool _resolved = false;
+  AuthState _current = const AuthState(AuthStatus.signedOut);
 
   // ---------------------------------------------------------------- state
 
@@ -77,9 +71,7 @@ class FirebaseAuthRepository implements AuthRepository {
     _userSub?.cancel();
     if (user == null) {
       _demo.detachAccount();
-      _emit(_pendingPhone != null
-          ? AuthState(AuthStatus.codeSent, pendingPhone: _pendingPhone)
-          : const AuthState(AuthStatus.signedOut));
+      _emit(const AuthState(AuthStatus.signedOut));
       return;
     }
     // Ignore an empty cached snapshot so a returning user never flashes the
@@ -101,7 +93,6 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   Future<void> _onUserDoc(User user, DocumentSnapshot<Map<String, dynamic>> snap) async {
-    _pendingPhone = null;
     final data = snap.data();
     if (!snap.exists || data == null) {
       _demo.detachAccount();
@@ -144,120 +135,24 @@ class FirebaseAuthRepository implements AuthRepository {
     );
   }
 
-  // ---------------------------------------------------------------- OTP
+  // ---------------------------------------------------------------- login (D-52)
+
+  /// D-52: patients log in with an email code on Supabase. The Firebase backend only keeps an
+  /// existing phone session working until it is removed (docs/10 phase 8).
+  static const _needsSupabase =
+      AppException('unavailable', 'Email login needs the Supabase backend (--dart-define=BACKEND=supabase).');
 
   @override
-  Future<void> sendCode(String e164Phone) async {
-    final isResend = e164Phone == _pendingPhone;
-    if (kIsWeb) {
-      try {
-        _webConfirmation = await _auth.signInWithPhoneNumber(e164Phone);
-      } on FirebaseAuthException catch (e) {
-        throw _map(e);
-      }
-      _codeSent(e164Phone);
-      return;
-    }
-
-    final done = Completer<void>();
-    await _auth.verifyPhoneNumber(
-      phoneNumber: e164Phone,
-      timeout: const Duration(seconds: 60),
-      forceResendingToken: isResend ? _resendToken : null,
-      // Android only: SMS read automatically / instant verification.
-      verificationCompleted: (credential) async {
-        try {
-          await _signIn(credential);
-        } catch (e) {
-          AppLogger.error('Auto verification failed', e);
-        }
-        if (!done.isCompleted) done.complete();
-      },
-      verificationFailed: (e) {
-        if (!done.isCompleted) done.completeError(_map(e));
-      },
-      codeSent: (verificationId, resendToken) {
-        _verificationId = verificationId;
-        _resendToken = resendToken;
-        _codeSent(e164Phone);
-        if (!done.isCompleted) done.complete();
-      },
-      codeAutoRetrievalTimeout: (_) {},
-    );
-    return done.future;
-  }
-
-  void _codeSent(String phone) {
-    _pendingPhone = phone;
-    if (_auth.currentUser == null) _emit(AuthState(AuthStatus.codeSent, pendingPhone: phone));
-  }
+  Future<void> sendEmailOtp(String email) async => throw _needsSupabase;
 
   @override
-  Future<void> verifyCode(String code) async {
-    try {
-      if (kIsWeb) {
-        final confirmation = _webConfirmation;
-        if (confirmation == null) throw _expired;
-        await confirmation.confirm(code);
-        _afterSignIn();
-      } else {
-        final id = _verificationId;
-        if (id == null) throw _expired;
-        await _signIn(PhoneAuthProvider.credential(verificationId: id, smsCode: code));
-      }
-    } on FirebaseAuthException catch (e) {
-      throw _map(e);
-    }
-  }
+  Future<void> verifyEmailOtp(String email, String code) async => throw _needsSupabase;
 
-  static const _expired = AppException('session-expired', 'This code has expired. Please request a new one.');
-
-  Future<void> _signIn(PhoneAuthCredential credential) async {
-    try {
-      await _auth.signInWithCredential(credential);
-    } on FirebaseAuthException catch (e) {
-      throw _map(e);
-    }
-    _afterSignIn();
-  }
-
-  /// Background tasks; login must not fail if these fail.
-  void _afterSignIn() {
-    _verificationId = null;
-    _webConfirmation = null;
-    unawaited(_linkPatientProfiles());
-    unawaited(_touchLastLogin());
-  }
-
-  /// Attaches profiles a clinic created earlier for this phone number.
-  /// Safe to call before the Cloud Function is deployed.
-  Future<void> _linkPatientProfiles() async {
-    try {
-      await _functions.httpsCallable('linkPatientProfiles').call<void>();
-    } catch (e) {
-      AppLogger.info('linkPatientProfiles skipped: $e');
-    }
-  }
-
-  Future<void> _touchLastLogin() async {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return;
-    try {
-      await _db.collection('users').doc(uid).update({
-        'lastLoginAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {
-      // users doc doesn't exist yet (first login). Fine.
-    }
-  }
+  @override
+  Future<void> updatePhone(String phone) async => throw _needsSupabase;
 
   @override
   void cancelLogin() {
-    _pendingPhone = null;
-    _verificationId = null;
-    _resendToken = null;
-    _webConfirmation = null;
     if (_auth.currentUser == null) _emit(const AuthState(AuthStatus.signedOut));
   }
 
@@ -266,12 +161,10 @@ class FirebaseAuthRepository implements AuthRepository {
   /// First login: creates users/{uid} and the "Self" patient in ONE batch
   /// (the security rules depend on this, docs/04 §5).
   @override
-  Future<void> completeProfile({required String name, required int age, required Gender gender}) async {
+  Future<void> createProfile({required String name, required int age, required Gender gender, required String phone}) async {
     final user = _auth.currentUser;
-    final phone = user?.phoneNumber;
-    if (user == null || phone == null) {
-      throw const AppException('session-expired', 'Session expired. Please log in again.');
-    }
+    final phoneE164 = user?.phoneNumber;
+    if (user == null || phoneE164 == null) throw AppException.sessionExpired;
     final cleanName = name.trim().replaceAll(RegExp(r'\s+'), ' ');
     final now = FieldValue.serverTimestamp();
     final userRef = _db.collection('users').doc(user.uid);
@@ -279,7 +172,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
     final batch = _db.batch()
       ..set(patientRef, {
-        'phone': phone,
+        'phone': phoneE164,
         'ownerUid': user.uid,
         'name': cleanName,
         'nameLower': cleanName.toLowerCase(),
@@ -295,7 +188,7 @@ class FirebaseAuthRepository implements AuthRepository {
         'updatedAt': now,
       })
       ..set(userRef, {
-        'phone': phone,
+        'phone': phoneE164,
         'name': cleanName,
         'role': 'patient',
         'city': 'Lahore',
@@ -381,22 +274,6 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   // ---------------------------------------------------------------- errors
-
-  AppException _map(FirebaseAuthException e) {
-    AppLogger.warn('FirebaseAuthException: ${e.code} ${e.message}');
-    return switch (e.code) {
-      'invalid-phone-number' => const AppException('invalid-phone', 'This phone number is not valid.'),
-      'invalid-verification-code' => AppException.wrongCode,
-      'session-expired' || 'code-expired' => _expired,
-      'too-many-requests' => AppException.tooManyAttempts,
-      'quota-exceeded' => const AppException('quota', 'SMS limit reached. Please try again later.'),
-      'network-request-failed' => const AppException('network', 'No internet connection.'),
-      // SMS region not allowed, or project not on the Blaze plan (real SMS needs billing).
-      'operation-not-allowed' || 'billing-not-enabled' =>
-        const AppException('unavailable', 'Phone login is not available right now. Please try later.'),
-      _ => AppException('auth-${e.code}', kDebugMode ? 'Login failed (${e.code}).' : AppException.generic.message),
-    };
-  }
 
   AppException _mapFirestore(FirebaseException e, String fallback) {
     AppLogger.warn('FirebaseException: ${e.code} ${e.message}');
