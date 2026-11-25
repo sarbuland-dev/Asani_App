@@ -72,9 +72,9 @@ select ok(not has_function_privilege('anon', 'public.finish_push(bigint, text, t
 
 -- ================================================================== schedules
 select is((select array_agg(jobname || ' ' || schedule order by jobname) from cron.job where jobname like 'asani-%'),
-          array['asani-auto-close-tokens 0 22 * * *', 'asani-cleanup 0 23 * * *',
+          array['asani-auto-close-tokens 0 22 * * *', 'asani-billing-jobs 0 1 * * *', 'asani-cleanup 0 23 * * *',
                 'asani-follow-up-reminders 0 4 * * *', 'asani-retry-push * * * * *'],
-          'cron jobs at 03:00, 04:00 and 09:00 PKT plus the retry');
+          'cron jobs at 03:00, 04:00, 06:00 (billing, phase 6) and 09:00 PKT plus the retry');
 
 select * from finish();
 rollback;

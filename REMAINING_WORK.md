@@ -212,7 +212,11 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
 - [x] 2026-11-25 Phase 5 code: patient app data on Supabase (Realtime streams, booking/cancel RPCs, family, follow-ups,
       notifications, device tokens). `client-smoke.js` PASS against asani-dev; app tests 18/18.
 - [ ] Phase 5 on a real phone (after the phase 4 email settings): login → book → live queue → push on the Vivo.
-- [ ] Phase 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
+- [x] 2026-11-26 Phase 6: clinic + Super Admin backend in Postgres (queue, walk-ins, lookup, PIN, doctors, suggestions,
+      billing job, links, Link to app account, delete account) + `admin-clinic-login` Edge Function. 219/219 DB tests;
+      live Edge Function check passes. New walk-ins are no longer auto-linked by phone (D-52).
+- [ ] Patient app: point Account → Delete account at `delete_my_account()` (phase 7 with the other app wiring).
+- [ ] Phase 7: clinic web on Supabase (login, invite, forgot password, board, Link to app account dialog) · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

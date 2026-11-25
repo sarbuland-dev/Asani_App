@@ -285,6 +285,34 @@ Not yet: D-24 Next order, D-35 skip repeat, D-38 undo and `priority_at` live in 
   cancel and devices end to end. 2026-11-25: PASS.
 - Still demo in Supabase mode: local device settings (intro seen, primer) only. Account deletion: phase 6.
 
+**Phase 6 (2026-11-26): clinic + Super Admin backend.** Migrations `20261126000100_clinic_queue.sql`,
+`…000200_clinic_doctors_pin.sql`, `…000300_admin_accounts.sql`; Edge Function `admin-clinic-login`.
+Tests `05_clinic_admin.test.sql` (76; 219 in total) and `tools/db-test/admin-login-smoke.js` (live, no real email).
+
+| Who | Postgres function (`supabase.rpc`) | Replaces |
+|---|---|---|
+| clinic | `queue_action(p_action, p_doctor_id, p_token_id, p_reason, p_call_not_arrived)` → `{ok, called}` | `queueAction` |
+| clinic | `clinic_create_walk_in(p_doctor_id, p_patient_id, p_phone, p_new)` → `{tokenId, number, label, patientId}` | `clinicCreateWalkIn` |
+| clinic | `clinic_lookup_phone(p_phone)` → `{profiles: [{id, name, relation, gender, age, atThisClinic, appAccount}]}` | `clinicLookupPhone` |
+| clinic | `clinic_update_patient`, `set_follow_up`, `save_doctor`, `set_doctor_active`, `set_doctor_leave`, `cancel_doctor_tokens`, `update_clinic_settings`, `log_export`, `clinic_login_touch`, `clinic_password_changed` | same names |
+| clinic | `clinic_set_pin(p_pin, p_current_pin)`, `clinic_verify_pin(p_pin)` → `{ok, unlockedUntil}` or `{ok:false, code: pin-wrong \| pin-locked, triesLeft \| lockedUntil, message}` (returned, not raised, so a wrong try is saved) | PIN |
+| clinic | **`link_walk_in_to_account(p_walk_in_id, p_account_phone, p_target_patient_id)`** (new, S-2) | — |
+| Super Admin | `admin_set_clinic_status`, `admin_change_plan`, `admin_extend_pilot`, `admin_reset_clinic_pin`, `record_payment`, `waive_invoice`, `give_extension`, `save_admin_settings`, `admin_run_billing_jobs`, `admin_link_doctors`, `admin_mark_not_same`, `admin_unlink_doctor` | same names |
+| patient | `delete_my_account()` (cancels waiting tokens, anonymises, deletes the login; no Edge Function needed) | `deleteAccount` |
+| Edge Function | `admin-clinic-login` `{action: create, clinic}` / `{action: resend \| disable \| enable, clinicId}` | `adminCreateClinic`, `adminResendClinicInvite`, `adminSetClinicLogin` |
+
+- Errors: the exception **message is the code** (e.g. `not-arrived`, `pin-required`, `managed-by-app`, `suspended`,
+  `invoice-closed`, `already-linked`, `no-account`), the **hint** is the text to show, `detail` is JSON extras
+  (`not-arrived`: `{tokenId, label, name}`).
+- Skip / clinic-cancel pushes and queue alerts come from the phase 2 triggers, so `queue_action` only changes statuses.
+- **D-52 change:** a NEW walk-in profile is never attached to an app account by phone (the old code did). The phone
+  lookup marks app profiles `appAccount` (web label "App account (number not verified)"); reception links in person.
+- Clinic password change (C-12): the web calls `auth.updateUser(password)`, then `signOut(scope: others)`, then
+  `clinic_password_changed()`. Disabling a login bans it (`ban_duration`); its current access token ends within the hour.
+- Billing job: `pg_cron` `asani-billing-jobs` at 01:00 UTC (06:00 PKT).
+- Edge Function secret `CLINIC_WEB_URL` (set to `http://localhost:8092` on dev); `<url>/set-password` must be in Auth →
+  URL Configuration → Redirect URLs. Invite / reset emails use the same SMTP as patient codes (Brevo).
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

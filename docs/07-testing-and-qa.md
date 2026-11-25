@@ -115,6 +115,7 @@ inside a transaction that is rolled back (needs `supabase/.db-url.local`, docs/0
 node tools/db-test/run.js            # 01 RLS (37), 02 booking + queue (59)
 node tools/db-test/concurrency.js    # 20 bookings on 10 connections at once → numbers 1..20, no duplicates
 node tools/db-test/client-smoke.js   # the patient app's calls through the public API: RLS, RPCs, Realtime
+node tools/db-test/admin-login-smoke.js  # admin-clinic-login Edge Function: refusals + rollback, no real email
 ```
 
 `concurrency.js` must commit, so it creates its own `cc_` rows and deletes only those afterwards.
