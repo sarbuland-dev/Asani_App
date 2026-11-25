@@ -329,6 +329,12 @@ through `admin-clinic-login`). `--dart-define=BACKEND=supabase`.
 - 2026-11-26 checked in Chrome on asani-dev: clinic login → Queue Board from Supabase; Start → "Running" live; a walk-in
   made through the API appeared live; Next → "Now serving A-1" with Undo; no console errors. Test rows removed.
 
+**Phase 8 part 1 (2026-11-26): clean-up without deleting.** `tools/queue-sim/queue-sim.js` now drives asani-dev
+through `queue_action` / `clinic_create_walk_in` as the doctor's clinic (dev only; the Firestore one is
+`queue-sim-firebase.js`); CI `supabase.yml`; clinic web CI builds `BACKEND=supabase`; DATABASE.md and ARCHITECTURE.md
+rewritten for Supabase; new TESTING_CHECKLIST.md and CONTEXT_FOR_CLAUDE.md; README and AGENTS.md updated.
+**Part 2 waits for Sarbuland's OK:** delete the Firebase backend code (list in REMAINING_WORK §13).
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

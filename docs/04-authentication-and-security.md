@@ -2,6 +2,13 @@
 
 How users log in, who can read/write what, and how patient data is protected.
 
+> **Supabase (D-52, 2026-11-26).** Patients now log in with an **email code** (phone required but not verified, one
+> phone = one app account); clinics with **email + password**. Roles live in Supabase `app_metadata`
+> (`role`, `clinic_id`), set only on the server. Firestore rules became **Row Level Security**: the policies and
+> grants are in `supabase/migrations/20261124000200_security.sql`, tested by `supabase/tests/database/01_rls.test.sql`;
+> the table-by-table access is in DATABASE.md §1. Walk-ins are never linked to an account by phone automatically.
+> The rest of this file still describes the Firebase setup and is kept for reference until it is rewritten.
+
 ---
 
 ## 1. Identity model

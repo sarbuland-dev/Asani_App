@@ -1,44 +1,27 @@
 #!/usr/bin/env node
 /**
- * queue-sim: acts as the clinic receptionist until the desktop app exists.
- * Implements the desktop contract in ARCHITECTURE.md §10 and nothing more.
+ * queue-sim (D-52): acts as a clinic's receptionist on the Supabase dev database (asani-dev).
+ * Every command calls the SAME Postgres functions as the clinic web (queue_action, clinic_create_walk_in), signed in
+ * as that doctor's clinic (app_metadata role clinic), so all rules, history lines and patient notifications are real.
  *
- *   node queue-sim.js status --doctor d_ayesha [--date 2026-11-12] [--project dev]
- *   node queue-sim.js start  --doctor d_ayesha        session → running
- *   node queue-sim.js next   --doctor d_ayesha        called → completed, next waiting → called
- *   node queue-sim.js arrive --doctor d_ayesha --number 3
- *   node queue-sim.js skip   --doctor d_ayesha --number 3
- *   node queue-sim.js hold   --doctor d_ayesha --number 3
- *   node queue-sim.js pause  --doctor d_ayesha
- *   node queue-sim.js end    --doctor d_ayesha        session → ended, remaining booked → noShow
- *   node queue-sim.js auto   --doctor d_ayesha --every 30   start, then "next" every 30 s
+ *   node queue-sim.js status  --doctor d_ayesha [--date 2026-11-26]
+ *   node queue-sim.js start   --doctor d_ayesha
+ *   node queue-sim.js next    --doctor d_ayesha [--anyway]     D-24: --anyway calls a Booked (not arrived) patient
+ *   node queue-sim.js undo    --doctor d_ayesha                within 30 s of Next
+ *   node queue-sim.js arrive  --doctor d_ayesha --number 3      also: skip, hold, back, cancel, noshow, callnow
+ *   node queue-sim.js walkin  --doctor d_ayesha --name "Ali Raza" --phone 03001234567 [--age 40] [--gender male]
+ *   node queue-sim.js pause | end  --doctor d_ayesha
+ *   node queue-sim.js auto    --doctor d_ayesha --every 30      start, then Next (anyway) every 30 s
  *
- * Target: Firestore emulator by default; `--project dev` = asani-b2b17 with
- * serviceAccount.dev.json. There is deliberately NO prod option (AGENTS.md §7).
- *
- * Until Firestore triggers run (Blaze, D-17) this also keeps `day.activeNumbers`
- * and `waitingCount` correct, exactly as the `onTokenWrite` trigger will, and
- * sends the queue notifications with the same code (functions/lib/queue/notify.js,
- * run `npm run build` in functions/ first).
+ * Database URL: env SUPABASE_DB_URL or supabase/.db-url.local (git-ignored). There is no prod option (AGENTS.md §7):
+ * it refuses any project other than asani-dev. The old Firestore version is queue-sim-firebase.js.
  */
-const fs = require('fs');
-const path = require('path');
-const admin = require('firebase-admin');
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client } = require('pg');
 
-const DEV_PROJECT_ID = 'asani-b2b17';
-const WAITING = ['booked', 'arrived', 'onHold']; // counted as "ahead" (DATABASE.md §7)
-
-/** Shared with the Cloud Functions so both send exactly the same steps. */
-function loadNotify() {
-  const lib = path.join(__dirname, '../../functions/lib/queue/notify.js');
-  if (!fs.existsSync(lib)) {
-    console.warn('(notifications skipped: run "npm run build" in functions/ first)');
-    return null;
-  }
-  return require(lib);
-}
-
-// ---------------------------------------------------------------- args
+const DEV_REF = 'lgnbxxcmogbbzmuqyrgu'; // asani-dev
+const TOKEN_ACTIONS = { arrive: 'arrive', skip: 'skip', hold: 'hold', back: 'backToQueue', cancel: 'cancel', noshow: 'noShow', callnow: 'callNow' };
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -49,212 +32,115 @@ function parseArgs(argv) {
   return { command, opts };
 }
 
-function todayPkt() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-}
+const todayPkt = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date());
 
-function init(project) {
-  if (!project || project === 'emulator') {
-    process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
-    admin.initializeApp({ projectId: DEV_PROJECT_ID });
-    return `emulator (${process.env.FIRESTORE_EMULATOR_HOST})`;
-  }
-  if (project !== 'dev') {
-    console.error(`Unknown --project "${project}". Use no flag (emulator) or --project dev. There is no prod option.`);
+function dbUrl() {
+  const root = path.resolve(__dirname, '..', '..');
+  const url = (process.env.SUPABASE_DB_URL ?? fs.readFileSync(path.join(root, 'supabase', '.db-url.local'), 'utf8')).trim();
+  if (!url.includes(DEV_REF)) {
+    console.error('This database is not asani-dev. queue-sim only runs on the dev project (AGENTS.md §7).');
     process.exit(1);
   }
-  const candidates = [path.join(__dirname, 'serviceAccount.dev.json'), path.join(__dirname, '../admin-scripts/serviceAccount.dev.json')];
-  const keyPath = candidates.find((p) => fs.existsSync(p));
-  if (!keyPath) {
-    console.error('Missing serviceAccount.dev.json (tools/queue-sim/ or tools/admin-scripts/). Never commit it.');
-    process.exit(1);
+  return url;
+}
+
+/** Runs [fn] signed in as the clinic of [doctorId] (one transaction, committed). */
+async function asClinic(db, doctorId, fn) {
+  const d = (await db.query('select clinic_id from public.doctors where id = $1', [doctorId])).rows[0];
+  if (!d) throw new Error(`No doctor ${doctorId}`);
+  const login = (await db.query('select id from public.clinic_accounts where clinic_id = $1 limit 1', [d.clinic_id])).rows[0];
+  const claims = {
+    sub: login?.id ?? '00000000-0000-0000-0000-00000000005e',
+    role: 'authenticated',
+    app_metadata: { role: 'clinic', clinic_id: d.clinic_id },
+  };
+  await db.query('begin');
+  try {
+    await db.query(`select set_config('role', 'authenticated', true), set_config('request.jwt.claims', $1, true)`, [JSON.stringify(claims)]);
+    const out = await fn();
+    await db.query('commit');
+    return out;
+  } catch (e) {
+    await db.query('rollback');
+    throw e;
   }
-  const key = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-  if (key.project_id !== DEV_PROJECT_ID) {
-    console.error(`Key is for "${key.project_id}", expected "${DEV_PROJECT_ID}". Stopping.`);
-    process.exit(1);
-  }
-  admin.initializeApp({ credential: admin.credential.cert(key), projectId: DEV_PROJECT_ID });
-  return `dev project ${DEV_PROJECT_ID}`;
 }
 
-// ---------------------------------------------------------------- data
+const fail = (e) => `${e.message}${e.hint ? ` · ${e.hint}` : ''}`;
 
-const db = () => admin.firestore();
-const ts = () => admin.firestore.FieldValue.serverTimestamp();
-
-function dayRef(doctorId, date) {
-  return db().collection('doctors').doc(doctorId).collection('days').doc(date);
+async function status(db, doctorId, date) {
+  const day = (await db.query('select * from public.queue_days where doctor_id = $1 and date = $2', [doctorId, date])).rows[0] ?? {};
+  const tokens = (await db.query(
+    `select token_prefix || '-' || number as label, status, source, patient_snapshot ->> 'name' as name
+       from public.tokens where doctor_id = $1 and date = $2 order by number`, [doctorId, date])).rows;
+  console.log(`${doctorId} · ${date} · session ${day.session_status ?? 'notStarted'} · now serving ${day.current_token || '-'} · waiting ${JSON.stringify(day.active_numbers ?? [])}`);
+  if (tokens.length === 0) console.log('  (no tokens)');
+  for (const t of tokens) console.log(`  ${t.label.padEnd(6)} ${t.status.padEnd(9)} ${t.source.padEnd(8)} ${t.name ?? ''}`);
 }
 
-function tokensQuery(doctorId, date) {
-  return db().collection('tokens').where('doctorId', '==', doctorId).where('date', '==', date);
+async function queueAction(db, doctorId, action, extra = {}) {
+  const r = await asClinic(db, doctorId, () =>
+    db.query('select public.queue_action($1, $2, $3, $4, $5) as r', [action, extra.doctor ?? doctorId, extra.token ?? null, extra.reason ?? null, extra.anyway ?? null]));
+  return r.rows[0].r;
 }
 
-/** activeNumbers = waiting tokens, sorted (what onTokenWrite maintains). */
-function activeNumbersFrom(tokens) {
-  return tokens.filter((t) => WAITING.includes(t.status)).map((t) => t.number).sort((a, b) => a - b);
-}
-
-/**
- * Runs `change(tokens, day)` in a transaction. `change` returns
- * { tokenUpdates: [[id, data]], dayUpdate: {...}, message }.
- */
-async function apply(doctorId, date, change) {
-  return db().runTransaction(async (tx) => {
-    const daySnap = await tx.get(dayRef(doctorId, date));
-    const snap = await tx.get(tokensQuery(doctorId, date));
-    const tokens = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.number - b.number);
-    const day = daySnap.exists ? daySnap.data() : null;
-    const result = change(tokens, day);
-    if (result.error) return result;
-
-    const next = tokens.map((t) => {
-      const u = (result.tokenUpdates || []).find(([id]) => id === t.id);
-      return u ? { ...t, ...u[1] } : t;
-    });
-    for (const [id, data] of result.tokenUpdates || []) {
-      tx.update(db().collection('tokens').doc(id), { ...data, updatedAt: ts() });
-    }
-    const activeNumbers = activeNumbersFrom(next);
-    tx.set(
-      dayRef(doctorId, date),
-      {
-        doctorId,
-        date,
-        ...(day ? {} : { clinicId: tokens[0]?.clinicId ?? '', currentToken: 0, lastTokenNumber: 0, bookedCount: 0, sessionStatus: 'notStarted' }),
-        ...(result.dayUpdate || {}),
-        activeNumbers,
-        waitingCount: activeNumbers.length,
-        updatedAt: ts(),
-      },
-      { merge: true },
-    );
-    return result;
-  });
-}
-
-// ---------------------------------------------------------------- commands
-
-const label = (t) => `${t.tokenPrefix || 'A'}-${t.number}`;
-const byNumber = (tokens, n) => tokens.find((t) => t.number === Number(n));
-
-const commands = {
-  async status(doctorId, date) {
-    const daySnap = await dayRef(doctorId, date).get();
-    const snap = await tokensQuery(doctorId, date).get();
-    const tokens = snap.docs.map((d) => d.data()).sort((a, b) => a.number - b.number);
-    const day = daySnap.data() || {};
-    console.log(`${doctorId} · ${date} · session ${day.sessionStatus || 'notStarted'} · now serving ${day.currentToken || '-'} · waiting ${JSON.stringify(day.activeNumbers || [])}`);
-    if (tokens.length === 0) console.log('  (no tokens)');
-    for (const t of tokens) console.log(`  ${label(t).padEnd(6)} ${t.status.padEnd(9)} ${t.patientSnapshot?.name ?? ''}`);
-    return { message: '' };
-  },
-
-  start: (doctorId, date) =>
-    apply(doctorId, date, () => ({ dayUpdate: { sessionStatus: 'running' }, message: 'Session started.' })),
-
-  pause: (doctorId, date) =>
-    apply(doctorId, date, () => ({ dayUpdate: { sessionStatus: 'paused' }, message: 'Session paused.' })),
-
-  /** Previous called → completed; next waiting (booked/arrived/onHold) → called. */
-  next: (doctorId, date) =>
-    apply(doctorId, date, (tokens, day) => {
-      const updates = [];
-      const called = tokens.find((t) => t.status === 'called');
-      if (called) updates.push([called.id, { status: 'completed', completedAt: ts() }]);
-      const nextToken = tokens.find((t) => WAITING.includes(t.status) && t.status !== 'onHold') ||
-        tokens.find((t) => t.status === 'onHold');
-      if (!nextToken) {
-        return { tokenUpdates: updates, message: called ? `${label(called)} completed. Nobody is waiting.` : 'Nobody is waiting.' };
-      }
-      const since = (nextToken.arrivedAt || nextToken.createdAt)?.toDate?.();
-      updates.push([
-        nextToken.id,
-        { status: 'called', calledAt: ts(), waitMinutes: since ? Math.max(0, Math.round((Date.now() - since.getTime()) / 60000)) : null },
-      ]);
-      return {
-        tokenUpdates: updates,
-        dayUpdate: { currentToken: nextToken.number, ...(day?.sessionStatus === 'running' ? {} : { sessionStatus: 'running' }) },
-        message: `Now serving ${label(nextToken)} (${nextToken.patientSnapshot?.name ?? ''}).`,
-      };
-    }),
-
-  arrive: (doctorId, date, opts) =>
-    apply(doctorId, date, (tokens) => {
-      const t = byNumber(tokens, opts.number);
-      if (!t || t.status !== 'booked') return { error: `Token ${opts.number} is not booked.` };
-      return { tokenUpdates: [[t.id, { status: 'arrived', arrivedAt: ts() }]], message: `${label(t)} arrived.` };
-    }),
-
-  skip: (doctorId, date, opts) =>
-    apply(doctorId, date, (tokens) => {
-      const t = byNumber(tokens, opts.number);
-      if (!t || !['booked', 'arrived'].includes(t.status)) return { error: `Token ${opts.number} cannot be skipped.` };
-      return { tokenUpdates: [[t.id, { status: 'skipped' }]], message: `${label(t)} skipped.` };
-    }),
-
-  hold: (doctorId, date, opts) =>
-    apply(doctorId, date, (tokens) => {
-      const t = byNumber(tokens, opts.number);
-      if (!t || t.status !== 'arrived') return { error: `Token ${opts.number} must be arrived to hold.` };
-      return { tokenUpdates: [[t.id, { status: 'onHold' }]], message: `${label(t)} on hold.` };
-    }),
-
-  /** Session end: the called patient is completed, remaining booked → noShow (DATABASE.md §7). */
-  end: (doctorId, date) =>
-    apply(doctorId, date, (tokens) => {
-      const updates = [];
-      for (const t of tokens) {
-        if (t.status === 'called') updates.push([t.id, { status: 'completed', completedAt: ts() }]);
-        if (t.status === 'booked') updates.push([t.id, { status: 'noShow' }]);
-      }
-      return { tokenUpdates: updates, dayUpdate: { sessionStatus: 'ended' }, message: `Session ended (${updates.length} tokens closed).` };
-    }),
-
-  async auto(doctorId, date, opts) {
-    const every = Math.max(5, Number(opts.every) || 30);
-    console.log(`Auto mode: "next" every ${every}s. Ctrl+C to stop.`);
-    await commands.start(doctorId, date);
-    for (;;) {
-      const r = await commands.next(doctorId, date);
-      console.log(new Date().toLocaleTimeString(), r.message);
-      await notify(doctorId, date);
-      await new Promise((res) => setTimeout(res, every * 1000));
-    }
-  },
-};
-
-async function notify(doctorId, date) {
-  const mod = loadNotify();
-  if (!mod) return;
-  const sent = await mod.evaluateQueue(admin.firestore(), admin.messaging(), doctorId, date);
-  for (const s of sent) {
-    const why = s.skipped === 'alerts-off' ? ' (owner turned alerts off)' : s.skipped === 'no-devices' ? ' (no registered phone)' : '';
-    console.log(`  alert ${s.step} → token ${s.tokenId}: ${s.devices} device(s)${why}`);
+async function next(db, doctorId, anyway) {
+  try {
+    const r = await queueAction(db, doctorId, 'next');
+    return r.called ? `Now serving ${r.called.label} (${r.called.name}).` : 'Nobody is waiting.';
+  } catch (e) {
+    if (e.message !== 'not-arrived') throw e;
+    const d = JSON.parse(e.detail ?? '{}');
+    if (!anyway) return `${d.label} (${d.name}) has not arrived. Run "next --anyway" to call them, or "skip --number ${String(d.label).split('-')[1]}".`;
+    const r = await queueAction(db, doctorId, 'next', { anyway: d.tokenId });
+    return `Called anyway: now serving ${r.called.label} (${r.called.name}).`;
   }
 }
 
 async function main() {
   const { command, opts } = parseArgs(process.argv.slice(2));
-  if (!commands[command] || !opts.doctor || opts.doctor === true) {
-    console.log('Usage: node queue-sim.js <status|start|next|arrive|skip|hold|pause|end|auto> --doctor <doctorId> [--number N] [--date yyyy-MM-dd] [--every 30] [--project dev]');
+  const known = ['status', 'start', 'pause', 'end', 'next', 'undo', 'walkin', 'auto', ...Object.keys(TOKEN_ACTIONS)];
+  if (!known.includes(command) || !opts.doctor || opts.doctor === true) {
+    console.log(`Usage: node queue-sim.js <${known.join('|')}> --doctor <doctorId> [--number N] [--anyway] [--date yyyy-MM-dd]`);
     process.exit(command ? 1 : 0);
   }
-  const where = init(opts.project);
+  const db = new Client({ connectionString: dbUrl(), ssl: { rejectUnauthorized: false } });
+  await db.connect();
   const date = opts.date && opts.date !== true ? opts.date : todayPkt();
-  if (command !== 'status') console.log(`[${where}] ${opts.doctor} · ${date}`);
-  const result = await commands[command](opts.doctor, date, opts);
-  if (result?.error) {
-    console.error(result.error);
-    process.exit(1);
+  try {
+    if (command === 'status') return await status(db, opts.doctor, date);
+    if (['start', 'pause', 'end', 'undo'].includes(command)) {
+      await queueAction(db, opts.doctor, command);
+      console.log(`${command}: done.`);
+    } else if (command === 'next') {
+      console.log(await next(db, opts.doctor, opts.anyway === true));
+    } else if (TOKEN_ACTIONS[command]) {
+      const t = (await db.query('select id from public.tokens where doctor_id = $1 and date = $2 and number = $3', [opts.doctor, date, Number(opts.number)])).rows[0];
+      if (!t) throw new Error(`No token ${opts.number} for ${opts.doctor} on ${date}`);
+      await queueAction(db, opts.doctor, TOKEN_ACTIONS[command], { token: t.id, reason: opts.reason === true ? null : opts.reason });
+      console.log(`${command} ${opts.number}: done.`);
+    } else if (command === 'walkin') {
+      const r = await asClinic(db, opts.doctor, () => db.query('select public.clinic_create_walk_in($1, null, null, $2) as r', [
+        opts.doctor,
+        JSON.stringify({ phone: String(opts.phone ?? ''), name: String(opts.name ?? ''), gender: String(opts.gender ?? 'male'), age: opts.age ? Number(opts.age) : null }),
+      ]));
+      console.log(`Walk-in ${r.rows[0].r.label} created (Arrived).`);
+    } else if (command === 'auto') {
+      const every = Math.max(5, Number(opts.every) || 30);
+      console.log(`Auto mode: Next every ${every}s (calls not-arrived patients too). Ctrl+C to stop.`);
+      await queueAction(db, opts.doctor, 'start').catch(() => {});
+      for (;;) {
+        console.log(new Date().toLocaleTimeString(), await next(db, opts.doctor, true).catch(fail));
+        await new Promise((res) => setTimeout(res, every * 1000));
+      }
+    }
+    await status(db, opts.doctor, date);
+  } catch (e) {
+    console.error(fail(e));
+    process.exitCode = 1;
+  } finally {
+    await db.end();
   }
-  if (result?.message) console.log(result.message);
-  if (command !== 'status') await notify(opts.doctor, date);
-  process.exit(0);
 }
 
-main().catch((e) => {
-  console.error(e.message || e);
-  process.exit(1);
-});
+main();

@@ -219,7 +219,14 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
       every action, Link to app account dialog); patient app Delete account → `delete_my_account()`. Checked in Chrome.
 - [ ] Phase 7 setup (Sarbuland): Auth URL Configuration (Site URL + redirect), Invite / Reset email subjects (docs/02 §2b);
       then a real "New clinic" with an invite email (needs Brevo).
-- [ ] Phase 8: clean-up (retire Firebase data code + `functions/` after OK), tools on Supabase, CI, docs, TESTING_CHECKLIST
+- [x] 2026-11-26 Phase 8 (part 1): queue-sim on Supabase (old one = `queue-sim-firebase.js`), CI `supabase.yml` (SQL syntax +
+      pgTAP when the `SUPABASE_DB_URL` secret exists), clinic web CI build with `BACKEND=supabase`, DATABASE.md and
+      ARCHITECTURE.md rewritten, TESTING_CHECKLIST.md, CONTEXT_FOR_CLAUDE.md, README, AGENTS.md.
+- [ ] Phase 8 (part 2, needs Sarbuland's OK): delete the old Firebase backend (`functions/`, `firestore.rules`,
+      `firestore.indexes.json`, Firestore/Functions/Auth code in both apps, `queue-sim-firebase.js`, Firebase admin
+      scripts) and the `functions.yml` CI; keep firebase_core + firebase_messaging for FCM.
+- [ ] GitHub secret `SUPABASE_DB_URL` (Sarbuland) so CI runs the database tests.
+- [ ] docs/04 security and docs/06 integration still describe Firebase in detail; rewrite with part 2.
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

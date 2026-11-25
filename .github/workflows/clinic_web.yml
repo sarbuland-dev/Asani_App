@@ -56,11 +56,10 @@ jobs:
         run: |
           if [ -d test ]; then flutter test; else echo "No clinic_web tests yet."; fi
 
-      # Firebase backend build against the dev project (functions run on the
-      # emulator until Blaze, PRD D-17, so this build is for checking only).
+      # Supabase backend build against asani-dev (D-52). For checking only; no deploy.
       - name: Build web
         working-directory: apps/clinic_web
-        run: flutter build web --release --dart-define=BACKEND=firebase
+        run: flutter build web --release --dart-define=BACKEND=supabase
 
       - uses: actions/upload-artifact@v4
         with:

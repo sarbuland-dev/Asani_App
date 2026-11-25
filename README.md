@@ -12,9 +12,9 @@ Patients book a clinic token from their phone, watch the live queue, and arrive 
 
 | Part | Status | Notes |
 |---|---|---|
-| **Patient App** (Flutter, Android + iOS) | 🟢 Active | `apps/patient_app`, on Firebase (dev) |
-| **Clinic Web** (Flutter Web: clinic dashboard + super admin) | 🟡 Phase 2 | `apps/clinic_web` ([PRD-CLINIC-WEB.md](PRD-CLINIC-WEB.md)); demo or Firebase backend |
-| **Backend** (Firebase: Auth, Firestore, Cloud Functions, FCM) | 🟢 Active | `functions/`, dev project `asani-b2b17` |
+| **Patient App** (Flutter, Android + iOS) | 🟢 Active | `apps/patient_app`, on Supabase (dev, D-52) |
+| **Clinic Web** (Flutter Web: clinic dashboard + super admin) | 🟡 Phase 2 | `apps/clinic_web` ([PRD-CLINIC-WEB.md](PRD-CLINIC-WEB.md)); demo or Supabase backend |
+| **Backend** (Supabase: Auth, Postgres + RLS, Realtime, Edge Functions, pg_cron; FCM for push) | 🟢 Active | `supabase/`, dev project `asani-dev` ([docs/10](docs/10-supabase-migration.md)) |
 | Clinic Desktop App (Windows .exe) | ⛔ Dropped | Replaced by the clinic web (D-06) |
 
 `tools/queue-sim` can still drive a doctor's queue from the command line for testing.
@@ -56,7 +56,7 @@ Full guide: [`docs/02-setup.md`](docs/02-setup.md)
 ```bash
 # 1. Install dependencies (from the repo root)
 flutter pub get                       # all Flutter/Dart members of the workspace
-cd functions && npm install && cd ..
+cd tools/db-test && npm install && cd ../..   # database tests + dev login script (needs supabase/.db-url.local)
 
 # 2. Patient app (demo data, no Firebase needed)
 cd apps/patient_app && flutter run --flavor dev
@@ -64,10 +64,10 @@ cd apps/patient_app && flutter run --flavor dev
 # 3. Clinic web (demo data) in Chrome
 cd apps/clinic_web && flutter run -d chrome
 
-# 4. Both on the dev Firebase project, functions on the local emulator
-cd functions && npm run serve:dev                # terminal 1
-cd apps/patient_app && flutter run --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true   # terminal 2
-cd apps/clinic_web && flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true      # terminal 3
+# 4. Both on the Supabase dev project (D-52; setup: docs/02 §2b)
+cd apps/patient_app && flutter run --flavor dev --dart-define=BACKEND=supabase
+cd apps/clinic_web && flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase
+node tools/db-test/run.js                     # database tests (rolled back)
 ```
 
 ---
@@ -95,8 +95,8 @@ cd apps/clinic_web && flutter run -d chrome --dart-define=BACKEND=firebase --dar
 
 - **Apps:** Flutter (stable, Dart 3.9+): patient app on Android + iOS, clinic web on Flutter Web
 - **State management:** Riverpod · **Navigation:** go_router
-- **Backend:** Firebase Auth (phone OTP), Cloud Firestore, Cloud Functions (TypeScript, Node 20+), Firebase Cloud Messaging, Crashlytics, App Check
-- **Region:** `asia-south1` (Mumbai), the closest Firebase region to Pakistan
+- **Backend (D-52):** Supabase Auth (patients: email code; clinics: email + password), Postgres with Row Level Security and Postgres functions, Realtime, Edge Functions (Deno), pg_cron. Push: Firebase Cloud Messaging (free Spark plan)
+- **Region:** dev in Tokyo (`ap-northeast-1`); prod planned in Mumbai (`ap-south-1`), the closest to Pakistan
 - **Language:** English only (UI)
 
 ---

@@ -1,0 +1,61 @@
+# Supabase (D-52): SQL syntax check of every migration and test, and the pgTAP tests against the asani-dev
+# database (each test file runs in a transaction that is rolled back, so nothing stays).
+# The tests need the GitHub secret SUPABASE_DB_URL (the Session pooler URI of asani-dev, password URL-encoded);
+# without it the job only checks syntax. Never pushes migrations or deploys (AGENTS.md §7).
+name: supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'tools/db-test/**'
+      - '.github/workflows/supabase.yml'
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'tools/db-test/**'
+      - '.github/workflows/supabase.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: SQL syntax (libpg_query)
+        run: |
+          npm install --no-save --silent libpg-query@17
+          node -e '
+            const { parse, loadModule } = require("libpg-query");
+            const fs = require("fs"), path = require("path");
+            (async () => {
+              if (loadModule) await loadModule();
+              const dirs = ["supabase/migrations", "supabase/tests/database"];
+              let bad = 0;
+              for (const d of dirs) for (const f of fs.readdirSync(d).filter((x) => x.endsWith(".sql")).sort()) {
+                try { await parse(fs.readFileSync(path.join(d, f), "utf8")); console.log("ok", f); }
+                catch (e) { bad++; console.log("FAIL", f, e.message); }
+              }
+              if (fs.existsSync("supabase/seed.sql")) await parse(fs.readFileSync("supabase/seed.sql", "utf8"));
+              process.exit(bad ? 1 : 0);
+            })();'
+
+      - name: pgTAP tests on asani-dev (rolled back)
+        if: ${{ env.SUPABASE_DB_URL != '' }}
+        working-directory: tools/db-test
+        run: |
+          npm ci --silent
+          node run.js
