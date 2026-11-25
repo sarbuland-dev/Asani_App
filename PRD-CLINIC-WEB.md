@@ -124,7 +124,7 @@ Doctors are **records** in the system (name, letter A/B/C, schedule), not users 
 | Register clinic, create/disable clinic login | ❌ | ✅ |
 | Super admin screens | ❌ | ✅ |
 
-Roles are stored as Firebase Auth **custom claims** (`role: "clinic"` + `clinicId`, or `role: "superAdmin"`), set only by Cloud Functions. Never read from Firestore documents.
+Roles are stored in the Supabase Auth user's **`app_metadata`** (`role: "clinic"` + `clinic_id`, or `role: "superAdmin"`), set only on the server (the `admin-clinic-login` Edge Function, or the dev script `tools/db-test/create-login.js`) (D-52; was Firebase custom claims). Never read from database rows or `user_metadata`.
 
 > Because the whole clinic shares one login, the activity log records actions as **"<Clinic name> (clinic login)"**; it cannot tell the manager and the receptionist apart.
 
@@ -146,6 +146,15 @@ Doctors are added by the **clinic itself** after login (C-11). Doctors never get
 3. The manager / senior doctor opens the link, sets a password (min 8 characters), and logs in. They can then log in on the reception PC for the receptionist.
 4. If the link expires, the Super Admin presses **"Resend invite"** on the clinic's page.
 5. If the manager wants to change the password (e.g. a receptionist leaves), they use **Change password** in clinic settings or **Forgot password** on the login page. Changing the password signs the clinic out on all other computers.
+6. **Supabase (D-52):** the invite and reset links open the clinic web's home page; it signs that browser in and shows **"Set your Asani password"** first (W-01b, `/set-password`), then the Queue Board. Emails go through the same Brevo SMTP as the patients' codes.
+
+### 5.2b Link a walk-in to the patient's app account (D-52, S-2, S-3)
+- Walk-in profiles are **never** attached to an app account automatically: app phone numbers are not verified.
+- The walk-in lookup lists app profiles on that number as **"App account (number not verified)"**.
+- On a walk-in patient's page (W-14): **Link to app account** → type the app account's number → **Find account** →
+  pick **which family member** this patient is (their visits move there; the walk-in profile is merged) or
+  **New member of this family** → tick "The patient confirmed in person that this is their Asani account" → **Link**.
+- Logged in the activity log ("linked walk-in to app account"). The visits then show in the patient's app.
 
 ### 5.3 Login page (W-01)
 - Fields: **Email**, **Password**, **Log in** button, **"Forgot password?"** link.

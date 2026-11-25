@@ -140,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: Gap.sm),
                     Align(alignment: Alignment.center, child: TextButton(onPressed: _forgot, child: const Text('Forgot password?'))),
                     const SizedBox(height: Gap.xl),
-                    if (!Env.useFirebase) _demoAccounts(),
+                    if (!Env.useFirebase && !Env.useSupabase) _demoAccounts(),
                   ]),
                 ),
               ),

@@ -46,13 +46,18 @@ class NewPatient {
 /// One family profile on a full phone number, from any clinic (PRD D-22).
 /// Only these fields are ever shared with a clinic: no visits, no history.
 class PhoneProfile {
-  const PhoneProfile({required this.id, required this.name, required this.relation, required this.gender, this.age, this.atThisClinic = false});
+  const PhoneProfile(
+      {required this.id, required this.name, required this.relation, required this.gender, this.age, this.atThisClinic = false, this.appAccount = false});
   final String id;
   final String name;
   final Relation relation;
   final Gender gender;
   final int? age;
   final bool atThisClinic;
+
+  /// D-52 (S-3): this profile belongs to an Asani app account. The account's phone is NOT verified, so the
+  /// web shows "App account (number not verified)" and links only after the patient confirms in person.
+  final bool appAccount;
 }
 
 /// State of a full-phone lookup (loading → profiles or error).
@@ -119,6 +124,12 @@ abstract interface class ClinicRepository {
   Future<void> signOut();
   Future<void> sendPasswordReset(String email);
 
+  /// D-52: this browser opened an invite or password-reset link; the clinic must choose a password now.
+  bool get needsNewPassword;
+
+  /// Sets the password after an invite / reset link (at least 8 characters).
+  Future<void> setNewPassword(String password);
+
   // ---- Clinic reads ----
   ClinicAccount? clinic(String clinicId);
   List<Doctor> doctors(String clinicId, {bool includeInactive = false});
@@ -167,6 +178,11 @@ abstract interface class ClinicRepository {
   Future<QueueToken> createWalkIn(String clinicId, String doctorId, {String? patientId, String? phone, NewPatient? newPatient});
   Future<void> setFollowUp(String tokenId, String dueDate, {String? note});
   Future<void> updatePatient(String clinicId, String patientId, {required String name, int? birthYear, required Gender gender});
+
+  /// D-52 (S-2): reception links a walk-in profile of this clinic to the Asani app account whose (unverified) phone
+  /// is [accountPhone], after the patient confirmed in person. [targetPatientId] = the family member it is (its visits
+  /// move there); null = "New member" (the profile joins the family). Returns how many visits were linked.
+  Future<int> linkWalkInToAccount(String clinicId, String walkInId, {required String accountPhone, String? targetPatientId});
 
   // ---- Clinic admin ----
   /// [pmdcNumber]: null keeps the saved number; it is stored admin-only (D-33).

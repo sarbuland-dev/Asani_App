@@ -260,10 +260,23 @@ class SupabaseAuthRepository implements AuthRepository {
     await _client.auth.signOut();
   }
 
-  /// PRD F-10. The delete-account Edge Function comes in phase 6 (docs/10).
+  /// PRD F-10: `delete_my_account()` cancels waiting tokens, anonymises the family's profiles and visit names,
+  /// and deletes the login. Clinic visit records stay without personal data. Then this phone signs out.
   @override
-  Future<void> deleteAccount() async =>
-      throw const AppException('unavailable', "Account deletion isn't available yet. Please contact support.");
+  Future<void> deleteAccount() async {
+    try {
+      await beforeSignOut?.call(); // remove this phone's device token while still signed in
+    } catch (e) {
+      AppLogger.warn('beforeSignOut failed: $e');
+    }
+    try {
+      await _client.rpc('delete_my_account');
+    } catch (e) {
+      throw _mapDb(e, 'Could not delete your account. Please try again.');
+    }
+    cancelLogin();
+    await _client.auth.signOut().catchError((Object _) {});
+  }
 
   // ---------------------------------------------------------------- errors
 

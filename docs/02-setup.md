@@ -119,6 +119,17 @@ cd tools/db-test; npm install; node run.js
 4. Run the app: `flutter run --flavor dev --dart-define=BACKEND=supabase` (phase 4: login is real, the other data
    is still demo).
 
+**Clinic web on Supabase (D-52, phase 7): dashboard settings** (owner, once):
+1. **Authentication → URL Configuration**: Site URL `http://localhost:8092`; Redirect URLs add `http://localhost:8092/**`
+   (later the real web address too).
+2. **Authentication → Emails → Templates → Invite user**: subject `Set your Asani password`; keep the
+   `{{ .ConfirmationURL }}` link (clinics click a link; patients get a code). **Reset password**: subject
+   `Reset your Asani password`, same link.
+3. Dev logins without email: `node tools/db-test/create-login.js --role superAdmin --email … --name …` and
+   `--role clinic --clinic c_alshifa --email … --name …` (passwords go to the git-ignored
+   `tools/admin-scripts/dev-test-logins.local.txt`).
+4. Run: `cd apps/clinic_web; flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase`.
+
 **Edge Functions (deploy / secrets)** need a personal access token: supabase.com/dashboard/account/tokens →
 Generate new token, preset Read-only plus **Edge Functions** and **Secrets** read & write. Save it as one line in
 `supabase/.access-token.local` (git-ignored). Then:

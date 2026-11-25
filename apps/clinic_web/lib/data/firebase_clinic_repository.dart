@@ -567,6 +567,17 @@ class FirebaseClinicRepository implements ClinicRepository {
     }
   }
 
+  // D-52: invite links, set-password and walk-in linking are Supabase-only (BACKEND=supabase).
+  @override
+  bool get needsNewPassword => false;
+
+  @override
+  Future<void> setNewPassword(String password) async => throw AppException.notAllowed;
+
+  @override
+  Future<int> linkWalkInToAccount(String clinicId, String walkInId, {required String accountPhone, String? targetPatientId}) async =>
+      throw const AppException('unsupported', 'Linking to an app account needs the Supabase backend.');
+
   @override
   Future<void> changePassword(String current, String next) async {
     final user = _auth.currentUser;

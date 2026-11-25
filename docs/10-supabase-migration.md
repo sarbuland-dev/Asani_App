@@ -313,6 +313,22 @@ Tests `05_clinic_admin.test.sql` (76; 219 in total) and `tools/db-test/admin-log
 - Edge Function secret `CLINIC_WEB_URL` (set to `http://localhost:8092` on dev); `<url>/set-password` must be in Auth →
   URL Configuration → Redirect URLs. Invite / reset emails use the same SMTP as patient codes (Brevo).
 
+**Phase 7 (2026-11-26): clinic web on Supabase.** `apps/clinic_web/lib/data/supabase_clinic_repository.dart`
+(same live-cache shape as the Firebase one: Realtime streams on `clinic_id` / `date` / `month` or unfiltered + RLS;
+writes through the phase 6 functions; PIN results `{ok:false, …}` become `AppException`s; Super Admin login actions
+through `admin-clinic-login`). `--dart-define=BACKEND=supabase`.
+- Login: `signInWithPassword`; role from `app_metadata`; patient accounts refused. Forgot password:
+  `resetPasswordForEmail(redirectTo: web root)`. Change password (C-12): check the current one, `updateUser`,
+  `signOut(scope: others)`, `clinic_password_changed()`.
+- Invite / reset links: implicit flow, land on the web root; `main.dart` reads `type=invite|recovery` from the URL
+  fragment, the router sends the signed-in browser to **`/set-password`** (`SetPasswordScreen`) first.
+- New: **Link to app account** dialog on a walk-in's page (`link_account_dialog.dart`); the walk-in dialog labels app
+  profiles "App account (number not verified)".
+- Patient app: Account → Delete account calls `delete_my_account()`.
+- Dev logins: `tools/db-test/create-login.js` (no email; password to the git-ignored logins file).
+- 2026-11-26 checked in Chrome on asani-dev: clinic login → Queue Board from Supabase; Start → "Running" live; a walk-in
+  made through the API appeared live; Next → "Now serving A-1" with Undo; no console errors. Test rows removed.
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

@@ -10,6 +10,7 @@ import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../queue/walk_in_dialog.dart';
+import 'link_account_dialog.dart';
 
 /// W-14 / C-08: one patient's history at this clinic only.
 class PatientProfileScreen extends ConsumerWidget {
@@ -48,6 +49,13 @@ class PatientProfileScreen extends ConsumerWidget {
             label: const Text('Edit details'),
           ),
         if (p.ownerUid != null) const Center(child: Text('Managed by the patient in the Asani app')),
+        // D-52 (S-2): reception links a walk-in to the patient's app account, in person.
+        if (user.role.canRunQueue && p.ownerUid == null && p.status == PatientStatus.active)
+          OutlinedButton.icon(
+            onPressed: () => showLinkAccountDialog(context, clinicId: clinicId, walkIn: p),
+            icon: const Icon(Icons.link_rounded, size: 18),
+            label: const Text('Link to app account'),
+          ),
         if (user.role.canRunQueue)
           FilledButton.icon(
             onPressed: writable

@@ -215,8 +215,11 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
 - [x] 2026-11-26 Phase 6: clinic + Super Admin backend in Postgres (queue, walk-ins, lookup, PIN, doctors, suggestions,
       billing job, links, Link to app account, delete account) + `admin-clinic-login` Edge Function. 219/219 DB tests;
       live Edge Function check passes. New walk-ins are no longer auto-linked by phone (D-52).
-- [ ] Patient app: point Account → Delete account at `delete_my_account()` (phase 7 with the other app wiring).
-- [ ] Phase 7: clinic web on Supabase (login, invite, forgot password, board, Link to app account dialog) · 8: clean-up + docs
+- [x] 2026-11-26 Phase 7: clinic web on Supabase (login, set-password after invite/reset, forgot password, live board,
+      every action, Link to app account dialog); patient app Delete account → `delete_my_account()`. Checked in Chrome.
+- [ ] Phase 7 setup (Sarbuland): Auth URL Configuration (Site URL + redirect), Invite / Reset email subjects (docs/02 §2b);
+      then a real "New clinic" with an invite email (needs Brevo).
+- [ ] Phase 8: clean-up (retire Firebase data code + `functions/` after OK), tools on Supabase, CI, docs, TESTING_CHECKLIST
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

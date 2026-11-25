@@ -128,6 +128,13 @@ class DemoClinicRepository implements ClinicRepository {
   @override
   Future<void> sendPasswordReset(String email) => _latency(400);
 
+  // Demo: there are no invite / reset links.
+  @override
+  bool get needsNewPassword => false;
+
+  @override
+  Future<void> setNewPassword(String password) => _latency(300);
+
   // ===================================================================
   // Reads
   // ===================================================================
@@ -473,6 +480,7 @@ class DemoClinicRepository implements ClinicRepository {
             gender: p.gender,
             age: p.age(now),
             atThisClinic: _patientClinics[p.id]?.contains(clinicId) ?? false,
+            appAccount: p.ownerUid != null,
           ),
     ]);
   }
@@ -569,6 +577,37 @@ class DemoClinicRepository implements ClinicRepository {
     _patients[patientId] = p.copyWith(name: name.trim(), birthYear: birthYear, gender: gender);
     _log(clinicId, 'edited patient details', name.trim());
     _notify();
+  }
+
+  /// D-52 (S-2), demo version: the same rules in memory (the real one is `link_walk_in_to_account`).
+  @override
+  Future<int> linkWalkInToAccount(String clinicId, String walkInId, {required String accountPhone, String? targetPatientId}) async {
+    _requireUser();
+    await _latency();
+    final w = _patients[walkInId];
+    if (w == null || w.status != PatientStatus.active) throw const AppException('not-found', 'Walk-in profile not found at this clinic.');
+    if (w.ownerUid != null) throw const AppException('already-linked', 'This profile already belongs to an app account.');
+    final account = _patients.values.where((p) => p.phone == accountPhone && p.ownerUid != null).firstOrNull;
+    if (account == null) throw const AppException('no-account', 'No Asani app account uses this number.');
+    final visits = _tokens.values.where((t) => t.token.patientId == walkInId).toList();
+    if (targetPatientId != null) {
+      final target = _patients[targetPatientId];
+      if (target == null || target.ownerUid != account.ownerUid) throw const AppException('not-found', 'Family member not found on that account.');
+      for (final t in visits) {
+        _put(t.copyWith(token: Token.fromMap({...t.token.toMap(), 'patientId': targetPatientId})));
+      }
+      _patients[walkInId] = w.copyWith(status: PatientStatus.merged);
+      _log(clinicId, 'linked walk-in to app account', '${w.name} → ${target.name} (${visits.length} visits moved)');
+    } else {
+      _patients[walkInId] = Patient.fromMap({
+        ...w.toMap(),
+        'ownerUid': account.ownerUid,
+        'relation': w.relation == Relation.self ? Relation.other.name : w.relation.name,
+      });
+      _log(clinicId, 'linked walk-in to app account', '${w.name} → new family member (${visits.length} visits)');
+    }
+    _notify();
+    return visits.length;
   }
 
   // ===================================================================

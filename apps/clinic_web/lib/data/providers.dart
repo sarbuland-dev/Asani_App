@@ -38,6 +38,9 @@ String _today(Ref ref) => ref.watch(todayProvider).value ?? dayKey(pktNow());
 
 final currentUserProvider = Provider<UserAccount?>((ref) => _live(ref, (r) => r.currentUser));
 
+/// D-52: opened from an invite / reset email link → choose a password first.
+final needsNewPasswordProvider = Provider<bool>((ref) => _live(ref, (r) => r.needsNewPassword));
+
 final clinicProvider = Provider.family<ClinicAccount?, String>((ref, id) => _live(ref, (r) => r.clinic(id)));
 final clinicsProvider = Provider<List<ClinicAccount>>((ref) => _live(ref, (r) => r.clinics()));
 

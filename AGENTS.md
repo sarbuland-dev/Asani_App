@@ -129,6 +129,7 @@ cd apps/clinic_web
 flutter analyze
 flutter run -d chrome                                               # demo data
 flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase   # D-52 (dev logins: tools/db-test/create-login.js)
 
 # Shared packages
 cd packages/asani_core && dart test

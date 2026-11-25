@@ -242,7 +242,8 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
           InitialsAvatar(name: p.name, size: 36, bg: InitialsAvatar.colorsFor(p.relation).$1, fg: InitialsAvatar.colorsFor(p.relation).$2),
           const SizedBox(width: Gap.md),
           Expanded(child: TwoLine(p.name, '${p.relation.label} · ${p.age ?? '—'} / ${p.gender.short}')),
-          Text('New to this clinic', style: AppText.labelSmall),
+          // D-52 (S-3): the app account's phone is not verified.
+          Text(p.appAccount ? 'App account (number not verified)' : 'New to this clinic', style: AppText.labelSmall),
         ]),
       ),
     );

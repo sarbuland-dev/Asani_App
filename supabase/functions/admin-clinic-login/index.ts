@@ -8,7 +8,7 @@
 // Body: {action: 'create', clinic: {...A-04 fields, email, lat, lng}} | {action: 'resend'|'disable'|'enable', clinicId}.
 // Errors: {error: code, message}; codes: unauthenticated, permission-denied, invalid-argument, email-taken, not-found, failed.
 //
-// Secrets: CLINIC_WEB_URL (where the set-password page lives, e.g. http://localhost:8092). The URL must be in
+// Secrets: CLINIC_WEB_URL (the clinic web's address, e.g. http://localhost:8092). That URL must be in
 // Auth → URL Configuration → Redirect URLs. Provided by Supabase: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -16,7 +16,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const WEB_URL = (Deno.env.get('CLINIC_WEB_URL') ?? 'http://localhost:8092').replace(/\/$/, '');
-const SET_PASSWORD = `${WEB_URL}/set-password`;
+// The web uses #/ routes and reads the invite / reset link on its root page, then shows #/set-password.
+const SET_PASSWORD = `${WEB_URL}/`;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 const cors = {

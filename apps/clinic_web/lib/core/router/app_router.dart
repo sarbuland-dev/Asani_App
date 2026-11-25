@@ -15,6 +15,7 @@ import '../../features/admin/new_clinic_screen.dart';
 import '../../features/admin/payments_screen.dart';
 import '../../features/admin/same_doctor_screen.dart';
 import '../../features/auth/login_screen.dart';
+import '../../features/auth/set_password_screen.dart';
 import '../../features/billing/billing_screen.dart';
 import '../../features/doctors/doctors_screen.dart';
 import '../../features/followups/follow_ups_screen.dart';
@@ -40,6 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen(currentUserProvider, (prev, next) {
     if (prev?.uid != next?.uid || prev?.role != next?.role) refresh.value++;
   });
+  ref.listen(needsNewPasswordProvider, (prev, next) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   NoTransitionPage<void> page(Widget child) => NoTransitionPage(child: child);
@@ -51,6 +53,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final user = ref.read(currentUserProvider);
       final path = state.uri.path;
       if (user == null) return path == '/login' ? null : '/login';
+      // D-52: an invite / reset link signed this browser in; the password comes first.
+      if (ref.read(needsNewPasswordProvider)) return path == '/set-password' ? null : '/set-password';
+      if (path == '/set-password') return homeFor(user);
       if (path == '/login' || path == '/') return homeFor(user);
       final isAdminArea = path.startsWith('/admin');
       if (user.role == UserRole.superAdmin) return isAdminArea ? null : '/admin';
@@ -61,6 +66,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', redirect: (c, s) => '/login'),
       GoRoute(path: '/login', pageBuilder: (c, s) => page(const LoginScreen())),
+      GoRoute(path: '/set-password', pageBuilder: (c, s) => page(const SetPasswordScreen())),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [

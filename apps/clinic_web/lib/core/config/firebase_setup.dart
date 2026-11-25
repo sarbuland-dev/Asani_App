@@ -9,6 +9,7 @@ import 'package:asani_core/asani_core.dart';
 ///
 /// ```
 /// flutter run -d chrome                                   # demo backend (no Firebase)
+/// flutter run -d chrome --dart-define=BACKEND=supabase    # Supabase asani-dev (D-52)
 /// flutter run -d chrome --dart-define=BACKEND=firebase \
 ///   --dart-define=USE_FUNCTIONS_EMULATOR=true             # dev project + local functions
 /// flutter run -d chrome --dart-define=BACKEND=firebase \
@@ -22,6 +23,12 @@ abstract final class Env {
   static const String emulatorHost = String.fromEnvironment('EMULATOR_HOST', defaultValue: 'localhost');
 
   static bool get useFirebase => backend == 'firebase';
+  static bool get useSupabase => backend == 'supabase';
+
+  /// Supabase project (D-52). Public values (RLS protects the data). Defaults = asani-dev.
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://lgnbxxcmogbbzmuqyrgu.supabase.co');
+  static const String supabaseKey =
+      String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'sb_publishable_Hgin4aABXeUBXqu02QODMg_81Loge4G');
   static bool get isProd => env == 'prod';
 }
 
