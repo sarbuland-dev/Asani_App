@@ -242,6 +242,21 @@ Errors come back as a `PostgrestException` whose **message is the code**: `unaut
 
 Not yet: D-24 Next order, D-35 skip repeat, D-38 undo and `priority_at` live in `queue_action` (phase 6).
 
+**Phase 3 (2026-11-25): how pushes are sent.** Files: `supabase/migrations/20261125000200_push_cron.sql`,
+`supabase/functions/send-push/index.ts`; tests `03_push_cron.test.sql` (27) plus a real push end-to-end.
+- Insert into `push_outbox` → statement trigger → `pg_net` POST to `send-push` (after commit) with `x-push-secret`.
+- `send-push` (Edge Function, `verify_jwt = false`) → `claim_push_batch` (service role only, `skip locked`) → FCM HTTP v1
+  per device (Android channel `queue_alerts`, or `follow_ups` for follow-ups; `tag` = token ID) → `finish_push`
+  (done, or released for a retry; dead device tokens deleted).
+- `pg_cron` every minute: `retry_push` (max 5 tries per row).
+- Secrets: Vault `push_url`, `push_secret`; Edge Function secrets `PUSH_SECRET` (same value) and
+  `FCM_SERVICE_ACCOUNT` (asani-b2b17 service account JSON, **base64**: a plain JSON value was mangled by the env file).
+- Jobs (UTC): `asani-auto-close-tokens` 22:00 (03:00 PKT), `asani-follow-up-reminders` 04:00 (09:00 PKT),
+  `asani-cleanup` 23:00 (inbox > 30 days, sent outbox rows > 7 days), `asani-retry-push` every minute.
+- 2026-11-25 end-to-end on dev: a queued row reached FCM (`sent: 1`), and a stale device token was deleted.
+- Deploy / secrets need `supabase/.access-token.local` (a scoped personal access token: Edge Functions + Secrets
+  read & write). See docs/02 §2b.
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

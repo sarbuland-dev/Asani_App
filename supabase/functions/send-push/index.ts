@@ -4,7 +4,7 @@
 //
 // Secrets (supabase secrets set …, never in git):
 //   PUSH_SECRET            same value as the Vault secret "push_secret"
-//   FCM_SERVICE_ACCOUNT    the Firebase service account JSON of asani-b2b17 (one line)
+//   FCM_SERVICE_ACCOUNT    the Firebase service account JSON of asani-b2b17, base64-encoded
 // Provided by Supabase: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 
 interface ServiceAccount {
@@ -32,7 +32,11 @@ let cached: { token: string; until: number } | null = null;
 let account: ServiceAccount | null = null;
 
 function serviceAccount(): ServiceAccount {
-  if (!account) account = JSON.parse(Deno.env.get('FCM_SERVICE_ACCOUNT') ?? '{}') as ServiceAccount;
+  if (!account) {
+    // Stored base64-encoded (no quotes or newlines for the env file to mangle); plain JSON also works.
+    const raw = (Deno.env.get('FCM_SERVICE_ACCOUNT') ?? '').trim();
+    account = JSON.parse(raw.startsWith('{') ? raw : new TextDecoder().decode(Uint8Array.from(atob(raw), (c) => c.charCodeAt(0)))) as ServiceAccount;
+  }
   if (!account.project_id || !account.private_key) throw new Error('FCM_SERVICE_ACCOUNT secret is missing');
   return account;
 }

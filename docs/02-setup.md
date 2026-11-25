@@ -92,7 +92,17 @@ cd tools/db-test; npm install; node run.js
 | `supabase/migrations/` | Tables, RLS, Postgres functions (in order) |
 | `supabase/seed.sql` | Dev clinics and doctors (same as the demo backend) |
 | `supabase/tests/database/` | pgTAP tests |
-| `supabase/functions/` | Edge Functions (from phase 3) |
+| `supabase/functions/` | Edge Functions (`send-push`) |
+
+**Edge Functions (deploy / secrets)** need a personal access token: supabase.com/dashboard/account/tokens →
+Generate new token, preset Read-only plus **Edge Functions** and **Secrets** read & write. Save it as one line in
+`supabase/.access-token.local` (git-ignored). Then:
+```powershell
+$env:SUPABASE_ACCESS_TOKEN = (Get-Content supabase\.access-token.local -Raw).Trim()
+npx supabase@latest functions deploy send-push --remote=lgnbxxcmogbbzmuqyrgu --no-verify-jwt --use-api
+```
+`send-push` secrets (`PUSH_SECRET`, `FCM_SERVICE_ACCOUNT` base64) are set with `supabase secrets set --env-file`;
+see docs/10 §6b.
 | `tools/db-test/` | Test runner for the cloud database |
 
 ---

@@ -199,8 +199,10 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
 - [x] 2026-11-25 Phase 2: booking + queue in Postgres (`book_token`, `cancel_token`, queue triggers, 3/2/1/Your turn,
       skip + clinic-cancel notices, inbox + push outbox, auto-close function). 59/59 tests + concurrency test (20 parallel
       bookings → 1..20) pass on asani-dev; RLS tests 37/37.
-- [ ] Phase 3: push (`send-push` Edge Function, FCM HTTP v1) + `pg_cron` (auto-close 03:00, follow-up reminders 09:00,
-      inbox cleanup, outbox retry)
+- [x] 2026-11-25 Phase 3: `send-push` Edge Function (FCM HTTP v1, Firebase stays on Spark), outbox claim/retry,
+      follow-up reminders, 4 `pg_cron` jobs. 27 new tests (123 total) pass; a real push went through FCM.
+- [ ] The Vivo's saved FCM token (22 Nov) is dead (app reinstalled since); it gets a fresh one when the app saves its
+      device to Supabase (phase 5). Confirm a push actually shows on a phone then.
 - [ ] Phase 4: patient email login · 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
