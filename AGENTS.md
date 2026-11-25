@@ -147,7 +147,7 @@ firebase emulators:start --import=./emulator-data --export-on-exit
 cd functions && npm run test:rules
 
 # Supabase (D-52): apply migrations + seed to the dev project, then run the pgTAP tests (rolled back)
-npx supabase@latest db push --include-seed
+npx supabase@latest db push --db-url "<url from supabase/.db-url.local>?sslmode=require" --include-seed
 cd tools/db-test && node run.js
 
 # Queue simulator (acts as receptionist)

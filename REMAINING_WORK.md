@@ -192,8 +192,10 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
 ## 13. Move to Supabase (D-52, 2026-11-24)
 Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase prod) and §11 (TTL) are replaced by it.
 - [x] 2026-11-24 Phase 0: plan approved by Sarbuland; open questions S-1…S-7 answered (plan §7).
-- [ ] Phase 1: setup, tables, RLS, seed. 2026-11-24: written (`supabase/migrations`, `seed.sql`, 37 pgTAP RLS tests,
-      `tools/db-test`); SQL parses, **not yet run on a real database**: waits for the `asani-dev` Supabase project (docs/02 §2b).
+- [x] 2026-11-25 Phase 1: setup, tables, RLS, seed. Pushed to `asani-dev` (`https://lgnbxxcmogbbzmuqyrgu.supabase.co`):
+      2 migrations + seed (8 clinics, 14 doctors); 37/37 pgTAP RLS tests pass; RLS on every table.
+- [ ] The dev project landed in **Tokyo** (`ap-northeast-1`; the dashboard only offered "Asia Pacific"). Fine for dev;
+      create prod in **Mumbai** (`ap-south-1`) for lower latency from Pakistan.
 - [ ] Phase 2: booking + queue in Postgres · 3: push + `pg_cron`
 - [ ] Phase 4: patient email login · 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.

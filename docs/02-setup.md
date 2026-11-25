@@ -62,6 +62,10 @@ We use the **cloud project only** (no Docker, docs/10 §7 S-1). Firebase stays f
 3. Project → **Settings → API**: send the agent the **Project URL** and the **anon / publishable key** (both public).
    The **service_role / secret key** stays private (only for Edge Function secrets and admin tools later).
 
+Dev project: `asani-dev`, URL `https://lgnbxxcmogbbzmuqyrgu.supabase.co`, region Tokyo (`ap-northeast-1`).
+In the DB URL, write special characters in the password URL-encoded (`@` → `%40`) and no `[ ]` around it.
+The CLI needs `?sslmode=require` at the end of the URL (the test runner does not).
+
 **Supabase CLI** (no global install needed; `npx` downloads it the first time, about 30 MB):
 ```powershell
 npx supabase@latest --version
@@ -71,7 +75,8 @@ npx supabase@latest link --project-ref <ref>      # <ref> = the id in the projec
 
 **Apply the tables, security and seed** (from the repo root):
 ```powershell
-npx supabase@latest db push --include-seed
+$u = (Get-Content supabase\.db-url.local -Raw).Trim() + '?sslmode=require'
+npx supabase@latest db push --db-url $u --include-seed
 ```
 `db push` applies only new files in `supabase/migrations`, in name order. Never edit a migration that was already pushed;
 add a new one.
