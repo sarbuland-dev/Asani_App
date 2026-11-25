@@ -196,7 +196,11 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
       2 migrations + seed (8 clinics, 14 doctors); 37/37 pgTAP RLS tests pass; RLS on every table.
 - [ ] The dev project landed in **Tokyo** (`ap-northeast-1`; the dashboard only offered "Asia Pacific"). Fine for dev;
       create prod in **Mumbai** (`ap-south-1`) for lower latency from Pakistan.
-- [ ] Phase 2: booking + queue in Postgres · 3: push + `pg_cron`
+- [x] 2026-11-25 Phase 2: booking + queue in Postgres (`book_token`, `cancel_token`, queue triggers, 3/2/1/Your turn,
+      skip + clinic-cancel notices, inbox + push outbox, auto-close function). 59/59 tests + concurrency test (20 parallel
+      bookings → 1..20) pass on asani-dev; RLS tests 37/37.
+- [ ] Phase 3: push (`send-push` Edge Function, FCM HTTP v1) + `pg_cron` (auto-close 03:00, follow-up reminders 09:00,
+      inbox cleanup, outbox retry)
 - [ ] Phase 4: patient email login · 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 

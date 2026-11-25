@@ -211,6 +211,37 @@ exist yet; they are created in phase 8 (the checklist grows from each phase's "h
 | **Realtime free limits** (200 connections, 2M messages/month) | Fine for a pilot of a few clinics, not for scale | One channel per screen, unsubscribe on leave; re-check before scaling |
 | **Edge Function cold start** | First push after idle a little slower | Fine for pushes; booking and queue actions are SQL (no cold start) |
 
+## 6b. Built so far
+
+| Phase | Done | Files | Tests |
+|---|---|---|---|
+| 1 | 2026-11-25 | `supabase/migrations/…000100_schema.sql`, `…000200_security.sql`, `seed.sql` | `01_rls.test.sql` (37) |
+| 2 | 2026-11-25 | `supabase/migrations/20261125000100_booking_queue.sql` | `02_booking_queue.test.sql` (59), `tools/db-test/concurrency.js` (20 bookings on 10 connections → 1..20, no duplicates) |
+
+**Phase 2 API for the apps** (called with `supabase.rpc`):
+
+| Function | Input | Returns |
+|---|---|---|
+| `book_token` | `p_clinic_id, p_doctor_id, p_patient_id, p_date` (`yyyy-MM-dd`) | `{tokenId, number}` |
+| `cancel_token` | `p_token_id` | `{ok: true}` (cancelling twice is fine) |
+
+Errors come back as a `PostgrestException` whose **message is the code**: `unauthenticated`, `invalid-argument`,
+`not-found`, `permission-denied`, `clinic-unavailable`, `doctor-unavailable`, `session-ended`, `tokens-full`,
+`duplicate-token` (DETAIL = `{"name", "label"}` JSON), `too-many-active`, `cannot-cancel`.
+
+**Inside the database** (schema `private`, not callable from the apps):
+- Trigger `on_token_status` (any status change) → recomputes `queue_days.active_numbers`; skip → `notify_skipped`
+  (D-34); clinic cancel → `notify_clinic_cancel` (D-23).
+- Trigger `on_queue_day_change` (`active_numbers`, `current_token` or `session_status` changed) → `evaluate_queue`
+  (3/2/1/Your turn, N-1…N-4, D-39).
+- `notify_user` writes the inbox row (`notifications`, always, D-45) and a `push_outbox` row (queue pushes only when
+  `queue_alerts_enabled`, D-18). Phase 3 sends the outbox through FCM.
+- `auto_close_tokens()` (D-21) is ready; `pg_cron` runs it at 03:00 PKT from phase 3.
+- Locking rule: every status change locks the queue day row first, so bookings on one doctor/day run one at a time.
+- Tests can pin the clock with `set asani.test_now = '…'` (honoured only for a direct `postgres` session, never the API).
+
+Not yet: D-24 Next order, D-35 skip repeat, D-38 undo and `priority_at` live in `queue_action` (phase 6).
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |

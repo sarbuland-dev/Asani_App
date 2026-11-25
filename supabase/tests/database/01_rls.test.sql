@@ -62,7 +62,9 @@ select results_eq($$ select id::text from public.users $$, array['00000000-0000-
 select results_eq($$ select id from public.patients where id like 't_%' order by id $$, array['t_pa'], 'patient sees only own profiles');
 select results_eq($$ select id from public.tokens where id like 't_%' order by id $$, array['t_ta', 't_tw'],
                   'patient sees own booking and walk-ins on own profiles (D-22), not others');
-select results_eq($$ select title from public.notifications $$, array['For A'], 'patient sees only own notifications');
+select results_eq($$ select title from public.notifications where title like 'For %' $$, array['For A'], 'patient sees only own notifications');
+-- (the queue triggers also add real entries for the test tokens; every row the patient sees must be their own)
+
 select ok((select count(*) from public.clinics where id like 't_%') = 2, 'patient reads clinics');
 select ok((select count(*) from public.doctors where id like 't_%') = 2, 'patient reads doctors');
 select ok((select count(*) from public.queue_days where doctor_id like 't_%') = 2, 'patient reads queue days');

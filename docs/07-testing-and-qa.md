@@ -108,6 +108,17 @@ cd apps/patient_app
 flutter test integration_test --flavor dev --dart-define=USE_EMULATOR=true
 ```
 
+**Supabase (D-52)**: pgTAP tests in `supabase/tests/database/*.test.sql` run against the `asani-dev` cloud database
+inside a transaction that is rolled back (needs `supabase/.db-url.local`, docs/02 §2b):
+
+```powershell
+node tools/db-test/run.js            # 01 RLS (37), 02 booking + queue (59)
+node tools/db-test/concurrency.js    # 20 bookings on 10 connections at once → numbers 1..20, no duplicates
+```
+
+`concurrency.js` must commit, so it creates its own `cc_` rows and deletes only those afterwards.
+Every new Postgres function or policy gets a pgTAP test in the same change.
+
 CI (GitHub Actions) on every PR: `flutter analyze`, `flutter test`, `dart test` (core), `npm run lint && npm run build && npm test && npm run test:rules`.
 
 ---
