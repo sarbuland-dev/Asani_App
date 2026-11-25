@@ -49,7 +49,7 @@ class PkPhoneField extends StatelessWidget {
             style: AppText.titleMedium.copyWith(fontSize: 17, letterSpacing: 0.6),
             inputFormatters: [PkPhoneFormatter()],
             decoration: const InputDecoration(
-              hintText: '300 1234567',
+              hintText: '3XX XXXXXXX',
               filled: false,
               isDense: true,
               border: InputBorder.none,
@@ -75,6 +75,27 @@ class PkPhoneField extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Amber info note under the phone field (profile setup and Account → Mobile number, D-52).
+class PhoneNote extends StatelessWidget {
+  const PhoneNote({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(Gap.md),
+        decoration: BoxDecoration(color: AppColors.warningContainer, borderRadius: BorderRadius.circular(Radii.button)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.warningText),
+          const SizedBox(width: Gap.sm),
+          Expanded(
+            child: Text(
+              'Please enter your correct mobile number. Your clinic uses it to find your visits and contact you.',
+              style: AppText.bodyMedium.copyWith(color: AppColors.warningText, height: 1.4),
+            ),
+          ),
+        ]),
+      );
 }
 
 /// Formats as "3XX XXXXXXX" while typing. Typed or pasted "0300…", "92300…" and "+92 300…" are

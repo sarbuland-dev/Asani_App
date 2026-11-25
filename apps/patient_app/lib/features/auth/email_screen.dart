@@ -31,7 +31,11 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
   bool get _valid => EmailUtils.isValid(_controller.text);
 
   Future<void> _send() async {
-    if (!_valid || _sending) return;
+    if (_sending || _controller.text.trim().isEmpty) return;
+    if (!_valid) {
+      setState(() => _error = AppException.invalidEmail.message);
+      return;
+    }
     setState(() {
       _sending = true;
       _error = null;
@@ -78,7 +82,7 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                               Text('Welcome to Asani',
                                   style: AppText.headline.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
                               const SizedBox(height: Gap.sm),
-                              Text("Enter your email. We'll send you a 6-digit code.",
+                              Text('Book your clinic token without the long wait.',
                                   style: AppText.bodyLarge.copyWith(color: AppColors.onPrimaryMuted, height: 1.5)),
                             ],
                           ),
@@ -110,6 +114,11 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                             onChanged: (_) => setState(() => _error = null),
                             onSubmitted: (_) => _send(),
                           ),
+                          if (_error == null) ...[
+                            const SizedBox(height: Gap.sm),
+                            Text("We'll send a 6-digit code to your email.",
+                                style: AppText.labelSmall.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+                          ],
                           if (Env.isDemo) ...[
                             const SizedBox(height: Gap.lg),
                             const DemoNote(text: 'Demo mode: any email works and the code is 123456. Use phone 300 1234567 in your profile to see a sample family.'),
@@ -123,7 +132,7 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.xl + 4),
                         child: FilledButton(
-                          onPressed: _valid && !_sending ? _send : null,
+                          onPressed: _controller.text.trim().isNotEmpty && !_sending ? _send : null,
                           child: _sending
                               ? const ButtonSpinner()
                               : const Row(mainAxisSize: MainAxisSize.min, children: [

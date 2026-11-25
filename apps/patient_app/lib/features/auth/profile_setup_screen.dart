@@ -208,13 +208,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             error: _phoneError != null,
                             onChanged: () => setState(() => _phoneError = null),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: Gap.xs, left: Gap.xs),
-                            child: Text(
-                              _phoneError ?? 'Clinics use this number to find your visits. One number per Asani account.',
-                              style: AppText.labelSmall.copyWith(color: _phoneError != null ? AppColors.danger : AppColors.textSecondary),
+                          if (_phoneError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: Gap.xs, left: Gap.xs),
+                              child: Text(_phoneError!, style: AppText.labelSmall.copyWith(color: AppColors.danger)),
                             ),
-                          ),
+                          const SizedBox(height: Gap.sm),
+                          const PhoneNote(),
                           const SizedBox(height: Gap.lg),
                         ],
                       ),

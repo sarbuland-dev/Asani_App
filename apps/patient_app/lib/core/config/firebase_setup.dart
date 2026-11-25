@@ -14,6 +14,12 @@ import 'env.dart';
 const firebaseRegion = 'asia-south1';
 
 abstract final class FirebaseSetup {
+  /// Supabase mode (D-52): Firebase is used only for push (FCM), so just the core app is started.
+  static Future<void> initForPushOnly() async {
+    final options = Env.isProd ? prod.DefaultFirebaseOptions.currentPlatform : dev.DefaultFirebaseOptions.currentPlatform;
+    await Firebase.initializeApp(options: options);
+  }
+
   static Future<void> init() async {
     final options = Env.isProd ? prod.DefaultFirebaseOptions.currentPlatform : dev.DefaultFirebaseOptions.currentPlatform;
     await Firebase.initializeApp(options: options);

@@ -100,11 +100,14 @@ class AccountScreen extends ConsumerWidget {
                   onTap: () => _toggleNotifications(context, ref, on),
                 ),
                 _Tile(icon: Icons.location_on_outlined, label: 'City', value: city, onTap: () => showCityPicker(context, ref)),
+                // D-52: the login email can't be changed here.
+                _Tile(icon: Icons.mail_outline_rounded, label: 'Email', value: user.email),
                 // D-52 (S-4): the number is not verified; one number per Asani account.
                 _Tile(
                   icon: Icons.phone_outlined,
                   label: 'Mobile number',
                   value: Fmt.phone(user.phone),
+                  action: 'Edit',
                   onTap: () => _changePhone(context, ref, user.phone),
                   last: true,
                 ),
@@ -334,10 +337,14 @@ class _TypeDeleteDialogState extends State<_TypeDeleteDialog> {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.label, this.value, this.chip, this.chipOn = false, this.onTap, this.last = false});
+  const _Tile(
+      {required this.icon, required this.label, this.value, this.chip, this.chipOn = false, this.action, this.onTap, this.last = false});
   final IconData icon;
   final String label;
   final String? value;
+
+  /// Green text button at the end (e.g. "Edit") instead of the chevron.
+  final String? action;
   final String? chip;
   final bool chipOn;
   final VoidCallback? onTap;
@@ -378,7 +385,15 @@ class _Tile extends StatelessWidget {
                     textAlign: TextAlign.end,
                     style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
               ),
-            if (onTap != null && chip == null) const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+            if (action != null) ...[
+              const SizedBox(width: Gap.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(Radii.pill)),
+                child: Text(action!, style: AppText.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700)),
+              ),
+            ] else if (onTap != null && chip == null)
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
           ]),
         ),
       );
@@ -425,9 +440,12 @@ Future<void> _changePhone(BuildContext context, WidgetRef ref, String current) a
               onChanged: () => setState(() => error = null),
               onSubmitted: valid && !saving ? save : null,
             ),
-            const SizedBox(height: Gap.sm),
-            Text(error ?? 'Clinics use this number to find your visits.',
-                style: AppText.labelSmall.copyWith(color: error != null ? AppColors.danger : AppColors.textSecondary)),
+            if (error != null) ...[
+              const SizedBox(height: Gap.sm),
+              Text(error!, style: AppText.labelSmall.copyWith(color: AppColors.danger)),
+            ],
+            const SizedBox(height: Gap.md),
+            const PhoneNote(),
           ]),
           actions: [
             TextButton(onPressed: saving ? null : () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),

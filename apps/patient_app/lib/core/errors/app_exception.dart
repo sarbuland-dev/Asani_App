@@ -27,8 +27,9 @@ class AppException implements Exception {
   static const tooManyAttempts =
       AppException('too-many-requests', 'Too many attempts. Please wait a few minutes and try again.');
   static const phoneTaken =
-      AppException('phone-taken', 'This number is already used by another Asani account. Please use a different number.');
-  static const invalidPhone = AppException('invalid-phone', 'Please enter a valid mobile number, e.g. 300 1234567.');
+      AppException('phone-taken', 'This number is already used by another account. Please check the number or contact support.');
+  static const invalidPhone =
+      AppException('invalid-phone', 'Please enter a valid mobile number: 10 digits starting with 3, e.g. 300 1234567.');
   static const noInternet = AppException('network', 'No internet connection. Please try again.');
   static const sessionExpired = AppException('session-expired', 'Session expired. Please log in again.');
 

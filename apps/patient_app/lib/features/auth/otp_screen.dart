@@ -216,7 +216,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         children: [
                           const Icon(Icons.schedule_rounded, size: 18, color: AppColors.textSecondary),
                           const SizedBox(width: Gap.sm),
-                          Flexible(child: Text('Resend code in ', style: AppText.bodyLarge.copyWith(fontSize: 15, color: AppColors.textSecondary))),
+                          Flexible(
+                              child: Text("Didn't get it? Resend in ",
+                                  style: AppText.bodyLarge.copyWith(fontSize: 15, color: AppColors.textSecondary))),
                           Text('0:${_secondsLeft.toString().padLeft(2, '0')}', style: AppText.labelLarge.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
                         ],
                       )
@@ -228,6 +230,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                             label: const Text('Resend code'),
                           ),
               ),
+              const SizedBox(height: Gap.sm),
+              Row(children: [
+                const Icon(Icons.mark_email_unread_outlined, size: 18, color: AppColors.textSecondary),
+                const SizedBox(width: Gap.sm),
+                Expanded(child: Text('Check your spam folder too.', style: AppText.bodyMedium.copyWith(color: AppColors.textSecondary))),
+              ]),
               const SizedBox(height: Gap.lg),
               if (Env.isDemo) const DemoNote(text: 'Demo mode: the code is ${DemoBackend.demoOtp}.'),
                 ]),

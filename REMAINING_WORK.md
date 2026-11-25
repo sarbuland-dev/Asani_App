@@ -209,7 +209,10 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
       (docs/02 §2b), then log in on the phone with `BACKEND=supabase`.
 - [ ] `apps/patient_app/test/widget_test.dart` is an old untracked Flutter template file (`MyApp`); it breaks
       `flutter analyze`. Delete it (not committed by the agent).
-- [ ] Phase 5: patient app data · 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
+- [x] 2026-11-25 Phase 5 code: patient app data on Supabase (Realtime streams, booking/cancel RPCs, family, follow-ups,
+      notifications, device tokens). `client-smoke.js` PASS against asani-dev; app tests 18/18.
+- [ ] Phase 5 on a real phone (after the phase 4 email settings): login → book → live queue → push on the Vivo.
+- [ ] Phase 6: clinic/admin backend · 7: clinic web · 8: clean-up + docs
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

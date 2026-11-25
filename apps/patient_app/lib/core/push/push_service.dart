@@ -18,26 +18,63 @@ enum PushPermission { granted, denied, notAsked }
 /// FCM queue notifications (PRD F-06, ARCHITECTURE.md §3.3 / §8).
 ///
 /// - asks the OS for permission (the real system popup),
-/// - keeps this phone's FCM token in `users/{uid}/devices/{deviceId}`
-///   (DATABASE.md §2; deviceId is a random ID stored on the phone),
+/// - keeps this phone's FCM token for the signed-in account through a [PushAccount]
+///   (Supabase `devices` table, D-52; or Firestore `users/{uid}/devices` in the old Firebase mode;
+///   deviceId is a random ID stored on the phone),
 /// - shows pushes that arrive while the app is open as in-app alerts,
 /// - reports taps on a notification so the app opens that token (N-6).
 ///
 /// Web (dev preview only) gets the browser permission prompt but no device
 /// token: the rules accept only `android` / `ios` devices.
-class PushService {
-  PushService({FirebaseMessaging? messaging, FirebaseFirestore? db, FirebaseAuth? auth})
-      : _messaging = messaging ?? FirebaseMessaging.instance,
-        _db = db ?? FirebaseFirestore.instance,
+/// Where this phone's FCM token is stored for the signed-in account.
+abstract interface class PushAccount {
+  String? get uid;
+
+  /// Emits the signed-in account ID (null when signed out) whenever it changes.
+  Stream<String?> get uidChanges;
+  Future<void> saveDevice(String uid, String deviceId, {required String token, required String platform, required String appVersion});
+  Future<void> deleteDevice(String uid, String deviceId);
+}
+
+/// Old Firebase mode: `users/{uid}/devices/{deviceId}` in Firestore.
+class FirebasePushAccount implements PushAccount {
+  FirebasePushAccount({FirebaseFirestore? db, FirebaseAuth? auth})
+      : _db = db ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
+
+  @override
+  String? get uid => _auth.currentUser?.uid;
+
+  @override
+  Stream<String?> get uidChanges => _auth.authStateChanges().map((u) => u?.uid);
+
+  @override
+  Future<void> saveDevice(String uid, String deviceId, {required String token, required String platform, required String appVersion}) =>
+      _db.collection('users').doc(uid).collection('devices').doc(deviceId).set({
+        'fcmToken': token,
+        'platform': platform,
+        'appVersion': appVersion,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+  @override
+  Future<void> deleteDevice(String uid, String deviceId) =>
+      _db.collection('users').doc(uid).collection('devices').doc(deviceId).delete();
+}
+
+class PushService {
+  PushService({FirebaseMessaging? messaging, PushAccount? account})
+      : _messaging = messaging ?? FirebaseMessaging.instance,
+        _account = account ?? FirebasePushAccount();
 
   static const channelId = 'queue_alerts'; // DESIGN.md §8
   static const followUpChannelId = 'follow_ups';
   static const _deviceIdKey = 'asani.deviceId';
 
   final FirebaseMessaging _messaging;
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
+  final PushAccount _account;
 
   final _alerts = StreamController<QueueAlert>.broadcast();
   final _opened = StreamController<String>.broadcast();
@@ -94,8 +131,8 @@ class PushService {
       // registration tokens, so we keep these until the server moves too.
       // ignore: deprecated_member_use
       ..add(_messaging.onTokenRefresh.listen((_) => register()))
-      ..add(_auth.authStateChanges().listen((user) async {
-        if (user != null && await permission() == PushPermission.granted) await register();
+      ..add(_account.uidChanges.listen((uid) async {
+        if (uid != null && await permission() == PushPermission.granted) await register();
       }));
     try {
       final initial = await _messaging.getInitialMessage();
@@ -159,18 +196,14 @@ class PushService {
 
   /// Saves this phone's FCM token for the signed-in account.
   Future<void> register() async {
-    final uid = _auth.currentUser?.uid;
+    final uid = _account.uid;
     if (uid == null || !_isMobile) return;
     try {
       // ignore: deprecated_member_use
       final token = await _messaging.getToken();
       if (token == null) return;
-      await _db.collection('users').doc(uid).collection('devices').doc(await _deviceId()).set({
-        'fcmToken': token,
-        'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        'appVersion': appVersion,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await _account.saveDevice(uid, await _deviceId(),
+          token: token, platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android', appVersion: appVersion);
     } catch (e) {
       AppLogger.warn('Could not register this phone for alerts: $e');
     }
@@ -179,10 +212,10 @@ class PushService {
   /// Call BEFORE signing out (the rules need the signed-in user), so the next
   /// person on this phone doesn't get the previous account's alerts.
   Future<void> unregister() async {
-    final uid = _auth.currentUser?.uid;
+    final uid = _account.uid;
     if (uid == null || !_isMobile) return;
     try {
-      await _db.collection('users').doc(uid).collection('devices').doc(await _deviceId()).delete();
+      await _account.deleteDevice(uid, await _deviceId());
     } catch (e) {
       AppLogger.warn('Could not unregister this phone: $e');
     }

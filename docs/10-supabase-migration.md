@@ -270,6 +270,21 @@ Not yet: D-24 Next order, D-35 skip repeat, D-38 undo and `priority_at` live in 
   device to Supabase. `BACKEND=firebase` can no longer log in (email needs Supabase).
 - Dashboard settings (OTP 600 s / 6 digits, code-only templates, Brevo SMTP): docs/02 §2b.
 
+**Phase 5 (2026-11-25): patient app data on Supabase.**
+- `lib/data/supabase/supabase_repositories.dart`: clinics, doctors, queue day, tokens (`book_token` / `cancel_token`),
+  family profiles (direct insert/update, the DB fills owner/phone/status), follow-ups, notifications list + seen-at.
+  `rows.dart` maps rows (snake_case, ISO times) to the `asani_core` models. Reads are Realtime `.stream()`s.
+- **Realtime filter quirk:** filters on uuid columns and on `id` never fire; `clinic_id`, `doctor_id`, `city`, `active`
+  do. Streams that would need a broken filter are unfiltered and picked in the app (RLS already limits tokens,
+  profiles, follow-ups and notifications to the user's own rows).
+- Push: `PushService` stores the FCM token through a `PushAccount` (`SupabasePushAccount` → `devices` upsert); it
+  registers when the account is signed in (the `devices` row needs the `users` row). Firebase starts only for FCM
+  (`FirebaseSetup.initForPushOnly`).
+- `tools/db-test/client-smoke.js`: signs in like the app (publishable key, temporary password logins, own `sm_` rows,
+  all deleted afterwards) and checks profile, phone-taken, family, booking, duplicates, RLS, Realtime, notifications,
+  cancel and devices end to end. 2026-11-25: PASS.
+- Still demo in Supabase mode: local device settings (intro seen, primer) only. Account deletion: phase 6.
+
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 
 | # | Question | Answer |
