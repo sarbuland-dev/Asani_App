@@ -15,6 +15,10 @@ major_version = 17
 enabled = true
 sql_paths = ["./seed.sql"]
 
+# send-push is called by the database with its own shared secret (x-push-secret), not a user JWT.
+[functions.send-push]
+verify_jwt = false
+
 [auth]
 site_url = "http://localhost:8092"
 additional_redirect_urls = ["http://localhost:8092/**"]

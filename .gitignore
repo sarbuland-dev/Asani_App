@@ -34,6 +34,7 @@ tools/admin-scripts/*.local.txt
 
 # Supabase (D-52): DB URL, CLI temp files, local secrets
 supabase/.db-url.local
+supabase/.access-token.local
 supabase/.temp/
 supabase/.branches/
 supabase/functions/.env*
