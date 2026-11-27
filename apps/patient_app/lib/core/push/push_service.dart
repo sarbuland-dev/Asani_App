@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:asani_core/asani_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -19,8 +17,7 @@ enum PushPermission { granted, denied, notAsked }
 ///
 /// - asks the OS for permission (the real system popup),
 /// - keeps this phone's FCM token for the signed-in account through a [PushAccount]
-///   (Supabase `devices` table, D-52; or Firestore `users/{uid}/devices` in the old Firebase mode;
-///   deviceId is a random ID stored on the phone),
+///   (the Supabase `devices` table, D-52; deviceId is a random ID stored on the phone),
 /// - shows pushes that arrive while the app is open as in-app alerts,
 /// - reports taps on a notification so the app opens that token (N-6).
 ///
@@ -36,38 +33,8 @@ abstract interface class PushAccount {
   Future<void> deleteDevice(String uid, String deviceId);
 }
 
-/// Old Firebase mode: `users/{uid}/devices/{deviceId}` in Firestore.
-class FirebasePushAccount implements PushAccount {
-  FirebasePushAccount({FirebaseFirestore? db, FirebaseAuth? auth})
-      : _db = db ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
-
-  @override
-  String? get uid => _auth.currentUser?.uid;
-
-  @override
-  Stream<String?> get uidChanges => _auth.authStateChanges().map((u) => u?.uid);
-
-  @override
-  Future<void> saveDevice(String uid, String deviceId, {required String token, required String platform, required String appVersion}) =>
-      _db.collection('users').doc(uid).collection('devices').doc(deviceId).set({
-        'fcmToken': token,
-        'platform': platform,
-        'appVersion': appVersion,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-  @override
-  Future<void> deleteDevice(String uid, String deviceId) =>
-      _db.collection('users').doc(uid).collection('devices').doc(deviceId).delete();
-}
-
 class PushService {
-  PushService({FirebaseMessaging? messaging, PushAccount? account})
-      : _messaging = messaging ?? FirebaseMessaging.instance,
-        _account = account ?? FirebasePushAccount();
+  PushService(this._account, {FirebaseMessaging? messaging}) : _messaging = messaging ?? FirebaseMessaging.instance;
 
   static const channelId = 'queue_alerts'; // DESIGN.md §8
   static const followUpChannelId = 'follow_ups';

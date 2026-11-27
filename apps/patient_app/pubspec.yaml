@@ -47,15 +47,12 @@ dependencies:
   url_launcher: ^6.3.3
   share_plus: ^13.3.1
   shared_preferences: ^2.5.6
+  # Firebase only for push (FCM, D-52).
   firebase_core: ^5.1.0
-  firebase_auth: ^7.0.1
-  cloud_firestore: ^7.1.0
-  cloud_functions: ^7.0.1
   firebase_messaging: ^17.0.1
   flutter_local_notifications: ^23.0.1
   app_settings: ^9.0.1
   connectivity_plus: ^7.3.2
-  firebase_app_check: ^0.5.1
   # D-31/D-33: nearest doctors first (foreground only). The geolocator parts we
   # ship, not `geolocator` itself: its Linux part clashes with connectivity_plus (dbus).
   geolocator_platform_interface: ^4.2.6

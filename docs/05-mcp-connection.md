@@ -1,5 +1,9 @@
 # 05 — MCP Connection (AI agent tooling)
 
+> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
+> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
+> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+
 MCP (Model Context Protocol) servers let AI coding agents (Codex, Claude Code, Cursor, Gemini CLI…) use real tools: run the Dart analyzer, hot reload the app, read Firestore in the **dev** project, check Auth users, read Crashlytics, etc.
 
 Asani uses two MCP servers:

@@ -14,17 +14,17 @@ Two modes:
 
 | Mode | Command | Login |
 |---|---|---|
-| Demo (default) | `flutter run --flavor dev` | code **123456**, all data on the phone |
-| Firebase | `flutter run --flavor dev --dart-define=BACKEND=firebase` | real SMS / test numbers, account in Firestore |
+| Demo (default) | `flutter run --flavor dev` | any email, code **123456**, all data on the phone |
+| Supabase (D-52) | `flutter run --flavor dev --dart-define=BACKEND=supabase` | real 6-digit email code, data in `asani-dev` |
 
-Firebase mode needs a one-time setup: see **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
-In both modes clinics, queues, tokens and family use demo data for now (D-11).
+Supabase setup (email code settings, SMTP): docs/02-setup.md §2b. Push uses Firebase Cloud Messaging only
+(`firebase_options_dev.dart`, `google-services.json`); see FIREBASE_SETUP.md for that part.
 
-- Login: any Pakistani mobile number (`3XX XXXXXXX`). The OTP is **123456**.
-- Use **300 1234567** to see a sample family, visit history and a follow-up.
+Demo mode:
+- Any email works and the code is **123456**. Use phone **300 1234567** in profile setup to see a sample family, visit
+  history and a follow-up.
 - Today's queues move forward by themselves every 15 seconds, like a receptionist pressing "next".
   Turn this off, or move a queue by hand, under **Account → Demo tools**.
-- Queue alerts (3, 2, 1 ahead and "Your turn now") show inside the app. Real push notifications arrive with FCM.
 - Data is saved on the phone, so it survives restarts.
 
 ## Structure
@@ -35,7 +35,8 @@ lib/
 ├── core/                      theme tokens, router, formatters, shared widgets, errors
 ├── data/
 │   ├── repositories/          repository interfaces (UI depends only on these)
-│   ├── demo/                  demo backend + seed data (replace with Firebase)
+│   ├── demo/                  demo backend + seed data
+│   ├── supabase/              Supabase repositories (D-52)
 │   └── providers.dart         Riverpod providers
 └── features/                  auth, home, search, clinic, booking, token, tokens, family, account, notifications
 ```
@@ -50,10 +51,3 @@ flutter analyze
 flutter test
 cd ../../packages/asani_core && dart test
 ```
-
-## Next on Firebase
-
-1. Done: login (`lib/data/firebase/firebase_auth_repository.dart`), rules and indexes (repo root).
-2. Next: clinics, doctors and queue days from Firestore; `bookToken` / `cancelToken` Cloud Functions.
-3. Then: family profiles and follow-ups in Firestore.
-4. Then: FCM + `flutter_local_notifications` for real queue alerts (channels `queue_alerts`, `follow_ups`).

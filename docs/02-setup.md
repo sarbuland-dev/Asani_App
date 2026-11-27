@@ -1,5 +1,9 @@
 # 02 — Setup
 
+> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
+> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
+> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+
 Developer machine and Firebase setup for the monorepo: patient app, clinic web, shared packages and functions. Primary dev machine: **Windows + Android Studio**.
 
 ---

@@ -1,5 +1,10 @@
 # Connect the app to Firebase (dev project: asani-b2b17)
 
+> **D-52 (2026-11-26): Firebase is now used ONLY for push (FCM).** Login, data and functions are on Supabase
+> (docs/02-setup.md §2b). From this guide only the parts that create the Firebase app config still matter:
+> `flutterfire configure` → `lib/firebase_options_dev.dart` / `google-services.json`, and the Android SHA keys.
+> Ignore everything about Phone Auth, Firestore, rules, indexes, functions and the Blaze plan.
+
 The code is ready. These steps need **your** Google account, so only you can do them.
 Takes about 20 minutes. Do them in order. Full background: `docs/02-setup.md`.
 

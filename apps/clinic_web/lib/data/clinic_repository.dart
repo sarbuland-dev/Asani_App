@@ -109,9 +109,9 @@ class NotArrived implements Exception {
 /// The clinic web's data layer. UI → provider → repository → backend.
 ///
 /// Reads are synchronous from a live cache; [changes] fires when it updates.
-/// [DemoClinicRepository] keeps everything in memory; [FirebaseClinicRepository]
-/// fills the cache from Firestore listeners and writes only through the
-/// callable functions (PRD-CLINIC-WEB §11, BW-1). Data that is not in the cache
+/// [DemoClinicRepository] keeps everything in memory; [SupabaseClinicRepository]
+/// fills the cache from Realtime streams and writes only through Postgres
+/// functions (PRD-CLINIC-WEB §11, BW-1, D-52). Data that is not in the cache
 /// yet (older days, a patient's history) is loaded on first read and appears
 /// with the next [changes] event; the `load…` methods wait for it.
 abstract interface class ClinicRepository {

@@ -1,5 +1,9 @@
 # 09 — Doctor search + same-doctor linking: integration tasks
 
+> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
+> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
+> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+
 > **2026-11-21:** §1–§4 (functions, rules, indexes, migration) and the Firebase data code are **done** (step 1).
 > **2026-11-22:** step 2 done too (§5 location, required clinic location, "Also sits at" on the clinic page).
 > Material Symbols icons are still not added. Migration ran on dev on 2026-11-21.

@@ -222,11 +222,13 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
 - [x] 2026-11-26 Phase 8 (part 1): queue-sim on Supabase (old one = `queue-sim-firebase.js`), CI `supabase.yml` (SQL syntax +
       pgTAP when the `SUPABASE_DB_URL` secret exists), clinic web CI build with `BACKEND=supabase`, DATABASE.md and
       ARCHITECTURE.md rewritten, TESTING_CHECKLIST.md, CONTEXT_FOR_CLAUDE.md, README, AGENTS.md.
-- [ ] Phase 8 (part 2, needs Sarbuland's OK): delete the old Firebase backend (`functions/`, `firestore.rules`,
-      `firestore.indexes.json`, Firestore/Functions/Auth code in both apps, `queue-sim-firebase.js`, Firebase admin
-      scripts) and the `functions.yml` CI; keep firebase_core + firebase_messaging for FCM.
+- [x] 2026-11-27 Phase 8 part 2 (Sarbuland's OK): Firebase backend deleted (`functions/`, Firestore rules/indexes,
+      `firebase.json`, `.firebaserc`, `functions.yml`, Firebase data/auth code in both apps, old queue-sim and admin
+      scripts). Firebase stays for FCM only (`firebase_core`, `firebase_messaging`). Analyze clean, app tests 18/18.
+- [ ] Android debug build of the patient app after removing 4 Firebase plugins: not run yet (builds only when
+      Sarbuland asks).
 - [ ] GitHub secret `SUPABASE_DB_URL` (Sarbuland) so CI runs the database tests.
-- [ ] docs/04 security and docs/06 integration still describe Firebase in detail; rewrite with part 2.
+- [x] docs/04 rewritten for Supabase; docs/01, 03, 05, 06, 08, 09 (+ 02, 07) carry a "Firebase parts are background" note.
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

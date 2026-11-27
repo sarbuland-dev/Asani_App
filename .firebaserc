@@ -1,7 +1,0 @@
-{
-  "projects": {
-    "default": "asani-b2b17",
-    "dev": "asani-b2b17",
-    "prod": "asani-prod"
-  }
-}

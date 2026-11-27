@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/firebase_setup.dart';
+import '../../core/config/env.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/demo_clinic_repository.dart';
@@ -140,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: Gap.sm),
                     Align(alignment: Alignment.center, child: TextButton(onPressed: _forgot, child: const Text('Forgot password?'))),
                     const SizedBox(height: Gap.xl),
-                    if (!Env.useFirebase && !Env.useSupabase) _demoAccounts(),
+                    if (!Env.useSupabase) _demoAccounts(),
                   ]),
                 ),
               ),

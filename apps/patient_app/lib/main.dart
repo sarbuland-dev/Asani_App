@@ -9,11 +9,6 @@ import 'core/config/firebase_setup.dart';
 import 'core/push/push_service.dart';
 import 'package:asani_core/asani_core.dart';
 import 'data/demo/demo_backend.dart';
-import 'data/firebase/firebase_auth_repository.dart';
-import 'data/firebase/firestore_clinic_repository.dart';
-import 'data/firebase/firestore_patient_repository.dart';
-import 'data/firebase/firestore_token_repository.dart';
-import 'data/firebase/firestore_notification_repository.dart';
 import 'data/providers.dart';
 import 'data/repositories/repositories.dart';
 import 'data/supabase/supabase_auth_repository.dart';
@@ -27,10 +22,10 @@ Future<void> main() async {
   GoogleFonts.config.allowRuntimeFetching = false;
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Demo backend: demo mode, plus device settings in Firebase mode.
+  // Demo backend: demo mode, plus this phone's settings (intro, primer) in Supabase mode.
   final backend = await DemoBackend.create();
 
-  // Login: Supabase with --dart-define=BACKEND=supabase (D-52), Firebase with BACKEND=firebase, demo otherwise (D-11).
+  // Supabase with --dart-define=BACKEND=supabase (D-52), demo data otherwise (D-11).
   final overrides = [backendProvider.overrideWithValue(backend)];
   if (Env.useSupabase) {
     try {
@@ -68,34 +63,6 @@ Future<void> main() async {
     overrides.add(patientRepositoryProvider.overrideWithValue(SupabasePatientRepository()));
     overrides.add(followUpRepositoryProvider.overrideWithValue(SupabaseFollowUpRepository()));
     overrides.add(notificationRepositoryProvider.overrideWithValue(SupabaseNotificationRepository()));
-  } else if (Env.useFirebase) {
-    try {
-      await FirebaseSetup.init();
-    } catch (e) {
-      // Not configured yet (FIREBASE_SETUP.md): say so instead of a blank screen.
-      runApp(_SetupError('Firebase setup is not finished.\n\n$e'));
-      return;
-    }
-    backend.stopSimulator(); // queues move via tools/queue-sim (step 9)
-
-    // Step 10: FCM queue notifications.
-    final push = await _startPush(backend, FirebasePushAccount());
-    overrides.add(pushServiceProvider.overrideWithValue(push));
-
-    final auth = FirebaseAuthRepository(backend, beforeSignOut: push.unregister);
-    overrides.add(authRepositoryProvider.overrideWithValue(auth));
-    // Steps 1-2 (DEMO_TO_FIREBASE.txt): clinics and doctors from Firestore.
-    final tokens = FirestoreTokenRepository(alerts: push.alerts);
-    overrides.add(clinicRepositoryProvider.overrideWithValue(FirestoreClinicRepository(backend, tokens)));
-    // Step 3: family profiles in Firestore.
-    overrides.add(patientRepositoryProvider.overrideWithValue(FirestorePatientRepository(backend)));
-    // Steps 5-8: booking and cancelling via Cloud Functions; tokens and queue days from Firestore.
-    overrides.add(tokenRepositoryProvider.overrideWithValue(tokens));
-    overrides.add(queueRepositoryProvider.overrideWithValue(FirestoreQueueRepository()));
-    // Step 11: follow-ups from Firestore.
-    overrides.add(followUpRepositoryProvider.overrideWithValue(FirestoreFollowUpRepository()));
-    // D-45: in-app notifications list (written by functions with every push).
-    overrides.add(notificationRepositoryProvider.overrideWithValue(FirestoreNotificationRepository()));
   }
 
   runApp(ProviderScope(overrides: overrides, child: const AsaniApp()));
@@ -104,7 +71,7 @@ Future<void> main() async {
 /// FCM queue notifications. The OS permission is the truth: if it was turned off in phone settings,
 /// Account shows "Off" (and the primer can ask again).
 Future<PushService> _startPush(DemoBackend backend, PushAccount account) async {
-  final push = PushService(account: account);
+  final push = PushService(account);
   try {
     await push.init();
     final permission = await push.permission();

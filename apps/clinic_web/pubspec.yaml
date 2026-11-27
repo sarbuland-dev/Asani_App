@@ -22,10 +22,6 @@ dependencies:
   connectivity_plus: ^7.3.2
   web: ^1.1.1
   qr: ^3.0.2
-  firebase_core: ^5.1.0
-  firebase_auth: ^7.0.1
-  cloud_firestore: ^7.1.0
-  cloud_functions: ^7.0.1
   # D-52: Supabase backend (email + password, Postgres functions, Realtime).
   supabase_flutter: ^2.10.0
 

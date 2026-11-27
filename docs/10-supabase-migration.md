@@ -333,7 +333,7 @@ through `admin-clinic-login`). `--dart-define=BACKEND=supabase`.
 through `queue_action` / `clinic_create_walk_in` as the doctor's clinic (dev only; the Firestore one is
 `queue-sim-firebase.js`); CI `supabase.yml`; clinic web CI builds `BACKEND=supabase`; DATABASE.md and ARCHITECTURE.md
 rewritten for Supabase; new TESTING_CHECKLIST.md and CONTEXT_FOR_CLAUDE.md; README and AGENTS.md updated.
-**Part 2 waits for Sarbuland's OK:** delete the Firebase backend code (list in REMAINING_WORK §13).
+**Part 2 (2026-11-27, Sarbuland's OK):** the Firebase backend code is deleted (git history keeps it). Firebase = FCM only.
 
 ## 7. Decisions on the open questions (Sarbuland, 2026-11-24)
 

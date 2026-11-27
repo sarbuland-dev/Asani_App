@@ -15,18 +15,18 @@ Asani is a clinic token and live-queue system for small and medium private clini
 | Part | Status | Agent rule |
 |---|---|---|
 | `apps/patient_app` | ✅ Active | Build here |
-| `functions/`, `firestore.*` | ⛔ Retired (D-52) | Old Firebase backend, kept for reference until Sarbuland OKs its removal. Do not add to it |
+| `functions/`, `firestore.*` | ⛔ Removed (D-52, 2026-11-27) | The Firebase backend was deleted (git history only). Firebase is used for push (FCM) only |
 | `packages/asani_core` | ✅ Active | **Pure Dart** shared code: models, enums, PKT dates, phone utils, token code, `Fmt`, `AppLogger`. No Flutter imports |
 | `packages/asani_ui` | ✅ Active | **Flutter** shared look: theme tokens, `buildAppTheme` (phone) / `buildDesktopAppTheme` (web), common widgets |
 | `tools/queue-sim`, `tools/admin-scripts` | ✅ Active | Dev tooling |
 | root `pubspec.yaml` | ✅ Active | Dart pub workspace; run `flutter pub get` **at the root**; one `pubspec.lock` at the root |
-| `apps/clinic_web` | 🟡 Phase 2 (demo backend) | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md v0.4). One login per clinic, no staff/doctor accounts; the clinic manages its own doctors. Two backends: in-memory demo (default) and Firebase (`--dart-define=BACKEND=firebase`, clinic/admin functions in `functions/src/clinic` + `functions/src/admin`) |
-| `supabase/`, `tools/db-test` | ✅ Active (D-52) | The backend is moving from Firebase to Supabase phase by phase (docs/10-supabase-migration.md). Firebase stays for push (FCM) only. Cloud project only, no Docker. Never edit a pushed migration; add a new one |
+| `apps/clinic_web` | 🟡 Phase 2 | Flutter Web clinic dashboard **and** super admin panel (PRD-CLINIC-WEB.md v0.4). One login per clinic, no staff/doctor accounts; the clinic manages its own doctors. Two backends: in-memory demo (default) and Supabase (`--dart-define=BACKEND=supabase`) |
+| `supabase/`, `tools/db-test` | ✅ Active (D-52) | The backend (docs/10-supabase-migration.md): migrations, pgTAP tests, Edge Functions, test tools. Cloud project only, no Docker. Never edit a pushed migration; add a new one |
 | Clinic desktop (.exe) | ⛔ Dropped | Replaced by Flutter Web (D-06 updated). **Do not create** `apps/clinic_desktop` |
 
 The clinic side is **Flutter Web** in Chrome (PRD-CLINIC-WEB.md D-06). Super admin screens live inside the same web app, shown by role (D-15).
 
-**Monorepo rules** (PRD-CLINIC-WEB §2.1): never nest one app inside another; move files with `git mv`; shared non-UI code → `asani_core`, shared UI → `asani_ui`; auth and Cloud Functions callables stay inside each app (phone OTP vs email + password).
+**Monorepo rules** (PRD-CLINIC-WEB §2.1): never nest one app inside another; move files with `git mv`; shared non-UI code → `asani_core`, shared UI → `asani_ui`; auth and backend calls stay inside each app (email code vs email + password).
 
 **Branches** (Sarbuland, 2026-11-14): `main` is the only long-lived branch. For each task create a **short-lived branch** from `main` (e.g. `feature/queue-board`, `fix/token-slip`, `docs/setup`), commit there, merge it into `main` when the task is done, then delete the branch (local and GitHub). Never leave finished work on a side branch.
 
@@ -107,7 +107,7 @@ Examples that **must** be confirmed: a new notification, a new booking rule, cha
 - **Never** deploy or push to a hosted project (`supabase db push`, `functions deploy`, `secrets set`, `firebase deploy`) unless Sarbuland asked in that session.
 - **Never** delete data, collections or users without explicit permission.
 - **Never** loosen security rules "to make it work". Find the real cause (docs/08).
-- Through MCP (docs/05), Firebase tools are for **dev only**.
+- Through MCP (docs/05), database / Firebase tools are for **dev only**.
 
 ---
 
@@ -122,30 +122,17 @@ cd apps/patient_app
 flutter analyze
 flutter test
 flutter run --flavor dev                                            # demo data
-flutter run --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
+flutter run --flavor dev --dart-define=BACKEND=supabase
 
 # Clinic web
 cd apps/clinic_web
 flutter analyze
 flutter run -d chrome                                               # demo data
-flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
 flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase   # D-52 (dev logins: tools/db-test/create-login.js)
 
 # Shared packages
 cd packages/asani_core && dart test
 cd packages/asani_ui && flutter analyze
-
-# Functions
-cd functions
-npm run lint
-npm run build
-npm test                       # runs against emulators
-
-# Emulators (from repo root)
-firebase emulators:start --import=./emulator-data --export-on-exit
-
-# Rules tests
-cd functions && npm run test:rules
 
 # Supabase (D-52): apply migrations + seed to the dev project, then run the pgTAP tests (rolled back)
 npx supabase@latest db push --db-url "<url from supabase/.db-url.local>?sslmode=require" --include-seed

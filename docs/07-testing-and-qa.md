@@ -1,5 +1,9 @@
 # 07 — Testing and QA
 
+> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
+> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
+> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+
 What is tested, how, and the manual QA scripts that must pass before any release.
 
 ---
@@ -97,15 +101,7 @@ Coverage goals: `asani_core` ≥ 90%, functions business logic ≥ 85%. UI cover
 cd packages/asani_core && dart test
 cd apps/patient_app && flutter test
 
-# Functions + rules (starts emulators automatically)
-cd functions
-npm test                    # unit + integration
-npm run test:rules
-# script: "test:rules": "firebase emulators:exec --only firestore 'jest test/rules'"
-
-# App integration test on a device/emulator with emulators running
-cd apps/patient_app
-flutter test integration_test --flavor dev --dart-define=USE_EMULATOR=true
+# Backend: see the Supabase block below (the Firebase functions and rules tests were removed, D-52)
 ```
 
 **Supabase (D-52)**: pgTAP tests in `supabase/tests/database/*.test.sql` run against the `asani-dev` cloud database
@@ -121,7 +117,7 @@ node tools/db-test/admin-login-smoke.js  # admin-clinic-login Edge Function: ref
 `concurrency.js` must commit, so it creates its own `cc_` rows and deletes only those afterwards.
 Every new Postgres function or policy gets a pgTAP test in the same change.
 
-CI (GitHub Actions) on every PR: `flutter analyze`, `flutter test`, `dart test` (core), `npm run lint && npm run build && npm test && npm run test:rules`.
+CI (GitHub Actions) on every PR: `flutter analyze`, `flutter test`, `dart test` (core); `supabase.yml`: SQL syntax + pgTAP (needs the `SUPABASE_DB_URL` secret).
 
 ---
 

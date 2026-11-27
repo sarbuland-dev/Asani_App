@@ -1,5 +1,9 @@
 # 06 — Integration
 
+> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
+> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
+> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+
 How the patient app connects to each service, and the contracts between parts of the system.
 
 ---
