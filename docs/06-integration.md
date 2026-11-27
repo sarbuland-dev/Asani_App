@@ -1,189 +1,132 @@
 # 06 — Integration
 
-> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
-> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
-> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
-
-How the patient app connects to each service, and the contracts between parts of the system.
+How the apps connect to each service, and the contracts between the parts (Supabase backend, D-52).
 
 ---
 
-## 1. Packages (patient app)
+## 1. Packages
 
-```yaml
-dependencies:
-  flutter_riverpod: ^2.6.0          # check latest when scaffolding
-  go_router: ^14.0.0
-  firebase_core: any                # use versions from `flutterfire` BoM at scaffold time
-  firebase_auth: any
-  cloud_firestore: any
-  cloud_functions: any
-  firebase_messaging: any
-  firebase_app_check: any
-  firebase_crashlytics: any
-  firebase_analytics: any
-  flutter_local_notifications: ^18.0.0
-  qr_flutter: ^4.1.0
-  intl: ^0.19.0
-  timezone: ^0.10.0
-  url_launcher: ^6.3.0
-  google_fonts: ^6.2.0
-  uuid: ^4.5.0
-  device_info_plus: ^11.0.0         # Xiaomi/MIUI help card
-  connectivity_plus: ^6.1.0         # offline banner
-  shared_preferences: ^2.3.0
-  asani_core:
-    path: ../../packages/asani_core
-```
-Pin exact versions when scaffolding (`flutter pub add <pkg>` then commit `pubspec.lock`). Version numbers above are indicative; the agent must check pub.dev for current stable versions.
+Patient app (`apps/patient_app/pubspec.yaml`, versions pinned in the root `pubspec.lock`):
+- `supabase_flutter`: login, database reads, `rpc`, Realtime.
+- `firebase_core` + `firebase_messaging`: **push only** (FCM). No Firebase Auth / Firestore / Functions / App Check.
+- `flutter_local_notifications`: channels and foreground alerts; `connectivity_plus`: offline banner;
+  `geolocator_*` platform parts: nearest doctors (D-31, D-33); `flutter_riverpod`, `go_router`, `shared_preferences`,
+  `url_launcher`, `share_plus`, `flutter_svg`, `google_fonts` (Inter bundled), `asani_core`, `asani_ui`.
+
+Clinic web: `supabase_flutter`, `flutter_riverpod`, `go_router`, `connectivity_plus`, `web`, `qr`, `asani_core`,
+`asani_ui`. No Firebase at all.
 
 ---
 
-## 2. Firebase initialisation (`main.dart`)
+## 2. Start-up
 
-Order matters:
-```dart
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: Env.firebaseOptions);
+Patient app (`lib/main.dart`, `--dart-define=BACKEND=supabase`):
+1. `Supabase.initialize(url, publishableKey)` (values in `Env`, defaults = asani-dev).
+2. `FirebaseSetup.initForPushOnly()` → `PushService(SupabasePushAccount())` (if it fails, the app runs without push).
+3. Repositories: `SupabaseAuthRepository`, `SupabaseTokenRepository`, `SupabaseClinicRepository`, queue, patients,
+   follow-ups, notifications. The phone saves its FCM token in `devices` after sign-in.
+Without `BACKEND=supabase` the app runs on the in-memory demo backend.
 
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: Env.isProd ? AndroidProvider.playIntegrity : AndroidProvider.debug,
-    appleProvider: Env.isProd ? AppleProvider.appAttestWithDeviceCheckFallback : AppleProvider.debug,
-  );
-
-  if (Env.useEmulator) {
-    final host = Env.emulatorHost;            // 10.0.2.2 on Android emulator
-    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-    FirebaseFunctions.instanceFor(region: 'asia-south1').useFunctionsEmulator(host, 5001);
-  }
-
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  PlatformDispatcher.instance.onError = (e, s) {
-    FirebaseCrashlytics.instance.recordError(e, s, fatal: true);
-    return true;
-  };
-
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  runApp(const ProviderScope(child: AsaniApp()));
-}
-```
-Always use `FirebaseFunctions.instanceFor(region: 'asia-south1')`; the default region (`us-central1`) will fail with `not-found`.
+Clinic web (`lib/main.dart`): reads `type=invite|recovery` from the URL fragment, then
+`Supabase.initialize(…, authFlowType: implicit)` and `SupabaseClinicRepository.create(linkType)`.
 
 ---
 
-## 3. Callable functions contract
+## 3. Backend contract
 
-Typed wrappers live in `lib/data/services/functions_service.dart`.
+- **Reads:** `supabase.from(table).select()` or `.stream(primaryKey: …)`; RLS decides the rows (DATABASE.md §1).
+  Realtime filters on uuid columns and on `id` never fire: filter on `clinic_id`, `doctor_id`, `date`, `city`, `month`,
+  `active`, or stream unfiltered.
+- **Writes:** `supabase.rpc('<function>', params: {'p_…': …})`. The full list with inputs, outputs and error codes is
+  in **docs/10 §6b**. Examples:
 
-### `bookToken`
 ```jsonc
-// request
-{ "clinicId": "cl_alshifa", "doctorId": "doc_ayesha", "patientId": "pt_shazia",
-  "date": "2026-11-07", "followUpId": null }
-// response
-{ "tokenId": "tk_8f2a", "number": 11 }
-// errors: HttpsError with details.code in
-// clinic-unavailable | doctor-unavailable | session-ended | tokens-full |
-// duplicate-token (details.existingNumber) | too-many-active | rate-limited
+// book_token
+{ "p_clinic_id": "c_alshifa", "p_doctor_id": "d_ayesha", "p_patient_id": "…", "p_date": "2026-11-27" }
+→ { "tokenId": "…", "number": 11 }
+
+// cancel_token
+{ "p_token_id": "…" } → { "ok": true }
+
+// create_profile (first login)
+{ "p_name": "Ali Khan", "p_age": 30, "p_gender": "male", "p_phone": "+923001234567" } → { "selfPatientId": "…", "created": true }
 ```
 
-### `cancelToken`
-```jsonc
-{ "tokenId": "tk_8f2a" }  →  { "ok": true }
-// errors: not-found | permission-denied | not-cancellable
-```
-
-### `linkPatientProfiles`
-```jsonc
-{}  →  { "linked": 2 }
-```
-
-### `deleteAccount`
-```jsonc
-{ "confirm": "DELETE" }  →  { "ok": true }
-```
-
-Error mapping in the app (`core/errors/`): `FirebaseFunctionsException.details['code']` → DESIGN.md §7 messages. Network errors (`unavailable`, `deadline-exceeded`) → "No internet connection…".
+- **Errors:** `PostgrestException.message` = the code (`tokens-full`, `duplicate-token`, `phone-taken`, `not-arrived`,
+  `pin-required`, …), `hint` = text to show, `details` = JSON extras (`duplicate-token`: `{name, label}`;
+  `not-arrived`: `{tokenId, label, name}`). Network errors → the app's offline / "No internet" message.
+- **PIN functions** return `{ok: false, code, message}` instead of raising (so a wrong try is saved).
+- **Edge Function** `admin-clinic-login` (Super Admin): `{action: "create", clinic}` / `{action: "resend" |
+  "disable" | "enable", clinicId}` → `{clinicId, email}` or `{error, message}`.
 
 ---
 
-## 4. Push notifications (FCM + local notifications)
+## 4. Push notifications (FCM)
 
-### Message format (sent by functions)
+### How a push is made
+The database writes the inbox row + a `push_outbox` row in the same transaction as the queue change → `pg_net` calls the
+`send-push` Edge Function → FCM HTTP v1 to every device of the account → done / retry / dead token deleted
+(ARCHITECTURE.md §3.4).
+
+### Message sent by `send-push`
 ```jsonc
 {
-  "token": "<fcm token>",
-  "notification": { "title": "2 patients ahead of you", "body": "Token #11 · Dr. Ayesha Malik" },
-  "data": { "type": "queue", "step": "ahead2", "tokenId": "tk_8f2a" },
-  "android": { "priority": "high",
-               "notification": { "channelId": "queue_alerts", "tag": "tk_8f2a" } },
-  "apns": { "headers": { "apns-priority": "10" },
-            "payload": { "aps": { "sound": "default", "thread-id": "tk_8f2a" } } }
+  "message": {
+    "token": "<fcm token>",
+    "notification": { "title": "2 patients ahead of you", "body": "Token A-11 · Dr. Ayesha Malik" },
+    "data": { "type": "queue", "step": "ahead2", "tokenId": "…", "route": "/token/…" },
+    "android": { "priority": "HIGH", "notification": { "channel_id": "queue_alerts", "tag": "<tokenId>" } },
+    "apns": { "payload": { "aps": { "sound": "default" } } }
+  }
 }
 ```
-- `tag` / `thread-id` = tokenId so newer steps **replace** older ones in the tray instead of stacking.
-- Follow-ups: `data.type = "followUp"`, `followUpId`, channel `follow_ups`.
+- `tag` = token id, so a newer step replaces the older one in the tray.
+- Follow-ups: `data.type = "followUp"`, `followUpId`, channel `follow_ups`. Cancel / skip: `type` `cancel` / `skip`.
 
-### App side (`push_service.dart`)
-1. Create Android channels at startup: `queue_alerts` (Importance.high), `follow_ups` (default).
-2. Ask permission via the primer (DESIGN S-17): `FirebaseMessaging.requestPermission()` (iOS + Android 13+).
-3. Get token → write `users/{uid}/devices/{deviceId}`; listen to `onTokenRefresh`.
-4. **Foreground:** FCM doesn't show a system notification on its own → show it with `flutter_local_notifications` (unless the user is already on that token's screen, in which case show an in-app banner).
-5. **Tap handling:** `getInitialMessage()` (terminated), `onMessageOpenedApp` (background), local notification `onDidReceiveNotificationResponse` (foreground) → `router.go('/token/$tokenId')` or the pre-filled booking for follow-ups.
+### App side (`lib/core/push/push_service.dart`)
+1. Android channels at start: `queue_alerts` (high), `follow_ups` (default).
+2. Permission through the primer (S-17) → the system popup; "Open settings" when denied.
+3. FCM token → `devices` (`SupabasePushAccount`), again on token refresh and on every sign-in.
+4. Foreground pushes → in-app alert; taps (`getInitialMessage`, `onMessageOpenedApp`) → `/token/{id}` or the
+   pre-filled booking route. Only routes starting with `/token/` or `/book/` are opened.
 
-### Server side (`functions/src/lib/fcm.ts`)
-- Send to every device of the user with `sendEach`.
-- On `messaging/registration-token-not-registered` or `invalid-argument`, delete that device doc.
-
-### Xiaomi / MIUI (Redmi) specifics
-MIUI may block notifications for apps not allowed to auto-start.
-- Send `priority: high` (already above).
-- In Account → Notifications, show a "Xiaomi/Redmi phones" help card: enable **Autostart**, set **Battery saver → No restrictions**, allow **Notifications** for "Queue alerts".
-- Detect manufacturer via `device_info_plus` to show the card only on Xiaomi/Redmi/POCO.
+### Xiaomi / Redmi / POCO (MIUI)
+High priority (above) + the Account "Autostart" guide, shown only on those phones (`device_info`).
 
 ---
 
-## 5. Deep links (F-11, P1)
+## 5. Deep links (F-11, later)
 
-- Clinic QR URL: `https://asani.app/c/{clinicId}` (domain pending Q-06).
-- Android: App Links (`assetlinks.json` hosted on the domain, intent filter with `autoVerify`).
-- iOS: Universal Links (`apple-app-site-association`, Associated Domains entitlement).
-- go_router route `/c/:clinicId` → redirects to `/clinic/:clinicId` (after login if needed; keep the intended route).
-- If the app is not installed, the web page shows store links (Firebase Hosting static page).
-
----
+Clinic QR URL `https://asani.app/c/{clinicId}` (domain pending Q-06): Android App Links, iOS Universal Links, go_router
+`/c/:clinicId` → clinic page. Not built yet.
 
 ## 6. External apps
 
 | Action | How |
 |---|---|
-| Call clinic | `url_launcher` `tel:+92...` |
-| Directions | `https://www.google.com/maps/search/?api=1&query=<lat>,<lng>` (works on both platforms; opens Google Maps or the browser) |
-| Privacy/Terms | In-app browser via `url_launcher` `LaunchMode.inAppBrowserView` |
+| Call clinic | `url_launcher` `tel:` |
+| Directions | `https://www.google.com/maps/search/?api=1&query=<lat>,<lng>` |
+| Privacy / Terms | in-app browser view |
+| Share slip | `share_plus` |
 
----
+## 7. Dev tools
 
-## 7. Admin scripts and queue-sim (integration with data)
+| Tool | What |
+|---|---|
+| `tools/queue-sim` | Acts as a clinic on asani-dev through `queue_action` / `clinic_create_walk_in` |
+| `tools/db-test/run.js` | pgTAP tests (rolled back) |
+| `tools/db-test/concurrency.js` | 20 bookings at the same moment |
+| `tools/db-test/client-smoke.js` | the patient app's calls through the public API |
+| `tools/db-test/admin-login-smoke.js` | `admin-clinic-login` checks without real email |
+| `tools/db-test/create-login.js` | dev Super Admin / clinic logins without email |
 
-`tools/admin-scripts` (Node + Admin SDK):
-- `seed-dev.js`: demo clinics, doctors, schedules (emulator or dev)
-- `onboard-clinic.js clinic.json`: real clinic onboarding: clinic doc (+ `searchKeywords`), doctors, `doctorCount`
-- `create-followup.js --token <id> --days 7`: test follow-ups
+All refuse or never touch anything but asani-dev; database URL from `supabase/.db-url.local`.
 
-`tools/queue-sim` implements the **desktop contract** in ARCHITECTURE.md §10. It changes token statuses and `currentToken`/`sessionStatus` only; the `onTokenWrite` trigger keeps `activeNumbers` and notifications consistent.
+## 8. Future integrations
 
-Both read the target from flags: default **emulator**; `--project dev` uses `serviceAccount.dev.json`. There is deliberately **no** `--project prod` in queue-sim.
-
----
-
-## 8. Future integrations (not Phase 1)
-
-| Integration | Phase | Note |
-|---|---|---|
-| Clinic desktop app | 2 | Must follow ARCHITECTURE.md §10 contract |
-| Thermal/A5 slip printing | 2 | Desktop app |
-| SMS/WhatsApp tokens and reminders | 4 | For patients without the app |
-| Payment gateway for clinic subscriptions | 3+ | Super admin |
-| Cloudinary (images) | if needed | Doctor photos; not needed in Phase 1 |
+| Integration | Note |
+|---|---|
+| SMS / WhatsApp reminders | for patients without the app |
+| Payment proof upload | Supabase Storage (free tier) |
+| Defaulter reminder email | Brevo / an Edge Function |
+| Analytics / crash reporting | to choose (Crashlytics would need Firebase back for that part) |

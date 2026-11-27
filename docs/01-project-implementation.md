@@ -1,130 +1,73 @@
-# 01 — Project Implementation Plan (Patient App)
+# 01 — Project Implementation Plan
 
-> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
-> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
-> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
-
-How Phase 1 is built, in what order, and what "done" means for each milestone.
+Where the product stands, what was built in which order, and what comes next. Updated 2026-11-27 after the move to
+Supabase (PRD D-52, docs/10-supabase-migration.md). Open items live in REMAINING_WORK.md.
 
 ---
 
-## 1. Phases of the whole product
+## 1. Parts of the product
 
-| Phase | What | Status |
+| Part | What | Status |
 |---|---|---|
-| **1** | Patient app (Android + iOS) + backend it needs + queue-sim | **Now** |
-| 2 | Clinic Windows desktop app (reception, doctor, printing, walk-ins, staff password login) | After Phase 1. Tech decision pending (Q-01) |
-| 3 | Super admin panel (clinics, staff activity, subscriptions, defaulters) | After Phase 2. Location pending (Q-02) |
-| 4 | SMS/WhatsApp tokens, analytics, AI features, medical records with consent | Later |
+| Patient app | Flutter, Android + iOS: email login, clinic / doctor search, booking, live queue, family, follow-ups, notifications | Functionality done; full UI being built from the screens board |
+| Clinic web | Flutter Web: queue board, walk-ins, check-in, patients, doctors, follow-ups, upcoming bookings, billing, settings | Functionality done (basic UI for the newest parts) |
+| Super Admin | Inside the clinic web, by role: clinics, logins, plans, payments, defaulters, same-doctor links | Functionality done |
+| Backend | Supabase: Postgres + RLS + functions, Realtime, Edge Functions, pg_cron; FCM for push | Done on `asani-dev` |
+| Later | SMS / WhatsApp, payment proof uploads, analytics, medical records with consent | Not started |
+
+The Windows desktop app was dropped for the web (D-06). The Firebase backend was removed (D-52).
 
 ---
 
-## 2. Phase 1 milestones (about 8 weeks)
+## 2. How it was built (milestones)
 
-Estimates assume one developer working with an AI agent part-time alongside university.
-
-### M0: Foundation (week 1)
-- [ ] Create GitHub repo `asani` (private) with the structure from README.md
-- [ ] Create Firebase projects `asani-dev` and `asani-prod` (Blaze, budget alerts, **Firestore location asia-south1**)
-- [ ] Flutter app scaffold `apps/patient_app` with flavors/env (`ENV=dev|prod`), Riverpod, go_router, theme tokens
-- [ ] `packages/asani_core` with models + enums from DATABASE.md
-- [ ] `functions/` TypeScript scaffold, lint, emulator config
-- [ ] `firestore.rules` (deny-all base + app rules), `firestore.indexes.json`
-- [ ] `tools/admin-scripts/seed-dev.js` (2 clinics, 4 doctors, schedules)
-- [ ] `tools/queue-sim` (status, start, next, arrive, skip, hold, end)
-- [ ] MCP servers connected (docs/05)
-
-**Done when:** `flutter run` shows an empty Home connected to emulators; seed + queue-sim work.
-
-### M1: Auth (week 2)
-- [ ] F-01 phone entry, OTP, name & consent screens
-- [ ] `linkPatientProfiles` callable
-- [ ] `users` doc + Self profile creation
-- [ ] Router auth guard and splash
-- [ ] App Check (debug provider in dev)
-
-**Done when:** login works on a real Redmi with a real SMS (dev project) and on the emulator with emulator OTP.
-
-### M2: Discovery (week 3)
-- [ ] F-02 Home, city selector, recent clinics, clinic list, search
-- [ ] F-03 Clinic page with doctor cards and live queue info
-- [ ] Availability logic (schedule, leave, full, session state) in `asani_core`, with unit tests
-
-### M3: Booking (weeks 4–5)
-- [ ] F-07 family profiles (needed for booking): list, add/edit, duplicate warning
-- [ ] F-04 booking flow (patient → date → confirm)
-- [ ] `bookToken` with all rules BR-1..BR-7 + tests (including concurrent booking test)
-- [ ] F-05 live token screen
-- [ ] `cancelToken`
-- [ ] `onTokenWrite` maintaining `activeNumbers` / `waitingCount`
-
-**Done when:** two devices booking the same doctor at the same time get different numbers; queue-sim `next` updates the token screen in ≤ 3 s.
-
-### M4: Notifications (week 6)
-- [ ] FCM setup Android + iOS (APNs key), device registration
-- [ ] `onQueueDayWrite` / `onTokenWrite` notification logic (3, 2, 1 ahead + Your turn)
-- [ ] Notification tap → token screen (foreground, background, terminated)
-- [ ] Permission primer (S-17), "notifications off" card
-- [ ] Xiaomi/MIUI testing (autostart, battery saver) and in-app guidance
-
-**Done when:** the full notification test script in docs/07 §5 passes on Redmi and an iPhone.
-
-### M5: History, follow-ups, account (week 7)
-- [ ] F-08 Tokens tab (Active/Past), profile history
-- [ ] F-09 follow-ups list + `followUpReminders` scheduled function + pre-filled booking
-- [ ] F-10 Account screen, logout, `deleteAccount`
-- [ ] F-12 Crashlytics + analytics events
-
-### M6: Hardening and pilot release (week 8)
-- [ ] Full QA pass (docs/07), accessibility check at 1.3× text
-- [ ] Production rules + App Check enforcement
-- [ ] Privacy policy + terms pages hosted
-- [ ] Play Store internal testing track, TestFlight
-- [ ] Onboard pilot clinic data into `asani-prod` with admin script
-- [ ] Pilot: queue driven by queue-sim operated by the developer **or** wait for Phase 2 desktop (decide with clinic)
+| Milestone | Content | Done |
+|---|---|---|
+| M0 Foundation | Monorepo (`apps/`, `packages/asani_core`, `packages/asani_ui`), demo backend, theme, router | ✅ |
+| M1 Discovery + booking | Search, clinic page, booking rules BR-1…BR-7, live token screen, cancel | ✅ |
+| M2 Notifications | 3 / 2 / 1 ahead + Your turn (D-04), skip / cancel notices (D-23, D-34), inbox (D-45), MIUI guidance | ✅ (real-phone push re-test on Supabase pending) |
+| M3 Clinic web | Board, walk-ins, check-in, doctors, PIN, billing, Super Admin | ✅ |
+| M4 Doctor search | Specialities, distance, same-doctor links (D-31…D-33) | ✅ (Material Symbols icons open) |
+| M5 Supabase (D-52) | 8 phases: schema + RLS, booking + queue, push + cron, email login, app data, clinic backend, clinic web, clean-up | ✅ |
+| M6 UI to the board | Patient app screens P1…P9 and the web screens, batch by batch (D-43, D-50) | In progress |
+| M7 Pilot | Email + domain, prod project, store releases, pilot clinic | Next |
 
 ---
 
-## 3. Work breakdown per feature
+## 3. How each feature is built
 
-Each feature follows docs/03. Order inside a feature:
-
-1. Read PRD + DESIGN section; list unclear points → **confirm with Sarbuland**
-2. Models / enums in `asani_core` (+ tests)
-3. Function(s) and rules (+ emulator tests)
-4. Repository
-5. Providers
-6. Screens + states
-7. Manual test on device
-8. Update docs if anything changed
+Every feature follows **docs/03**: understand → confirm unclear behaviour with Sarbuland → branch → database
+(migration + RLS + pgTAP test) → repository → providers → screens (all states) → test → docs → merge.
+Current phase rule: **functionality first, basic UI**; the polished UI follows the screens board.
 
 ---
 
-## 4. Branching and releases
+## 4. Branches and releases
 
-- `main`: always buildable. Protected.
-- `feature/F-04-booking`, `fix/token-screen-offline`, `chore/...`
-- Small PRs (one feature or less). PR template = Definition of Done from AGENTS.md §9.
-- Versioning: `MAJOR.MINOR.PATCH+BUILD` (e.g. `0.3.0+12`). Tag releases `app-v0.3.0`, `functions-v0.3.0`.
-- Functions and rules are deployed **before** an app release that depends on them.
+- `main` is the only long-lived branch. One short branch per task (`feature/…`, `fix/…`, `docs/…`, `chore/…`), merged
+  into `main` when done, then deleted (AGENTS.md §2).
+- Database changes go out as new migrations (`supabase db push`), only when Sarbuland asks, before an app release
+  that needs them.
+- Versioning: `MAJOR.MINOR.PATCH+BUILD` (e.g. `0.3.0+12`).
 
 ---
 
-## 5. Risks for Phase 1
+## 5. Risks before the pilot
 
 | Risk | Mitigation |
 |---|---|
-| No Mac for iOS builds | Use Codemagic (cloud macOS CI) or a borrowed Mac for signing; test Android first |
-| Phone OTP cost / abuse | App Check, SMS region policy (allow only Pakistan), Firebase budget alert |
-| MIUI kills notifications | High-priority FCM, in-app "Allow autostart" guide, test on Redmi each release |
-| Desktop not ready for pilot | queue-sim can run the pilot queue from a laptop if needed |
-| Scope creep | Anything not in PRD → Decisions log + confirmation first |
+| Free Supabase project pauses after a week without use; no daily backups | Decide Pro plan or keep-alive + backups before the pilot (S-7) |
+| Login codes in spam / email limits | Brevo now; own domain with SPF / DKIM before the pilot (Q-06) |
+| Phone numbers are not verified | One phone = one account; walk-ins linked only in person (D-52) |
+| MIUI kills notifications | High-priority FCM, in-app Autostart guide, test on Redmi / Vivo each release |
+| No Mac for iOS builds | Codemagic or a borrowed Mac; Android first |
+| Scope creep | Anything not in the PRD → confirm first, record in the decisions log |
 
 ---
 
-## 6. Phase 1 exit criteria
+## 6. Pilot exit criteria
 
-- All P0 features done and passing QA
-- Crash-free sessions ≥ 99% on internal testing
-- One pilot clinic's data live in `asani-prod`
-- Desktop technology decision (Q-01) taken, so Phase 2 can start
+- All P0 features pass TESTING_CHECKLIST.md on a real phone and in Chrome
+- Prod Supabase project (Mumbai) + prod Firebase for FCM, own email domain
+- Crash-free sessions ≥ 99% in internal testing
+- One pilot clinic live with its doctors and a trained receptionist

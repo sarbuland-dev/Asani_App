@@ -1,22 +1,19 @@
 # 03 — Feature Development Workflow
 
-> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
-> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
-> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
-
-The step-by-step way every feature is built in Asani, by a human or an AI agent.
+The step-by-step way every feature is built in Asani, by a human or an AI agent (Supabase backend, D-52).
 
 ---
 
 ## 1. The workflow
 
 ```
-1. Understand  →  2. Confirm  →  3. Branch  →  4. Build bottom-up  →  5. Test  →  6. Document  →  7. PR
+1. Understand  →  2. Confirm  →  3. Branch  →  4. Build bottom-up  →  5. Test  →  6. Document  →  7. Merge
 ```
 
 ### Step 1: Understand
-- Find the feature ID in **PRD.md §5** (e.g. F-04) and its screens in **DESIGN.md §5**.
-- Check data in **DATABASE.md** and the flow in **ARCHITECTURE.md §3**.
+- Find the feature in **PRD.md §5** (or PRD-CLINIC-WEB.md) and its screens in **DESIGN.md** / the screens board.
+- Check the tables in **DATABASE.md**, the flow in **ARCHITECTURE.md §3**, and existing functions in
+  **docs/10 §6b**.
 
 ### Step 2: Confirm (mandatory when anything is unclear)
 Write a short note for Sarbuland **before coding**:
@@ -30,13 +27,13 @@ Recommendation: A, because patients often book while on the way.
 ```
 Wait for the answer. Record it in PRD.md §9 Decisions log.
 
-What needs confirmation: anything a patient or clinic would notice (rules, limits, copy, notifications, statuses, new fields shown, security rules, paid services).
-What does not: internal naming, refactors that don't change behaviour, test structure.
+Needs confirmation: anything a patient or clinic notices (rules, limits, copy, notifications, statuses, new visible
+fields, security rules, paid services). Does not: internal names, refactors that keep behaviour, test structure.
 
 ### Step 3: Branch
 ```bash
-git checkout main && git pull
-git checkout -b feature/F-04-booking-date-step
+git switch main
+git switch -c feature/F-04-booking-date-step
 ```
 
 ### Step 4: Build bottom-up
@@ -44,75 +41,70 @@ Always in this order. Each layer is tested before the next.
 
 | # | Layer | Location | Notes |
 |---|---|---|---|
-| a | Model / enum | `packages/asani_core/lib/src/models/` | `fromMap`, `toMap`, `copyWith`, equality |
-| b | Pure logic | `packages/asani_core/lib/src/logic/` | e.g. `doctorAvailability()`, `patientsAhead()`; unit tests |
-| c | Backend | `functions/src/` | Callable/trigger + validation + tests on emulator |
-| d | Rules + indexes | `firestore.rules`, `firestore.indexes.json` | Rules test |
-| e | Repository | `apps/patient_app/lib/data/repositories/` | Only place that touches Firebase |
-| f | Providers | `features/<x>/application/` | Riverpod; expose `AsyncValue` |
-| g | UI | `features/<x>/presentation/` | Theme tokens, all 4 states (DESIGN §6) |
+| a | Model / pure logic | `packages/asani_core/lib/src/` | `fromMap` / `toMap`, rules like availability or "patients ahead"; unit tests |
+| b | Schema | new file in `supabase/migrations/` | Tables, columns, checks, indexes. **Never edit a pushed migration** |
+| c | Security | same migration | RLS policy + grants; direct client writes only when really needed |
+| d | Backend logic | Postgres function (`security definer`, `set search_path = ''`) | Check the caller (`private.is_patient()`, `private.clinic_actor()`, `private.admin_actor()`) and every input; `raise exception '<code>' using hint = '<text>'`; lock the queue day before changing token statuses |
+| e | Notifications | `private.notify_user(...)` in the same transaction | Never call FCM from SQL; `send-push` delivers |
+| f | Tests | `supabase/tests/database/NN_*.test.sql` (pgTAP) | Allow + deny cases; pin the clock with `asani.test_now` |
+| g | Repository | `apps/<app>/lib/data/supabase/…` (+ the demo version) | Only place that calls Supabase; maps rows with `Rows` / `_plain`; maps error codes to `AppException` |
+| h | Providers | `lib/data/providers.dart` or the feature folder | Riverpod; expose `AsyncValue` |
+| i | UI | `lib/features/<x>/` | Theme tokens, loading / empty / error / offline states (DESIGN §6) |
 
 ### Step 5: Test
-- Unit: `asani_core` logic, function helpers
-- Widget: main screen states (loading/empty/error/data)
-- Emulator: function + rules tests
-- Manual on **real Redmi** (and iOS when the feature touches push, phone auth or permissions)
+- `dart test` (asani_core), `flutter analyze` + `flutter test` (apps).
+- `node tools/db-test/run.js` after pushing the migration to **asani-dev** (only when Sarbuland asked for the push);
+  `client-smoke.js` for app-facing changes.
+- Manual on a real phone (Redmi / Vivo) for push, login and permissions; in Chrome for the clinic web.
+- No `flutter build` unless Sarbuland says "build".
 
 ### Step 6: Document
-Update in the same branch:
-- DATABASE.md if any field/collection/index changed
-- PRD.md Decisions log for any confirmed behaviour
-- DESIGN.md if copy or a screen changed
+In the same branch: DATABASE.md (schema), docs/10 §6b (new function or error code), PRD.md §9 (confirmed behaviour),
+DESIGN.md (copy / screens), REMAINING_WORK.md (what is still open), TESTING_CHECKLIST.md (new manual check).
 
-### Step 7: Pull request
-Title: `F-04: booking date step`. Body: what, why, how to test, screenshots, checklist (AGENTS.md §9).
+### Step 7: Merge
+Commit only your own files, merge into `main`, delete the branch. Push to GitHub only when Sarbuland asks.
 
 ---
 
 ## 2. Code conventions
 
 ### Dart / Flutter
-- `flutter analyze` with `flutter_lints` + project `analysis_options.yaml`; zero warnings.
-- Files `snake_case.dart`, classes `PascalCase`, providers end with `Provider`.
-- One public widget per file for screens; small private widgets can stay in the same file.
-- No business logic in widgets. Widgets read providers and call notifier methods.
-- Use `const` constructors wherever possible.
-- Errors: repositories throw `AppException(code, message)`. UI maps codes to DESIGN §7 copy.
-- Dates: always via `DateUtilsPk` (Asia/Karachi).
+- `flutter analyze` with zero warnings. Files `snake_case.dart`, classes `PascalCase`, providers end with `Provider`.
+- No business logic in widgets; widgets read providers and call repository / notifier methods.
+- Errors: repositories throw `AppException(code, message)`; the database's error code is the exception message.
+- Dates: Asia/Karachi helpers from `asani_core` (`dayKey`, `pktNow`), never the device time zone.
+- Realtime streams: filter on `clinic_id`, `doctor_id`, `date`, `city`, `month` or `active`; filters on uuid / `id`
+  columns never fire (stream unfiltered and let RLS limit the rows).
 
-### Repository pattern example
+### Repository example
 ```dart
-class TokenRepository {
-  TokenRepository(this._db, this._functions);
-  final FirebaseFirestore _db;
-  final FunctionsService _functions;
+class SupabaseTokenRepository implements TokenRepository {
+  @override
+  Stream<Token?> watchToken(String tokenId) => Supabase.instance.client
+      .from('tokens')
+      .stream(primaryKey: ['id'])                       // RLS: only my tokens
+      .map((rows) => Rows.parseAll(rows.where((r) => r['id'] == tokenId), Rows.token, 'token').firstOrNull);
 
-  Stream<Token> watchToken(String tokenId) => _db
-      .collection('tokens')
-      .doc(tokenId)
-      .snapshots()
-      .map((s) => Token.fromMap(s.id, s.data()!));
-
-  Future<BookResult> book(BookRequest req) => _functions.bookToken(req);
+  @override
+  Future<Token> bookToken({required String clinicId, required String doctorId, required String patientId, required String date}) async {
+    final res = await Supabase.instance.client.rpc('book_token', params: {
+      'p_clinic_id': clinicId, 'p_doctor_id': doctorId, 'p_patient_id': patientId, 'p_date': date,
+    });
+    // …read the token back; PostgrestException.message = 'tokens-full', 'duplicate-token', …
+  }
 }
-
-final tokenRepositoryProvider = Provider((ref) => TokenRepository(
-      FirebaseFirestore.instance,
-      ref.watch(functionsServiceProvider),
-    ));
 ```
 
-### TypeScript / Functions
-- ESLint + Prettier. Strict TS.
-- One file per function in `src/callable/`, `src/triggers/`, `src/scheduled/`; shared code in `src/lib/` and `src/queue/`.
-- Validate inputs at the top; throw `HttpsError('invalid-argument' | 'failed-precondition' | 'permission-denied' | 'not-found', message, {code})`. The `details.code` matches DESIGN §7 (e.g. `tokens-full`).
-- Use `logger` from `firebase-functions`; never log full phone numbers (mask: `+92300****567`).
+### SQL
+- One concern per migration file, named `YYYYMMDDHHMMSS_what.sql`; comments say which PRD item / decision it serves.
+- Functions: `language plpgsql security definer set search_path = ''`, every table name schema-qualified
+  (`public.tokens`), grants: `revoke … from public, anon; grant … to authenticated` (or `service_role`).
+- Never log or return full phone numbers to a clinic that should not see them.
 
 ---
 
 ## 3. Feature checklist template
-
-Copy into the PR description:
 
 ```
 ## Feature: F-xx <name>
@@ -122,36 +114,31 @@ Copy into the PR description:
 
 ### Changes
 - asani_core:
-- functions:
-- rules/indexes:
-- app:
+- supabase (migration / function / RLS / test):
+- app / web:
 
 ### How to test
-1. firebase emulators:start ...
-2. node seed-dev.js
+1. node tools/db-test/run.js
+2. flutter run --flavor dev --dart-define=BACKEND=supabase   (or the web with --web-port 8092)
 3. ...
 
 ### Checklist
-- [ ] PRD/DESIGN followed; unclear items confirmed
+- [ ] PRD / DESIGN followed; unclear items confirmed
 - [ ] loading / empty / error / offline states
 - [ ] flutter analyze clean, tests pass
-- [ ] functions lint/build/test pass
-- [ ] indexes + DATABASE.md updated
-- [ ] rules tests
-- [ ] tested on Redmi (and iOS if push/auth)
+- [ ] pgTAP tests (allow + deny), DATABASE.md + docs/10 updated
+- [ ] tested on a real phone (push / login) or in Chrome (web)
 ```
 
 ---
 
 ## 4. Working with an AI agent (Codex / Claude Code)
 
-Good prompt shape:
 ```
 Implement F-07 Family profiles (PRD.md §5, DESIGN.md S-13..S-15, DATABASE.md §3).
 Follow AGENTS.md. Before coding, list anything unclear and ask me.
-Build bottom-up per docs/03 §1 Step 4. Stop after the repository + providers
-and show me the files before building the UI.
+Build bottom-up per docs/03 §1 Step 4. Stop after the migration + tests and show me
+the SQL before building the app side.
 ```
-- Give one feature (or one layer) per session.
-- Ask the agent to stop at checkpoints so you can review.
-- The agent must ask before changing rules, schema or behaviour (AGENTS.md §3).
+- One feature (or one layer) per session; ask the agent to stop at checkpoints.
+- The agent asks before changing behaviour, schema or security (AGENTS.md §3), and before pushing / deploying.

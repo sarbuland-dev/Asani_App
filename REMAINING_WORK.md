@@ -228,7 +228,7 @@ Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase
 - [ ] Android debug build of the patient app after removing 4 Firebase plugins: not run yet (builds only when
       Sarbuland asks).
 - [ ] GitHub secret `SUPABASE_DB_URL` (Sarbuland) so CI runs the database tests.
-- [x] docs/04 rewritten for Supabase; docs/01, 03, 05, 06, 08, 09 (+ 02, 07) carry a "Firebase parts are background" note.
+- [x] 2026-11-27 docs/01, 03, 04, 05, 06, 08, 09 rewritten for Supabase; docs/02 and 07 keep a note on their old Firebase sections.
 - [ ] Before the pilot: decide the pause risk (Pro plan or keep-alive) and backups.
 
 ## 11. Rules / indexes not yet on the dev project (2026-11-23)

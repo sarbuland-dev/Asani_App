@@ -1,119 +1,91 @@
 # 05 — MCP Connection (AI agent tooling)
 
-> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
-> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
-> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+MCP (Model Context Protocol) servers let AI coding agents (Codex, Claude Code, Cursor, Gemini CLI…) use real tools:
+run the Dart analyzer, hot reload the app, look at the **dev** database, read logs.
 
-MCP (Model Context Protocol) servers let AI coding agents (Codex, Claude Code, Cursor, Gemini CLI…) use real tools: run the Dart analyzer, hot reload the app, read Firestore in the **dev** project, check Auth users, read Crashlytics, etc.
-
-Asani uses two MCP servers:
+Asani uses:
 
 | Server | What it gives the agent | Command |
 |---|---|---|
-| **Dart and Flutter MCP server** (official) | Analyze/fix code, format, run tests, pub.dev search, add packages, inspect running app, widget tree, runtime errors, hot reload | `dart mcp-server` |
-| **Firebase MCP server** (official) | Firebase projects, Auth users, Firestore data and rules, Crashlytics, deploy helpers | `npx -y firebase-tools@latest mcp` |
+| **Dart and Flutter MCP server** (official) | Analyze / fix, format, tests, pub.dev search, add packages, running app's widget tree and errors, hot reload | `dart mcp-server` |
+| **Supabase MCP server** (official) | Tables, SQL queries, migrations list, logs, Edge Functions of the dev project | `npx -y @supabase/mcp-server-supabase@latest --project-ref=lgnbxxcmogbbzmuqyrgu --read-only` |
 
-Optional: GitHub's official MCP server for issues/PRs (follow GitHub's `github-mcp-server` instructions).
+Firebase MCP is no longer needed: Firebase is only used for FCM (D-52). Optional: GitHub's official MCP server.
 
 ---
 
 ## 1. Requirements
 
-- Dart **3.9+** / a Flutter version that ships it (`dart --version`). The Dart MCP server is still marked experimental.
-- Node.js + npm (for the Firebase MCP server via `npx`).
-- Firebase CLI logged in: `firebase login`. The Firebase MCP server uses the **same credentials as your Firebase CLI**.
-- `firebase use dev` in the repo, so the default project is `asani-dev`.
+- Dart **3.9+** (`dart --version`).
+- Node.js + npm (for `npx`).
+- A Supabase **personal access token** for the MCP server, given as the env variable `SUPABASE_ACCESS_TOKEN`
+  (supabase.com/dashboard/account/tokens; read-only is enough). Keep it out of the repo; never paste it in a chat.
 
 ---
 
-## 2. Codex (main agent for this project)
+## 2. Claude Code
 
-### CLI commands
 ```bash
-# from the repo root
-codex mcp add dart -- dart mcp-server --force-roots-fallback
-codex mcp add firebase -- npx -y firebase-tools@latest mcp --dir <ABSOLUTE_PATH_TO_REPO> --only core,auth,firestore,functions,crashlytics
-codex mcp list
+claude mcp add --transport stdio dart -- dart mcp-server
+claude mcp add supabase --env SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp-server-supabase@latest --project-ref=lgnbxxcmogbbzmuqyrgu --read-only
+claude mcp list        # both should show as Connected
 ```
+Claude Code reads **CLAUDE.md**, which imports AGENTS.md.
 
-### Or edit `~/.codex/config.toml` directly
+## 3. Codex
+
 ```toml
+# ~/.codex/config.toml
 [mcp_servers.dart]
 command = "dart"
 args = ["mcp-server", "--force-roots-fallback"]
 
-[mcp_servers.firebase]
+[mcp_servers.supabase]
 command = "npx"
-args = [
-  "-y", "firebase-tools@latest", "mcp",
-  "--dir", "C:\\Users\\<you>\\Projects\\asani",
-  "--only", "core,auth,firestore,functions,crashlytics"
-]
+args = ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=lgnbxxcmogbbzmuqyrgu", "--read-only"]
+env = { SUPABASE_ACCESS_TOKEN = "<token>" }
 ```
+> **Windows:** if `npx` is not found when the client starts the server, use `command = "npx.cmd"`.
 
-> **Windows note:** if `npx` is not found when Codex starts the server, use `command = "npx.cmd"` or `command = "cmd"` with `args = ["/c", "npx", "-y", "firebase-tools@latest", "mcp", ...]`.
-
-Codex also reads **AGENTS.md** at the repo root automatically, so the project rules apply in every session.
-
----
-
-## 3. Claude Code
-
-```bash
-claude mcp add --transport stdio dart -- dart mcp-server
-claude mcp add firebase -- npx -y firebase-tools@latest mcp --dir <ABSOLUTE_PATH_TO_REPO>
-claude mcp list        # should show both as ✓ Connected
-```
-Claude Code reads **CLAUDE.md**, which imports AGENTS.md.
-
----
+Codex reads **AGENTS.md** at the repo root automatically.
 
 ## 4. Other clients (same JSON shape)
-
-Cursor (`.cursor/mcp.json`), Gemini CLI (`.gemini/settings.json`), Claude Desktop (`claude_desktop_config.json`), Antigravity (`mcp_config.json`):
 
 ```json
 {
   "mcpServers": {
-    "dart": {
-      "command": "dart",
-      "args": ["mcp-server"]
-    },
-    "firebase": {
+    "dart": { "command": "dart", "args": ["mcp-server"] },
+    "supabase": {
       "command": "npx",
-      "args": ["-y", "firebase-tools@latest", "mcp",
-               "--dir", "<ABSOLUTE_PATH_TO_REPO>",
-               "--only", "core,auth,firestore,functions,crashlytics"]
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=lgnbxxcmogbbzmuqyrgu", "--read-only"],
+      "env": { "SUPABASE_ACCESS_TOKEN": "<token>" }
     }
   }
 }
 ```
-Android Studio: use the MCP support of your AI plugin (Gemini in Android Studio supports MCP servers) with the same command/args.
-
-Do **not** commit files containing personal absolute paths; keep client configs in your user folder or add them to `.gitignore`.
+Keep client configs (they contain the token) in your user folder, never in the repo.
 
 ---
 
 ## 5. 🔴 Safety rules for MCP
 
-1. **Dev only.** The Firebase MCP server must point at `asani-dev`. Before a session run `firebase use` and confirm it says `dev`. Never `firebase use prod` while an agent is running.
-2. `--only` limits the tools exposed (core tools always stay available). Do not add `hosting` or `storage` until needed.
-3. Agents may **read** dev data freely. Any **write, delete, deploy or rules change** through MCP requires Sarbuland's explicit approval in that session (AGENTS.md §7).
-4. Never paste service account keys into an agent chat.
-5. The agent's MCP tool calls are shown in the client; read them before approving.
+1. **Dev only.** The Supabase MCP server points at `asani-dev` (`--project-ref`). Never point it at a prod project.
+2. **`--read-only`** stays on. Schema changes go through migrations in git (`supabase/migrations/`), not through MCP.
+3. Any write, delete, deploy or settings change needs Sarbuland's explicit approval in that session (AGENTS.md §7).
+4. Never paste the access token, the database URL or the service role key into an agent chat.
+5. Read the agent's tool calls before approving them.
 
 ---
 
-## 6. What to ask the agent to do with MCP
+## 6. What to ask the agent
 
 | Task | Example prompt |
 |---|---|
 | Fix analyzer errors | "Use the Dart MCP server to analyze `apps/patient_app` and fix all errors and warnings." |
-| Add a package | "Find a maintained QR code package on pub.dev and add it to patient_app." |
-| Runtime bug | "The app is running on my Redmi. Get the runtime errors and the widget tree for the token screen and find why the number overflows." |
-| Check data | "Using Firebase MCP (dev), show today's queue day doc for doctor doc_ayesha and the tokens for it." |
-| Check rules | "Read firestore.rules and explain why the profile history query fails for walk-in visits." |
-| Crash triage | "Get the top Crashlytics issues for pk.asani.patient.dev from the last 7 days." |
+| Runtime bug | "The app is running on my phone. Get the runtime errors and the widget tree for the token screen." |
+| Check data | "Using the Supabase MCP (dev), show today's `queue_days` row for `d_ayesha` and its tokens." |
+| Why access fails | "Read the RLS policies on `tokens` and explain why the clinic login can't see this walk-in." |
+| Logs | "Show the last Edge Function logs of `send-push`." |
 
 ---
 
@@ -121,10 +93,10 @@ Do **not** commit files containing personal absolute paths; keep client configs 
 
 | Problem | Fix |
 |---|---|
-| `dart: Could not find a command named "mcp-server"` | Dart < 3.9. Upgrade Flutter (`flutter upgrade`). |
-| Firebase MCP shows no project | Run `firebase login` and `firebase use dev`; pass `--dir` to the folder containing `firebase.json`. |
-| Server fails to start on Windows | Use `npx.cmd` (see §2). Check `node -v`. |
-| Agent can't hot reload | The app must be running in debug mode started from the same machine; the Dart MCP server connects to the Dart Tooling Daemon. |
-| Server listed but not "Connected" | Restart the client; run the command manually in a terminal to see the error. |
+| `dart: Could not find a command named "mcp-server"` | Dart < 3.9: `flutter upgrade` |
+| Supabase MCP: unauthorized | `SUPABASE_ACCESS_TOKEN` missing or expired; make a new token |
+| Server fails to start on Windows | Use `npx.cmd`; check `node -v` |
+| Agent can't hot reload | The app must run in debug mode on the same machine (Dart Tooling Daemon) |
+| Listed but not "Connected" | Restart the client; run the command in a terminal to see the error |
 
-Official docs: Dart and Flutter MCP server (docs.flutter.dev/ai/mcp-server), Firebase MCP server (firebase.google.com/docs/ai-assistance/mcp-server).
+Official docs: docs.flutter.dev/ai/mcp-server · supabase.com/docs/guides/getting-started/mcp
