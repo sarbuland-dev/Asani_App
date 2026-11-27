@@ -14,13 +14,12 @@ import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../doctors/doctors_screen.dart';
 import 'check_in_dialog.dart';
+import 'not_arrived_notice.dart';
 import 'now_serving.dart';
 import 'queue_actions.dart';
 import 'queue_stats.dart';
 import 'token_panel.dart';
 import 'walk_in_dialog.dart';
-
-enum _NotArrivedChoice { skip, callAnyway }
 
 enum _Filter {
   all('All'),
@@ -50,6 +49,9 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
   final _focus = FocusNode(debugLabel: 'queue-board');
   String? _doctorId;
   String? _selectedTokenId;
+
+  /// "doctor|token" of the current token whose detail was last opened.
+  String? _currentKey;
   _Filter _filter = _Filter.all;
   bool _showDone = false;
   bool _nextBusy = false;
@@ -116,7 +118,9 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     _focus.requestFocus();
   }
 
-  Future<void> _next(String doctorId, {String? callNotArrived}) async {
+  /// One tap of Next. Patients who have not arrived are skipped without asking
+  /// and the next arrived one is called; an amber notice then lists them (D-57).
+  Future<void> _next(String doctorId) async {
     if (_nextBusy) return;
     if (!ref.read(isOnlineProvider)) {
       showSnack(context, AppException.offline.message);
@@ -128,9 +132,20 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
       if (mounted) setState(() => _calling = expected == null ? 'Calling…' : 'Calling ${expected.label}…');
     });
     final repo = ref.read(repositoryProvider);
-    NotArrived? notArrived;
+    final skipped = <NotArrived>[];
     try {
-      final called = await repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived);
+      CalledInfo? called;
+      while (true) {
+        try {
+          called = await repo.next(widget.clinicId, doctorId);
+          break;
+        } on NotArrived catch (e) {
+          // The same token twice means the skip did not take: stop, don't loop.
+          if (skipped.any((x) => x.tokenId == e.tokenId)) rethrow;
+          await repo.tokenAction(e.tokenId, TokenAction.skip);
+          skipped.add(e);
+        }
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -139,10 +154,8 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
           content: Text(called == null ? 'Visit completed. No more patients waiting.' : 'Now serving ${called.label}, ${called.name}.'),
           action: SnackBarAction(label: 'Undo', onPressed: () => runAction(context, () => repo.undoNext(doctorId), success: 'Last Next undone.')),
         ));
-    } on NotArrived catch (e) {
-      notArrived = e;
     } catch (e) {
-      if (mounted) showSnack(context, AppException.messageOf(e));
+      if (mounted) showSnack(context, e is NotArrived ? AppException.generic.message : AppException.messageOf(e));
     } finally {
       _callingTimer?.cancel();
       if (mounted) {
@@ -152,36 +165,10 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
         });
       }
     }
-    if (notArrived != null && mounted) await _askNotArrived(doctorId, notArrived);
-  }
-
-  /// D-24: Next reached a token that has not arrived.
-  Future<void> _askNotArrived(String doctorId, NotArrived t) async {
-    final choice = await showDialog<_NotArrivedChoice>(
-      context: context,
-      builder: (ctx) => AppDialog(
-        title: '${t.label} has not arrived',
-        width: 440,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Back')),
-          OutlinedButton(onPressed: () => Navigator.pop(ctx, _NotArrivedChoice.skip), child: const Text('Skip')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, _NotArrivedChoice.callAnyway), child: const Text('Call anyway')),
-        ],
-        child: Text(
-          '${t.name.isEmpty ? 'This patient' : t.name} has not checked in yet. '
-          'Skip calls the next patient; if they come later, check them in and they are called right after the current patient.',
-          style: AppText.bodyMedium,
-        ),
-      ),
-    );
-    if (!mounted || choice == null) return;
-    final repo = ref.read(repositoryProvider);
-    switch (choice) {
-      case _NotArrivedChoice.skip:
-        final ok = await runAction(context, () => repo.tokenAction(t.tokenId, TokenAction.skip));
-        if (ok && mounted) await _next(doctorId); // may ask again for the next one
-      case _NotArrivedChoice.callAnyway:
-        await _next(doctorId, callNotArrived: t.tokenId);
+    // Shown even if a later step failed: these patients were already skipped.
+    if (skipped.isNotEmpty && mounted) {
+      await showNotArrivedNotice(context, skipped);
+      _focus.requestFocus();
     }
   }
 
@@ -232,6 +219,19 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     final list = all.where((t) => t.token.doctorId == doctor.id).toList()..sort((a, b) => a.number.compareTo(b.number));
     final readOnly = widget.readOnly || !clinic.status.acceptsBookings;
 
+    // The board opens the current token's detail by itself: the patient with
+    // the doctor, or Next up when nobody is. It follows when that changes;
+    // until then the receptionist can open any other token, or close it.
+    final nextUpId = _nextUpOf(list)?.id;
+    if (!widget.readOnly) {
+      final current = list.where((t) => t.status == TokenStatus.called).firstOrNull?.id ?? nextUpId;
+      final key = '${doctor.id}|$current';
+      if (key != _currentKey) {
+        _currentKey = key;
+        _selectedTokenId = current;
+      }
+    }
+
     final board = Focus(
       focusNode: _focus,
       autofocus: true,
@@ -242,14 +242,20 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
           _topBar(user, clinic, readOnly),
           Expanded(
             child: LayoutBuilder(builder: (context, box) {
-              // Wide screens: the token panel sits beside the board. Narrow
-              // ones: it slides over, so the table keeps its width.
-              final beside = box.maxWidth >= 1150;
+              // The token panel always sits beside the board, so it never
+              // covers the queue buttons. It is slimmer on small screens.
+              final panelWidth = box.maxWidth >= 1050 ? TokenPanel.width : 300.0;
               final panel = _selectedTokenId == null
                   ? null
-                  : TokenPanel(tokenId: _selectedTokenId!, readOnly: readOnly, onClose: () => setState(() => _selectedTokenId = null));
+                  : TokenPanel(
+                      tokenId: _selectedTokenId!,
+                      readOnly: readOnly,
+                      nextUp: _selectedTokenId == nextUpId,
+                      panelWidth: panelWidth,
+                      onClose: () => setState(() => _selectedTokenId = null),
+                    );
               final column = ListView(
-                padding: EdgeInsets.fromLTRB(24, 18, panel != null && beside ? 16 : 24, 24),
+                padding: EdgeInsets.fromLTRB(24, 18, panel != null ? 16 : 24, 24),
                 children: [
                   _doctorCards(doctors, all),
                   const SizedBox(height: 14),
@@ -257,22 +263,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
                 ],
               );
               if (panel == null) return column;
-              if (beside) {
-                return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: column), panel]);
-              }
-              return Stack(children: [
-                Positioned.fill(child: column),
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  right: 0,
-                  child: Material(
-                    elevation: 12,
-                    shadowColor: AppColors.navy.withValues(alpha: 0.4),
-                    child: ColoredBox(color: ClinicColors.page, child: Padding(padding: const EdgeInsets.only(left: 16), child: panel)),
-                  ),
-                ),
-              ]);
+              return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: column), panel]);
             }),
           ),
         ]),
@@ -471,7 +462,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
         nextUp: coming.firstOrNull,
       ),
       const SizedBox(height: 14),
-      _waitingList(d, list, user, readOnly),
+      _waitingList(d, list),
       const SizedBox(height: 10),
       Text('Patients get "3, 2, 1 ahead" and "Your turn" alerts automatically.', style: ClinicText.small, textAlign: TextAlign.center),
     ];
@@ -561,7 +552,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
 
   // --------------------------------------------------------- waiting list
 
-  Widget _waitingList(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
+  Widget _waitingList(Doctor d, List<QueueToken> list) {
     bool done(QueueToken t) => t.status == TokenStatus.completed || t.status == TokenStatus.cancelled || t.status == TokenStatus.noShow;
     // The called patient is shown in "Now serving", not in the list.
     final active = list.where((t) => !done(t) && t.status != TokenStatus.called).toList()..sort(_queueOrder);
@@ -582,12 +573,16 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 5),
-              child: Text('${_showDone ? 'Done today' : 'Waiting list'} · ${d.name}', style: AppText.titleSmall.copyWith(fontWeight: FontWeight.w800)),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text('${_showDone ? 'Done today' : 'Waiting list'} · ${d.name}', style: AppText.titleSmall.copyWith(fontWeight: FontWeight.w800)),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
+              flex: 3,
               child: Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.end, children: [
                 for (final f in _Filter.values)
                   FilterPill('${f.label} ${source.where((t) => matches(t, f)).length}', selected: _filter == f, onTap: () => setState(() => _filter = f)),
@@ -604,49 +599,60 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
             ),
           ]),
         ),
-        SimpleTable(
-          columns: [
-            const TableColumn('Token', flex: 3),
-            const TableColumn('Patient', flex: 8),
-            const TableColumn('Source', flex: 3),
-            const TableColumn('Status', flex: 4),
-            TableColumn(_showDone ? 'Waited' : 'Booked', flex: 3),
-            const TableColumn('', flex: 6, align: TextAlign.right),
-          ],
-          empty: EmptyState(
-            icon: _showDone ? Icons.task_alt_rounded : Icons.event_seat_outlined,
-            title: _showDone ? 'Nothing finished yet' : 'No one waiting',
-            message: _showDone ? 'Completed, cancelled and no-show tokens appear here.' : 'New app bookings and walk-ins appear here automatically.',
-          ),
-          onTap: (i) => setState(() => _selectedTokenId = shown[i].id == _selectedTokenId ? null : shown[i].id),
-          rowColor: (i) => shown[i].id == _selectedTokenId
-              ? ClinicColors.tint
-              : (!_showDone && shown[i].id == nextUpId ? ClinicColors.amberTint : null),
-          rows: [for (final t in shown) _row(t, user, readOnly, !_showDone && t.id == nextUpId)],
+        LayoutBuilder(builder: (context, box) {
+          // Beside the token panel on a small screen: Source and time are left
+          // out (both are in the panel).
+          final full = box.maxWidth >= 660;
+          return SimpleTable(
+            columns: [
+              const TableColumn('Token', flex: 3),
+              const TableColumn('Patient', flex: 8),
+              if (full) const TableColumn('Source', flex: 3),
+              const TableColumn('Status', flex: 5),
+              if (full) TableColumn(_showDone ? 'Waited' : 'Booked', flex: 3),
+              const TableColumn('', flex: 1, align: TextAlign.right),
+            ],
+            empty: EmptyState(
+              icon: _showDone ? Icons.task_alt_rounded : Icons.event_seat_outlined,
+              title: _showDone ? 'Nothing finished yet' : 'No one waiting',
+              message: _showDone ? 'Completed, cancelled and no-show tokens appear here.' : 'New app bookings and walk-ins appear here automatically.',
+            ),
+            onTap: (i) => setState(() => _selectedTokenId = shown[i].id == _selectedTokenId ? null : shown[i].id),
+            rowColor: (i) => shown[i].id == _selectedTokenId
+                ? ClinicColors.tint
+                : (!_showDone && shown[i].id == nextUpId ? ClinicColors.amberTint : null),
+            rows: [for (final t in shown) _row(t, !_showDone && t.id == nextUpId, full)],
+          );
+        }),
+        const Divider(color: AppColors.cream),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Wrap(spacing: 18, runSpacing: 6, children: [
+            _tip(Icons.search_rounded, 'Check in: type the code in the box at the top'),
+            _tip(Icons.chevron_right_rounded, 'Click a row for its details and actions'),
+            _tip(null, 'Order: Next patient always calls the next token'),
+          ]),
         ),
       ]),
     );
   }
 
-  List<Widget> _row(QueueToken t, UserAccount user, bool readOnly, bool nextUp) {
+  Widget _tip(IconData? icon, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[Icon(icon, size: 14, color: AppColors.primary), const SizedBox(width: 6)],
+        Flexible(child: Text(text, style: ClinicText.small)),
+      ]);
+
+  /// Rows have no buttons (D-55): a click opens the token panel.
+  List<Widget> _row(QueueToken t, bool nextUp, bool full) {
     final s = t.token.patientSnapshot;
-    final online = ref.watch(isOnlineProvider) && !_nextBusy;
-    final actions = readOnly ? const <TokenAction>[] : QueueActions.available(t, user.role);
-    // One button per row: what this patient most likely needs now.
-    final preferred = switch (t.status) {
-      TokenStatus.booked => TokenAction.arrive,
-      TokenStatus.onHold => TokenAction.backToQueue,
-      TokenStatus.arrived || TokenStatus.skipped => TokenAction.callNow,
+    final skipped = t.status == TokenStatus.skipped;
+    final note = switch (t.status) {
+      TokenStatus.onHold => 'Open to put back',
+      TokenStatus.skipped => 'Checks in → called next',
       _ => null,
     };
-    final quick = actions.contains(preferred) ? preferred : null;
-    final filled = quick == TokenAction.callNow && t.status == TokenStatus.arrived;
-    const compact = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(0, 34)),
-      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
-    );
 
-    return [
+    final cells = <Widget>[
       Align(
         alignment: Alignment.centerLeft,
         child: Container(
@@ -680,48 +686,25 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
           ]),
         ),
       ]),
-      Row(children: [
-        Icon(t.source == TokenSource.app ? Icons.phone_iphone_rounded : Icons.directions_walk_rounded, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: 5),
-        Flexible(child: Text(t.source.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyMedium.copyWith(fontSize: 13))),
+      if (full)
+        Row(children: [
+          Icon(t.source == TokenSource.app ? Icons.phone_iphone_rounded : Icons.directions_walk_rounded, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 5),
+          Flexible(child: Text(t.source.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyMedium.copyWith(fontSize: 13))),
+        ]),
+      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        TokenStatusChip(t.status),
+        if (note != null) ...[
+          const SizedBox(height: 3),
+          Text(note, style: ClinicText.small.copyWith(fontSize: 11, color: skipped ? AppColors.warningText : AppColors.textSecondary)),
+        ],
       ]),
-      TokenStatusChip(t.status),
-      Text(_showDone ? WebFmt.minutes(t.waitMinutes) : Fmt.clock(t.token.createdAt),
-          maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: ClinicText.body),
-      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-        if (quick != null)
-          Flexible(
-            child: filled
-                ? FilledButton(
-                    style: compact,
-                    onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
-                    child: Text(QueueActions.label(quick, t), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  )
-                : OutlinedButton(
-                    style: compact,
-                    onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
-                    child: Text(QueueActions.label(quick, t), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ), // "Check in" → slip check dialog (D-26)
-          ),
-        if (actions.isNotEmpty)
-          PopupMenuButton<TokenAction>(
-            tooltip: 'More actions',
-            enabled: online,
-            icon: const Icon(Icons.more_vert_rounded, size: 20),
-            onSelected: (a) => QueueActions.perform(context, ref, t, a),
-            itemBuilder: (_) => [
-              for (final a in actions)
-                PopupMenuItem(
-                  value: a,
-                  child: Row(children: [
-                    Icon(QueueActions.icon(a), size: 18, color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textSecondary),
-                    const SizedBox(width: Gap.md),
-                    Text(QueueActions.label(a, t), style: AppText.labelMedium.copyWith(color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textPrimary)),
-                  ]),
-                ),
-            ],
-          ),
-      ]),
+      if (full)
+        Text(_showDone ? WebFmt.minutes(t.waitMinutes) : Fmt.clock(t.token.createdAt),
+            maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: ClinicText.body),
+      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
     ];
+    // A skipped patient is out of the line until they check in again.
+    return skipped ? [for (final c in cells) Opacity(opacity: 0.75, child: c)] : cells;
   }
 }

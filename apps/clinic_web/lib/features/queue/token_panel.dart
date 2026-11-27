@@ -15,10 +15,14 @@ import 'token_slip.dart';
 
 /// W-11: token detail panel (slip, actions, history).
 class TokenPanel extends ConsumerWidget {
-  const TokenPanel({super.key, required this.tokenId, required this.onClose, this.readOnly = false});
+  const TokenPanel({super.key, required this.tokenId, required this.onClose, this.readOnly = false, this.nextUp = false, this.panelWidth = width});
   final String tokenId;
   final VoidCallback onClose;
   final bool readOnly;
+
+  /// This is the token Next patient will call.
+  final bool nextUp;
+  final double panelWidth;
 
   static const width = 340.0;
 
@@ -42,7 +46,7 @@ class TokenPanel extends ConsumerWidget {
     final visitNote = patient == null ? null : '${snap.age() ?? '—'} / ${snap.gender.short} · ${WebFmt.ordinal(earlier.length + 1)} visit here';
 
     return SizedBox(
-      width: width,
+      width: panelWidth,
       child: ColoredBox(
         color: ClinicColors.page,
         child: ListView(padding: const EdgeInsets.fromLTRB(4, 20, 20, 20), children: [
@@ -81,6 +85,14 @@ class TokenPanel extends ConsumerWidget {
                 if (t.cancelReason != null) ('Cancel reason', t.cancelReason!),
               ],
             ),
+          if (nextUp) ...[
+            const SizedBox(height: 14),
+            _nextUpNote(t),
+          ],
+          if (t.status == TokenStatus.skipped) ...[
+            const SizedBox(height: 14),
+            const NoteBox('Skipped. When the patient checks in with the token code, they are called right after the current one.'),
+          ],
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 14),
             _actionGrid(context, ref, t, actions, online),
@@ -119,17 +131,12 @@ class TokenPanel extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 3),
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(color: i == 0 ? AppColors.primary : AppColors.primarySoft, shape: BoxShape.circle),
-                    ),
+                    _dot(i, e),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(e.note == null ? e.action : '${e.action} · ${e.note}', style: AppText.labelMedium.copyWith(fontSize: 12)),
-                        Text('${Fmt.dateTime(e.at)} · ${e.by}', style: ClinicText.small),
+                        Text('${dayKey(e.at) == t.token.date ? Fmt.clock(e.at) : Fmt.dateTime(e.at)} · ${e.by}', style: ClinicText.small),
                       ]),
                     ),
                   ]),
@@ -141,30 +148,72 @@ class TokenPanel extends ConsumerWidget {
     );
   }
 
-  /// First action full width, then pairs; Cancel always full width at the end.
-  Widget _actionGrid(BuildContext context, WidgetRef ref, QueueToken t, List<TokenAction> actions, bool online) {
-    Widget button(TokenAction a, {bool primary = false}) {
-      final onPressed = online ? () => QueueActions.perform(context, ref, t, a) : null;
-      final label = Text(QueueActions.label(a, t), maxLines: 1, overflow: TextOverflow.ellipsis);
-      if (primary) return SizedBox(height: 50, child: FilledButton(onPressed: onPressed, child: label));
-      return OutlinedButton(
-        style: QueueActions.isDanger(a) ? OutlinedButton.styleFrom(foregroundColor: AppColors.danger) : null,
-        onPressed: onPressed,
-        child: label,
-      );
-    }
+  /// Latest step forest, a skip amber, older steps sage (board W-10).
+  Widget _dot(int index, TokenEvent e) {
+    final skip = e.action.startsWith('Skipped');
+    final color = skip ? AppColors.warning : (index == 0 ? AppColors.primary : AppColors.primarySoft);
+    final ring = skip ? AppColors.warningContainer : (index == 0 ? ClinicColors.tint : null);
+    return Container(
+      margin: const EdgeInsets.only(top: 3),
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: ring == null ? null : [BoxShadow(color: ring, spreadRadius: 3)]),
+    );
+  }
 
-    final rest = actions.skip(1).where((a) => a != TokenAction.cancel).toList();
+  Widget _nextUpNote(QueueToken t) {
+    final why = t.token.isNextUp
+        ? ' Checked in again after a skip, so the app tells the patient they are next.'
+        : (t.status == TokenStatus.booked ? ' Not arrived yet.' : '');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(color: ClinicColors.amberTint, borderRadius: BorderRadius.circular(14), border: Border.all(color: ClinicColors.amberBorder)),
+      child: Row(children: [
+        const Icon(Icons.arrow_forward_rounded, size: 18, color: AppColors.warningText),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text('Next up. Pressing Next patient calls ${t.label}.$why',
+              style: AppText.bodyMedium.copyWith(fontSize: 13, color: AppColors.warningText)),
+        ),
+      ]),
+    );
+  }
+
+  /// Back to queue (held tokens) on top, then pairs, Cancel full width, and the
+  /// emergency call as a small link.
+  Widget _actionGrid(BuildContext context, WidgetRef ref, QueueToken t, List<TokenAction> actions, bool online) {
+    VoidCallback? run(TokenAction a) => online ? () => QueueActions.perform(context, ref, t, a) : null;
+    Widget button(TokenAction a) => OutlinedButton(
+          style: QueueActions.isDanger(a) ? OutlinedButton.styleFrom(foregroundColor: AppColors.danger) : null,
+          onPressed: run(a),
+          child: Text(a == TokenAction.noShow ? 'No-show' : QueueActions.label(a, t), maxLines: 1, overflow: TextOverflow.ellipsis),
+        );
+
+    const own = {TokenAction.backToQueue, TokenAction.cancel, TokenAction.callNow};
+    final pairs = actions.where((a) => !own.contains(a)).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      button(actions.first, primary: true),
-      for (var i = 0; i < rest.length; i += 2) ...[
+      if (actions.contains(TokenAction.backToQueue)) ...[
+        SizedBox(height: 50, child: FilledButton(onPressed: run(TokenAction.backToQueue), child: Text(QueueActions.label(TokenAction.backToQueue, t)))),
         const SizedBox(height: 8),
+      ],
+      for (var i = 0; i < pairs.length; i += 2) ...[
+        if (i > 0) const SizedBox(height: 8),
         Row(children: [
-          Expanded(child: button(rest[i])),
-          if (i + 1 < rest.length) ...[const SizedBox(width: 8), Expanded(child: button(rest[i + 1]))],
+          Expanded(child: button(pairs[i])),
+          if (i + 1 < pairs.length) ...[const SizedBox(width: 8), Expanded(child: button(pairs[i + 1]))],
         ]),
       ],
-      if (actions.skip(1).contains(TokenAction.cancel)) ...[const SizedBox(height: 8), button(TokenAction.cancel)],
+      if (actions.contains(TokenAction.cancel)) ...[const SizedBox(height: 8), button(TokenAction.cancel)],
+      if (actions.contains(TokenAction.callNow)) ...[
+        const SizedBox(height: 6),
+        Center(
+          child: TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+            onPressed: run(TokenAction.callNow),
+            child: Text('Call out of turn (emergency)', style: ClinicText.small.copyWith(fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+          ),
+        ),
+      ],
     ]);
   }
 }

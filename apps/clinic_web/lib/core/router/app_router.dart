@@ -84,7 +84,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/help', pageBuilder: (c, s) => page(const HelpScreen())),
           // Super admin (§7)
           GoRoute(path: '/admin', pageBuilder: (c, s) => page(const AdminDashboardScreen())),
-          GoRoute(path: '/admin/clinics', pageBuilder: (c, s) => page(ClinicsScreen(initialStatus: s.uri.queryParameters['status']))),
+          GoRoute(path: '/admin/clinics', pageBuilder: (c, s) => page(ClinicsScreen(initialStatus: s.uri.queryParameters['status'], initialQuery: s.uri.queryParameters['q']))),
           GoRoute(path: '/admin/clinics/new', pageBuilder: (c, s) => page(const NewClinicScreen())),
           GoRoute(path: '/admin/clinics/:id', pageBuilder: (c, s) => page(ClinicDetailScreen(clinicId: s.pathParameters['id']!))),
           GoRoute(

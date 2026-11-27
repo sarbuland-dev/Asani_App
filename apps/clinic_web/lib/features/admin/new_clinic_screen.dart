@@ -1,16 +1,18 @@
+import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:asani_core/asani_core.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import 'admin_kit.dart';
 
-/// A-13 / A-04: New clinic wizard (clinic → doctors → admin → plan → review).
+/// A-13 / A-04: New clinic wizard (clinic → clinic login → plan → review),
+/// with a live preview beside the form.
 class NewClinicScreen extends ConsumerStatefulWidget {
   const NewClinicScreen({super.key});
 
@@ -65,61 +67,138 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
 
   String? _req(String? v) => (v ?? '').trim().isEmpty ? 'Required' : null;
 
+  /// A field that also refreshes the preview card.
+  Widget _field(String label, {required ValueChanged<String> set, required FormFieldValidator<String> validator, String? hint, String? prefix, String? help, String? initial, TextInputType? keyboard}) =>
+      LabeledField(
+        label,
+        help: help,
+        child: TextFormField(
+          initialValue: initial,
+          keyboardType: keyboard,
+          decoration: InputDecoration(hintText: hint, prefixText: prefix),
+          validator: validator,
+          onChanged: (v) => setState(() => set(v)),
+        ),
+      );
+
+  Widget _two(Widget a, Widget b) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: a), const SizedBox(width: 14), Expanded(child: b)]);
+
   @override
   Widget build(BuildContext context) {
-    return PageScaffold(
-      title: 'New clinic',
+    const hints = [
+      "Details patients see in the app. The name can only be changed by the Super admin later.",
+      "The clinic's email becomes the clinic's only login; the receptionist uses it too. The manager or senior doctor gets an email to set the password.",
+      'The clinic starts free in the pilot, then moves to the plan below.',
+      'Check everything before the clinic is created.',
+    ];
+    final last = _step == _titles.length - 1;
+
+    return AdminPage(
+      title: 'Clinics › New clinic',
       subtitle: 'Step ${_step + 1} of ${_titles.length} · ${_titles[_step]}',
-      leading: HeaderBackButton(dark: true, onPressed: () => context.go('/admin/clinics')),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: 220,
-          child: Column(children: [
-            for (var i = 0; i < _titles.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Gap.sm),
-                child: Row(children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: i < _step ? AppColors.primary : (i == _step ? AppColors.primaryContainer : AppColors.muted),
-                      shape: BoxShape.circle,
-                    ),
-                    child: i < _step
-                        ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onPrimary)
-                        : Text('${i + 1}', style: AppText.labelMedium.copyWith(color: i == _step ? AppColors.primary : AppColors.textSecondary)),
+      search: false,
+      children: [
+        _stepper(),
+        const SizedBox(height: 16),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Panel(
+              padding: const EdgeInsets.all(24),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(_titles[_step], style: AppText.titleMedium.copyWith(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(hints[_step], style: AppText.bodyMedium.copyWith(fontSize: 13)),
+                const SizedBox(height: 20),
+                // All steps stay built, so what was typed is kept.
+                IndexedStack(index: _step, children: [_clinicStep(), _loginStep(), _planStep(), _review()]),
+                const SizedBox(height: 20),
+                const Divider(color: AppColors.cream),
+                const SizedBox(height: 16),
+                Row(children: [
+                  OutlinedButton(
+                    onPressed: _step == 0 ? () => context.go('/admin/clinics') : () => setState(() => _step--),
+                    child: Text(_step == 0 ? 'Cancel' : 'Back'),
                   ),
-                  const SizedBox(width: Gap.md),
-                  Text(_titles[i], style: AppText.labelLarge.copyWith(color: i == _step ? AppColors.primary : AppColors.textSecondary)),
+                  const Spacer(),
+                  FilledButton(
+                    style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 28)),
+                    onPressed: last
+                        ? (_busy ? null : _create)
+                        : () {
+                            if (_validate()) setState(() => _step++);
+                          },
+                    child: last
+                        ? BusyLabel(busy: _busy, busyText: 'Creating…', color: AppColors.textSecondary, child: const Text('Create clinic'))
+                        : Text('Next: ${_titles[_step + 1]} ›'),
+                  ),
                 ]),
-              ),
+              ]),
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(width: 340, child: _preview()),
+        ]),
+      ],
+    );
+  }
+
+  Widget _stepper() => Panel(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        child: Row(children: [
+          for (var i = 0; i < _titles.length; i++)
+            Expanded(
+              flex: i == _titles.length - 1 ? 0 : 1,
+              child: Row(mainAxisSize: i == _titles.length - 1 ? MainAxisSize.min : MainAxisSize.max, children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: i <= _step ? AppColors.primary : ClinicColors.creamDeep, shape: BoxShape.circle),
+                  child: i < _step
+                      ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onPrimary)
+                      : Text('${i + 1}', style: AppText.labelMedium.copyWith(fontSize: 13, color: i == _step ? AppColors.onPrimary : AppColors.textSecondary)),
+                ),
+                const SizedBox(width: 10),
+                Text(_titles[i], style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700, color: i <= _step ? AppColors.textPrimary : AppColors.textSecondary)),
+                if (i < _titles.length - 1)
+                  const Expanded(child: Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: SizedBox(height: 2, child: ColoredBox(color: AppColors.border)))),
+              ]),
+            ),
+        ]),
+      );
+
+  Widget _preview() {
+    String or(String v, String other) => v.trim().isEmpty ? other : v.trim();
+    Text caps(String t) => Text(t, style: ClinicText.caps);
+    return Panel(
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        HeroBlock(
+          radius: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('NEW CLINIC', style: ClinicText.caps.copyWith(color: AppColors.primarySoft)),
+            Text(or(_d.name, 'Clinic name'), style: AppText.titleMedium.copyWith(fontSize: 20, color: AppColors.onPrimary)),
+            Text('${or(_d.area, 'Area')}, ${or(_d.city, 'city')}', style: AppText.bodyMedium.copyWith(fontSize: 13, color: AppColors.onPrimaryMuted)),
           ]),
         ),
-        const SizedBox(width: Gap.xl),
-        Expanded(
-          child: AppCard(
-            padding: const EdgeInsets.all(Gap.xl),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              IndexedStack(index: _step, children: [_clinicStep(), _adminStep(), _planStep(), _review()]),
-              const SizedBox(height: Gap.xl),
-              Row(children: [
-                if (_step > 0) TextButton.icon(onPressed: () => setState(() => _step--), icon: const Icon(Icons.arrow_back_rounded), label: const Text('Back')),
-                const Spacer(),
-                if (_step < _titles.length - 1)
-                  FilledButton.icon(
-                    onPressed: () {
-                      if (_validate()) setState(() => _step++);
-                    },
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: const Text('Continue'),
-                  )
-                else
-                  FilledButton.icon(onPressed: _busy ? null : _create, icon: const Icon(Icons.check_rounded), label: const Text('Create clinic')),
-              ]),
-            ]),
-          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            caps('CLINIC'),
+            InfoLine('Address', or(_d.address, 'filling in…')),
+            InfoLine('Location', _d.location == null ? 'required' : formatLatLng(_d.location!)),
+            InfoLine('Phone', or(_d.phone, '—')),
+            InfoLine('Print', _d.printFormat.label),
+            const SizedBox(height: 8),
+            caps('LOGIN'),
+            InfoLine('Email', or(_d.email, 'next step')),
+            InfoLine('Manager', or(_d.ownerName, '—')),
+            const SizedBox(height: 8),
+            caps('PLAN'),
+            InfoLine('Plan', _step < 2 ? 'later step' : 'Pilot ${_pilot.text} days, then ${_d.planAfterPilot.label}'),
+            if (_step >= 2) InfoLine('Monthly fee', 'Rs ${_fee.text}'),
+          ]),
         ),
       ]),
     );
@@ -128,141 +207,135 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
   Widget _clinicStep() => Form(
         key: _forms[0],
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          FieldLabel('Clinic name', child: TextFormField(onChanged: (v) => _d.name = v, validator: _req, textCapitalization: TextCapitalization.words)),
-          Row(children: [
-            Expanded(child: FieldLabel('Area', child: TextFormField(onChanged: (v) => _d.area = v, validator: _req, decoration: const InputDecoration(hintText: 'Johar Town')))),
-            const SizedBox(width: Gap.md),
-            Expanded(child: FieldLabel('City', child: TextFormField(initialValue: _d.city, onChanged: (v) => _d.city = v, validator: _req))),
-          ]),
-          FieldLabel('Address', child: TextFormField(onChanged: (v) => _d.address = v, validator: _req)),
+          _field('Clinic name', set: (v) => _d.name = v, validator: _req),
+          const SizedBox(height: 14),
+          _two(
+            _field('City', initial: _d.city, set: (v) => _d.city = v, validator: _req),
+            _field('Area', hint: 'Johar Town', set: (v) => _d.area = v, validator: _req),
+          ),
+          const SizedBox(height: 14),
+          _two(
+            _field('Address', set: (v) => _d.address = v, validator: _req),
+            _field('Clinic phone', set: (v) => _d.phone = v, validator: (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
+          ),
+          const SizedBox(height: 14),
           // D-31 / BW-12: required.
-          FieldLabel(
-            'Map location (required)',
-            child: TextFormField(
-              onChanged: (v) => _d.location = parseLatLng(v),
-              decoration: const InputDecoration(hintText: '31.4697, 74.2728', helperText: 'Paste a Google Maps link or type "lat, lng".'),
-              validator: (v) {
-                final p = parseLatLng(v ?? '');
-                if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
-                if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
-                return null;
-              },
-            ),
+          _field(
+            'Location (required)',
+            hint: '31.4697, 74.2728',
+            help: 'Paste a Google Maps link or type "lat, lng". Used for Directions and "nearest first".',
+            set: (v) => _d.location = parseLatLng(v),
+            validator: (v) {
+              final p = parseLatLng(v ?? '');
+              if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
+              if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
+              return null;
+            },
           ),
-          FieldLabel(
-            'Clinic phone',
-            child: TextFormField(onChanged: (v) => _d.phone = v, validator: (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
-          ),
-          FieldLabel(
+          const SizedBox(height: 14),
+          LabeledField(
             'Print format',
-            child: StatefulBuilder(
-              builder: (context, setState) => Wrap(spacing: Gap.sm, children: [
-                for (final f in PrintFormat.values) ChoiceChip(label: Text(f.label), selected: _d.printFormat == f, onSelected: (_) => setState(() => _d.printFormat = f)),
-              ]),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AdminTabs<PrintFormat>(
+                values: PrintFormat.values,
+                selected: _d.printFormat,
+                label: (f) => f == PrintFormat.none ? 'None' : f.label,
+                onChanged: (f) => setState(() => _d.printFormat = f),
+              ),
             ),
           ),
-          Text('Map location can be added later from the clinic settings.', style: AppText.labelSmall),
         ]),
       );
 
-  Widget _adminStep() => Form(
+  Widget _loginStep() => Form(
         key: _forms[1],
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text("The clinic's email becomes the clinic's only login; the receptionist uses it too. The manager or senior doctor gets an email to set the password.", style: AppText.bodyMedium),
-          const SizedBox(height: Gap.lg),
-          FieldLabel('Manager / senior doctor name', child: TextFormField(onChanged: (v) => _d.ownerName = v, validator: _req, textCapitalization: TextCapitalization.words)),
-          FieldLabel(
+          _field('Manager / senior doctor name', set: (v) => _d.ownerName = v, validator: _req),
+          const SizedBox(height: 14),
+          _field(
             'Manager mobile',
-            child: TextFormField(
-              onChanged: (v) => _d.ownerPhone = PhoneUtils.isValidLocal(v) ? PhoneUtils.toE164(v) : v,
-              decoration: const InputDecoration(prefixText: '+92  ', hintText: '300 1234567'),
-              validator: (v) => PhoneUtils.isValidLocal(v ?? '') ? null : 'Enter a valid mobile number',
-            ),
+            prefix: '+92  ',
+            hint: '300 1234567',
+            keyboard: TextInputType.phone,
+            set: (v) => _d.ownerPhone = PhoneUtils.isValidLocal(v) ? PhoneUtils.toE164(v) : v,
+            validator: (v) => PhoneUtils.isValidLocal(v ?? '') ? null : 'Enter a valid mobile number',
           ),
-          FieldLabel(
+          const SizedBox(height: 14),
+          _field(
             'Clinic email',
-            child: TextFormField(
-              onChanged: (v) => _d.email = v,
-              keyboardType: TextInputType.emailAddress,
-              validator: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch((v ?? '').trim()) ? null : 'Enter a valid email',
-            ),
+            keyboard: TextInputType.emailAddress,
+            set: (v) => _d.email = v,
+            validator: (v) => RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch((v ?? '').trim()) ? null : 'Enter a valid email',
           ),
         ]),
       );
 
   Widget _planStep() => Form(
         key: _forms[2],
-        child: StatefulBuilder(
-          builder: (context, setState) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              Expanded(
-                child: FieldLabel(
-                  'Pilot length',
-                  child: TextFormField(
-                    controller: _pilot,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(suffixText: 'days'),
-                    validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0 ? 'Enter days' : null,
-                  ),
-                ),
-              ),
-              const SizedBox(width: Gap.md),
-              Expanded(
-                child: FieldLabel(
-                  'Billing day',
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _d.billingDay,
-                    items: [for (var i = 1; i <= 28; i++) DropdownMenuItem(value: i, child: Text('$i of each month'))],
-                    onChanged: (v) => _d.billingDay = v ?? 1,
-                  ),
-                ),
-              ),
-            ]),
-            FieldLabel(
-              'Plan after pilot',
-              child: Wrap(spacing: Gap.sm, children: [
-                for (final p in const [Plan.basic, Plan.premium])
-                  ChoiceChip(
-                    label: Text(p.label),
-                    selected: _d.planAfterPilot == p,
-                    onSelected: (_) => setState(() {
-                      _d.planAfterPilot = p;
-                      _fee.text = '${ref.read(adminSettingsProvider).prices[p]}';
-                    }),
-                  ),
-              ]),
-            ),
-            FieldLabel(
-              'Monthly fee',
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _two(
+            LabeledField(
+              'Pilot length',
               child: TextFormField(
-                controller: _fee,
+                controller: _pilot,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(prefixText: 'Rs  '),
-                validator: (v) => int.tryParse(v ?? '') == null ? 'Enter an amount' : null,
+                decoration: const InputDecoration(suffixText: 'days'),
+                validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0 ? 'Enter days' : null,
+                onChanged: (_) => setState(() {}),
               ),
             ),
-          ]),
-        ),
+            LabeledField(
+              'Billing day',
+              child: DropdownButtonFormField<int>(
+                initialValue: _d.billingDay,
+                items: [for (var i = 1; i <= 28; i++) DropdownMenuItem(value: i, child: Text('$i of each month'))],
+                onChanged: (v) => _d.billingDay = v ?? 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          LabeledField(
+            'Plan after pilot',
+            child: Wrap(spacing: 8, children: [
+              for (final p in const [Plan.basic, Plan.premium])
+                FilterPill(
+                  p.label,
+                  selected: _d.planAfterPilot == p,
+                  onTap: () => setState(() {
+                    _d.planAfterPilot = p;
+                    _fee.text = '${ref.read(adminSettingsProvider).prices[p]}';
+                  }),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          LabeledField(
+            'Monthly fee',
+            child: TextFormField(
+              controller: _fee,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(prefixText: 'Rs  '),
+              validator: (v) => int.tryParse(v ?? '') == null ? 'Enter an amount' : null,
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+        ]),
       );
 
-  Widget _review() {
-    Widget row(String k, String v) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 160, child: Text(k, style: AppText.bodyMedium)), Expanded(child: Text(v, style: AppText.labelMedium))]),
-        );
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      row('Clinic', '${_d.name}, ${_d.area}, ${_d.city}'),
-      row('Address', _d.address),
-      row('Map location', _d.location == null ? '—' : formatLatLng(_d.location!)),
-      row('Phone', _d.phone),
-      row('Print format', _d.printFormat.label),
-      row('Clinic login', '${_d.email} (manager: ${_d.ownerName})'),
-      row('Manager mobile', Fmt.phone(_d.ownerPhone)),
-      row('Plan', 'Pilot ${_d.pilotDays} days, then ${_d.planAfterPilot.label} at ${WebFmt.money(_d.monthlyFee)}/month (billing day ${_d.billingDay})'),
-      const SizedBox(height: Gap.md),
-      const Banner2(text: 'On Create, the clinic starts in Pilot and the invite goes to the clinic email. After the first login, the clinic adds its own doctors.', icon: Icons.mail_outline_rounded, fg: AppColors.info, bg: AppColors.infoContainer),
-    ]);
-  }
+  Widget _review() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        InfoLine('Clinic', '${_d.name}, ${_d.area}, ${_d.city}'),
+        InfoLine('Address', _d.address),
+        InfoLine('Map location', _d.location == null ? '—' : formatLatLng(_d.location!)),
+        InfoLine('Phone', _d.phone),
+        InfoLine('Print format', _d.printFormat.label),
+        InfoLine('Clinic login', '${_d.email} (manager: ${_d.ownerName})'),
+        InfoLine('Manager mobile', Fmt.phone(_d.ownerPhone)),
+        InfoLine('Plan', 'Pilot ${_d.pilotDays} days, then ${_d.planAfterPilot.label} at ${WebFmt.money(_d.monthlyFee)}/month (billing day ${_d.billingDay})'),
+        const SizedBox(height: 14),
+        const NoteBox.tint('On Create, the clinic starts in Pilot and the invite goes to the clinic email. After the first login, the clinic adds its own doctors.',
+            icon: Icons.mail_outline_rounded),
+      ]);
 }

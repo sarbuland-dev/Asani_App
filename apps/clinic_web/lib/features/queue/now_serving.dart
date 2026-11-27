@@ -44,7 +44,7 @@ class NowServing extends ConsumerWidget {
     return HeroBlock(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
+        LayoutBuilder(builder: (context, header) => Row(children: [
           if (day.sessionStatus == SessionStatus.running) ...[const LiveDot(), const SizedBox(width: 10)],
           Expanded(
             child: Text('NOW SERVING · ${doctor.name.toUpperCase()}',
@@ -57,10 +57,10 @@ class NowServing extends ConsumerWidget {
               style: TextButton.styleFrom(foregroundColor: AppColors.onPrimary, backgroundColor: AppColors.onPrimary.withValues(alpha: 0.12), shape: const StadiumBorder()),
               onPressed: onFollowUp,
               icon: const Icon(Icons.event_repeat_rounded, size: 16),
-              label: Text('Set follow-up for ${c.label}'),
+              label: Text(header.maxWidth >= 640 ? 'Set follow-up for ${c.label}' : 'Follow-up'),
             ),
           ],
-        ]),
+        ])),
         const SizedBox(height: 14),
         LayoutBuilder(builder: (context, box) {
           final lane = box.maxWidth >= 640 && upcoming.isNotEmpty;

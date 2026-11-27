@@ -316,7 +316,10 @@ class FilterPill extends StatelessWidget {
 
 /// Table with small caps headers, for use inside a [Panel] with no padding.
 class SimpleTable extends StatelessWidget {
-  const SimpleTable({super.key, required this.columns, required this.rows, this.onTap, this.rowColor, this.empty});
+  const SimpleTable({super.key, required this.columns, required this.rows, this.onTap, this.rowColor, this.empty, this.capsHeaders = true});
+
+  /// False: headers as written ("Date"), as on the patient history (W-14).
+  final bool capsHeaders;
   final List<TableColumn> columns;
   final List<List<Widget>> rows;
   final void Function(int index)? onTap;
@@ -341,7 +344,12 @@ class SimpleTable extends StatelessWidget {
         Container(
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-          child: _line([for (final c in columns) Text(c.label.toUpperCase(), style: ClinicText.caps)]),
+          child: _line([
+            for (final c in columns)
+              capsHeaders
+                  ? Text(c.label.toUpperCase(), style: ClinicText.caps)
+                  : Text(c.label, style: AppText.labelSmall.copyWith(fontWeight: FontWeight.w600)),
+          ]),
         ),
         if (rows.isEmpty) empty ?? Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('Nothing here yet.', style: AppText.bodyMedium))),
         for (var i = 0; i < rows.length; i++)

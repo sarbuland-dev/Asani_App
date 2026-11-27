@@ -29,9 +29,8 @@ class QueueStats extends StatelessWidget {
       if (at != null) byHour[at.hour] = (byHour[at.hour] ?? 0) + 1;
     }
 
-    return IntrinsicHeight(
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _card(
+    final cards = <Widget>[
+      _card(
           'Waiting',
           Icons.people_alt_outlined,
           Text('${waiting.length}', style: ClinicText.big(30)),
@@ -42,8 +41,7 @@ class QueueStats extends StatelessWidget {
             ),
           ]),
         ),
-        const SizedBox(width: 12),
-        _card(
+      _card(
           'Completed',
           Icons.check_rounded,
           Text.rich(TextSpan(
@@ -53,16 +51,26 @@ class QueueStats extends StatelessWidget {
           )),
           _Bars([for (final h in (byHour.keys.toList()..sort())) byHour[h]!.toDouble()]),
         ),
-        const SizedBox(width: 12),
-        _card(
+      _card(
           'Average wait',
           Icons.timer_outlined,
           FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(WebFmt.minutes(avg), style: ClinicText.big(30))),
           SizedBox(height: 22, width: double.infinity, child: CustomPaint(painter: _SparkPainter(waits))),
         ),
-        const SizedBox(width: 12),
-        _nextCard(),
-      ]),
+      _nextCard(),
+    ];
+
+    Widget line(List<Widget> items) => IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (final (i, card) in items.indexed) ...[if (i > 0) const SizedBox(width: 12), card],
+          ]),
+        );
+
+    // Beside the token panel on a small screen the four cards make two lines.
+    return LayoutBuilder(
+      builder: (context, box) => box.maxWidth >= 640
+          ? line(cards)
+          : Column(children: [line(cards.sublist(0, 2)), const SizedBox(height: 12), line(cards.sublist(2))]),
     );
   }
 

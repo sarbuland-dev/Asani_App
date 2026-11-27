@@ -2,12 +2,14 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import 'activity_screen.dart';
+import 'admin_kit.dart';
 
 /// A clinic with unpaid invoices past their due date (A-06).
 class Defaulter {
@@ -35,7 +37,7 @@ final monthTokensProvider = Provider<(int, int)>((ref) {
   return ref.watch(repositoryProvider).monthTokens();
 });
 
-String _thisMonth() {
+String thisMonthKey() {
   final n = pktNow();
   return '${n.year}-${n.month.toString().padLeft(2, '0')}';
 }
@@ -47,120 +49,183 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clinics = ref.watch(clinicsProvider);
-    final month = ref.watch(invoicesProvider(null)).where((i) => i.month == _thisMonth()).toList();
+    final month = ref.watch(invoicesProvider(null)).where((i) => i.month == thisMonthKey()).toList();
     final expected = month.where((i) => i.status != InvoiceStatus.waived).fold<int>(0, (a, i) => a + i.amount);
     final collected = month.where((i) => i.status == InvoiceStatus.paid).fold<int>(0, (a, i) => a + (i.payment?.amount ?? i.amount));
     final defaulters = ref.watch(defaultersProvider);
     final (app, walk) = ref.watch(monthTokensProvider);
     final total = app + walk;
-    final user = ref.watch(currentUserProvider)!;
+    final suggestions = ref.watch(linkSuggestionsProvider).where((s) => s.status == LinkStatus.open).toList();
+    final strong = suggestions.where((s) => s.strength == LinkStrength.strong).length;
 
-    return PageScaffold(
-      title: 'Assalam-o-Alaikum, ${user.name.split(' ').first}',
-      subtitle: 'All clinics at a glance · ${WebFmt.month(_thisMonth())}',
-      actions: [FilledButton.icon(onPressed: () => context.go('/admin/clinics/new'), icon: const Icon(Icons.add_business_rounded), label: const Text('New clinic'))],
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('CLINICS BY STATUS', style: AppText.overline),
-        const SizedBox(height: Gap.md),
-        CardGrid(minWidth: 170, children: [
-          for (final s in ClinicStatus.values)
-            () {
-              final (label, fg, bg) = ClinicStatusPill.style(s);
-              return KpiCard(
-                label: label,
-                value: '${clinics.where((c) => c.status == s).length}',
-                icon: switch (s) {
-                  ClinicStatus.pilot => Icons.flag_outlined,
-                  ClinicStatus.active => Icons.check_circle_outline_rounded,
-                  ClinicStatus.grace => Icons.hourglass_bottom_rounded,
-                  ClinicStatus.suspended => Icons.block_rounded,
-                  ClinicStatus.cancelled => Icons.cancel_outlined,
-                },
-                fg: fg,
-                bg: bg,
-                onTap: () => context.go('/admin/clinics?status=${s.name}'),
-              );
-            }(),
-        ]),
-        const SizedBox(height: Gap.xl),
-        Text('THIS MONTH', style: AppText.overline),
-        const SizedBox(height: Gap.md),
-        CardGrid(minWidth: 220, children: [
-          KpiCard(label: 'Expected revenue', value: WebFmt.money(expected), icon: Icons.trending_up_rounded),
-          KpiCard(label: 'Collected', value: WebFmt.money(collected), icon: Icons.savings_outlined, fg: AppColors.success, bg: AppColors.successContainer),
-          KpiCard(label: 'Pending', value: WebFmt.money(expected - collected), icon: Icons.pending_actions_rounded, fg: AppColors.warning, bg: AppColors.warningContainer),
-          KpiCard(
+    final now = pktNow();
+    final ending = clinics
+        .where((c) => c.status == ClinicStatus.pilot && c.pilotEndsAt != null && c.pilotEndsAt!.difference(now).inDays <= 14 && c.pilotEndsAt!.isAfter(now))
+        .toList()
+      ..sort((a, b) => a.pilotEndsAt!.compareTo(b.pilotEndsAt!));
+    final endingText = ending.isEmpty
+        ? 'None in the next 14 days'
+        : ending.take(2).map((c) => '${c.clinic.name} in ${c.pilotEndsAt!.difference(now).inDays + 1} days').join(' · ');
+
+    return AdminPage(
+      title: 'Dashboard',
+      subtitle: '${DateFormat('EEEE, d MMMM').format(now)} · all clinics',
+      actions: [FilledButton.icon(onPressed: () => context.go('/admin/clinics/new'), icon: const Icon(Icons.add_rounded, size: 18), label: const Text('New clinic'))],
+      children: [
+        _hero(context, clinics, expected, collected),
+        const SizedBox(height: 14),
+        CardRow(gap: 14, children: [
+          _tile(
+            icon: Icons.warning_amber_rounded,
             label: 'Defaulters',
             value: '${defaulters.length}',
-            icon: Icons.warning_amber_rounded,
-            danger: defaulters.isNotEmpty,
-            hint: defaulters.isEmpty ? 'All paid' : WebFmt.money(defaulters.fold(0, (a, d) => a + d.amount)),
+            note: defaulters.isEmpty ? 'All paid' : '${WebFmt.money(defaulters.fold(0, (a, d) => a + d.amount))} overdue · open list ›',
             onTap: () => context.go('/admin/defaulters'),
+            danger: defaulters.isNotEmpty,
+          ),
+          _tile(
+            icon: Icons.confirmation_number_outlined,
+            label: 'Tokens this month',
+            value: NumberFormat.decimalPattern('en_PK').format(total),
+            extra: SplitBar([(app, AppColors.primary), (walk, AppColors.onPrimaryMuted)]),
+            note: total == 0 ? 'No tokens yet' : '${(app * 100 / total).round()}% app · ${100 - (app * 100 / total).round()}% walk-in',
+          ),
+          _tile(
+            icon: Icons.medical_services_outlined,
+            label: 'Possible same doctor',
+            value: '${suggestions.length}',
+            note: suggestions.isEmpty ? 'Nothing to review' : '$strong strong · ${suggestions.length - strong} weak · review ›',
+            onTap: () => context.go('/admin/doctors'),
+          ),
+          _tile(
+            icon: Icons.people_alt_outlined,
+            label: 'Pilots ending soon',
+            value: '${ending.length}',
+            note: endingText,
+            onTap: () => context.go('/admin/clinics?status=${ClinicStatus.pilot.name}'),
           ),
         ]),
-        const SizedBox(height: Gap.xl),
-        const NewDoctorsCard(),
-        const SizedBox(height: Gap.xl),
+        const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Expanded(flex: 5, child: NewDoctorsCard()),
+          const SizedBox(width: 16),
           Expanded(
-            flex: 2,
-            child: AppCard(
-              padding: const EdgeInsets.all(Gap.xl),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Tokens booked this month', style: AppText.titleMedium),
-                Text('All clinics', style: AppText.bodyMedium),
-                const SizedBox(height: Gap.lg),
-                Text('$total', style: AppText.displaySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
-                const SizedBox(height: Gap.lg),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(Radii.pill),
-                  child: SizedBox(
-                    height: 14,
-                    child: Row(children: [
-                      if (app > 0) Expanded(flex: app, child: Container(color: AppColors.primary)),
-                      if (walk > 0) Expanded(flex: walk, child: Container(color: AppColors.primaryLight.withValues(alpha: 0.4))),
-                      if (total == 0) Expanded(child: Container(color: AppColors.muted)),
-                    ]),
-                  ),
-                ),
-                const SizedBox(height: Gap.md),
-                Row(children: [
-                  _legend(AppColors.primary, 'App $app', total == 0 ? '' : '${(app * 100 / total).round()}%'),
-                  const SizedBox(width: Gap.xl),
-                  _legend(AppColors.primaryLight.withValues(alpha: 0.4), 'Walk-in $walk', total == 0 ? '' : '${(walk * 100 / total).round()}%'),
-                ]),
-              ]),
-            ),
-          ),
-          const SizedBox(width: Gap.xl),
-          Expanded(
-            flex: 3,
-            child: AppCard(
-              padding: const EdgeInsets.all(Gap.xl),
+            flex: 6,
+            child: Panel(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Row(children: [
-                  Expanded(child: Text('Latest activity', style: AppText.titleMedium)),
+                  Expanded(child: Text('Latest activity', style: ClinicText.cardTitle.copyWith(fontSize: 16))),
                   TextButton(onPressed: () => context.go('/admin/activity'), child: const Text('See all')),
                 ]),
-                const SizedBox(height: Gap.sm),
-                ActivityFeed(limit: 7),
+                const ActivityFeed(limit: 6),
               ]),
             ),
           ),
         ]),
-      ]),
+      ],
     );
   }
 
-  Widget _legend(Color c, String label, String pct) => Row(children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))),
-        const SizedBox(width: Gap.sm),
-        Text(label, style: AppText.labelMedium),
-        const SizedBox(width: Gap.xs),
-        Text(pct, style: AppText.labelSmall),
-      ]);
-}
+  Widget _hero(BuildContext context, List<ClinicAccount> clinics, int expected, int collected) {
+    int count(ClinicStatus s) => clinics.where((c) => c.status == s).length;
+    const order = [ClinicStatus.active, ClinicStatus.pilot, ClinicStatus.grace, ClinicStatus.suspended, ClinicStatus.cancelled];
+    Text caps(String t) => Text(t, style: ClinicText.caps.copyWith(color: AppColors.primarySoft, fontSize: 12));
 
+    Widget stat(String label, String value, {Color? dot, Color color = AppColors.onPrimary, VoidCallback? onTap}) => Material(
+          color: AppColors.onPrimary.withValues(alpha: 0.07),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.onPrimary.withValues(alpha: 0.1))),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  if (dot != null) ...[Container(width: 9, height: 9, decoration: BoxDecoration(color: dot, borderRadius: BorderRadius.circular(3))), const SizedBox(width: 6)],
+                  Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: ClinicText.small.copyWith(color: AppColors.primarySoft, fontWeight: FontWeight.w600))),
+                ]),
+                FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: ClinicText.big(24, color: color))),
+              ]),
+            ),
+          ),
+        );
+
+    return HeroBlock(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+      child: SizedBox(
+        height: 190,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(
+            flex: 13,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              caps('CLINICS BY STATUS'),
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${clinics.length}', style: ClinicText.big(52, color: AppColors.onPrimary)),
+                const SizedBox(width: 12),
+                Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('clinics on Asani', style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted))),
+              ]),
+              const SizedBox(height: 10),
+              SplitBar([for (final s in order) (count(s), clinicStatusBar(s))], height: 16, gap: 3, track: AppColors.onPrimary.withValues(alpha: 0.12)),
+              const Spacer(),
+              Row(children: [
+                for (final (i, s) in order.indexed) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: stat(clinicStatusLabel(s), '${count(s)}', dot: clinicStatusBar(s), onTap: () => context.go('/admin/clinics?status=${s.name}')),
+                  ),
+                ],
+              ]),
+            ]),
+          ),
+          Container(width: 1, margin: const EdgeInsets.symmetric(horizontal: 24), color: AppColors.onPrimary.withValues(alpha: 0.12)),
+          Expanded(
+            flex: 10,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              caps('THIS MONTH · ${DateFormat('MMMM').format(pktNow()).toUpperCase()}'),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text.rich(TextSpan(
+                  text: WebFmt.money(expected),
+                  style: ClinicText.big(38, color: AppColors.onPrimary),
+                  children: [TextSpan(text: '  expected', style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted))],
+                )),
+              ),
+              const SizedBox(height: 12),
+              SplitBar([(collected, AppColors.cream), (expected > collected ? expected - collected : 0, AppColors.onPrimary.withValues(alpha: 0.12))], height: 12),
+              const Spacer(),
+              Row(children: [
+                Expanded(child: stat('Collected', WebFmt.money(collected))),
+                const SizedBox(width: 8),
+                Expanded(child: stat('Pending', WebFmt.money(expected - collected), color: ClinicColors.chartAmber)),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _tile({required IconData icon, required String label, required String value, required String note, Widget? extra, VoidCallback? onTap, bool danger = false}) {
+    final soft = danger ? AppColors.dangerText : AppColors.textSecondary;
+    return Panel(
+      color: danger ? AppColors.dangerContainer : AppColors.surface,
+      borderColor: danger ? AppColors.dangerContainer : AppColors.border,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      onTap: onTap,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        IconTile(icon, size: 38, bg: danger ? AppColors.surface : ClinicColors.tint, fg: danger ? AppColors.danger : AppColors.primary),
+        const SizedBox(height: 8),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.labelMedium.copyWith(fontSize: 13, fontWeight: FontWeight.w700, color: soft)),
+        Text(value, style: ClinicText.big(30, color: danger ? AppColors.dangerText : AppColors.primary)),
+        if (extra != null) ...[const SizedBox(height: 4), extra],
+        const SizedBox(height: 4),
+        Text(note, maxLines: 2, overflow: TextOverflow.ellipsis, style: ClinicText.small.copyWith(color: soft)),
+      ]),
+    );
+  }
+}
 
 /// When the Super Admin last marked new doctors as seen (unseen badge, A-01).
 /// Kept for this browser session; the Firebase version stores it per admin.
@@ -192,41 +257,39 @@ class NewDoctorsCard extends ConsumerWidget {
     rows.sort((a, b) => b.$3.compareTo(a.$3));
     final unseen = rows.where((r) => seen == null || r.$3.isAfter(seen)).length;
 
-    return AppCard(
-      padding: const EdgeInsets.all(Gap.xl),
+    return Panel(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          const IconBox(icon: Icons.medical_services_outlined),
-          const SizedBox(width: Gap.md),
-          Text('New doctors', style: AppText.titleMedium),
-          const SizedBox(width: Gap.sm),
-          if (unseen > 0) Pill(label: '$unseen new', fg: AppColors.onPrimary, bg: AppColors.danger),
-          const Spacer(),
-          Text('Added by clinics · last 7 days', style: AppText.labelSmall),
+          Expanded(child: Text('New doctors · last 7 days', style: ClinicText.cardTitle.copyWith(fontSize: 16))),
           if (unseen > 0) ...[
-            const SizedBox(width: Gap.md),
+            CChip('$unseen unseen', fg: AppColors.infoDark, bg: AppColors.infoContainer),
             TextButton(onPressed: () => ref.read(newDoctorsSeenProvider.notifier).markSeen(), child: const Text('Mark as seen')),
           ],
         ]),
-        const SizedBox(height: Gap.md),
+        const SizedBox(height: 6),
         if (rows.isEmpty)
           Text('No new doctors this week.', style: AppText.bodyMedium)
         else
           for (final (c, d, at) in rows)
             InkWell(
-              borderRadius: BorderRadius.circular(Radii.button),
               onTap: () => context.go('/admin/clinics/${c.id}'),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: Gap.sm, horizontal: Gap.xs),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.cream))),
                 child: Row(children: [
-                  LetterBadge(d.tokenPrefix, size: 32),
-                  const SizedBox(width: Gap.md),
-                  Expanded(child: TwoLine('${d.name} · ${d.specialityEnum.display}', c.clinic.name)),
-                  if (seen == null || at.isAfter(seen)) ...[
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
-                    const SizedBox(width: Gap.sm),
-                  ],
-                  Text(WebFmt.ago(at, now: now), style: AppText.labelSmall),
+                  Av(d.name, size: 36),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Flexible(child: Text(d.name, overflow: TextOverflow.ellipsis, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700))),
+                        if (seen == null || at.isAfter(seen)) ...[const SizedBox(width: 6), const CChip('New', fg: AppColors.infoDark, bg: AppColors.infoContainer, fontSize: 11)],
+                      ]),
+                      Text('${d.specialityEnum.display} · ${c.clinic.name}', overflow: TextOverflow.ellipsis, style: ClinicText.small),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(WebFmt.ago(at, now: now), style: ClinicText.small),
                 ]),
               ),
             ),

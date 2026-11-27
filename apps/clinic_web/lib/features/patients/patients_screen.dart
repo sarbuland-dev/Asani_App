@@ -65,7 +65,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
         else
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (results.isNotEmpty) ...[
-              SizedBox(width: 300, child: _list(query, results)),
+              SizedBox(width: MediaQuery.sizeOf(context).width >= 1360 ? 340 : 270, child: _list(query, results)),
               const SizedBox(width: 18),
             ],
             Expanded(child: PatientDetail(key: ValueKey(selected), clinicId: widget.clinicId, patientId: selected)),
@@ -138,7 +138,7 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              selected ? Av.solid(p.patient.name) : Av(p.patient.name, bg: AppColors.cream),
+              selected ? Av.solid(p.patient.name) : Av(p.patient.name, bg: AppColors.onPrimaryMuted, fg: AppColors.navy),
               const SizedBox(width: 12),
               Expanded(
                 child: TwoLine(p.patient.name, '${p.patient.relation.label} · ${p.patient.age(pktNow()) ?? '—'} ${p.patient.gender.short} · $visits'),

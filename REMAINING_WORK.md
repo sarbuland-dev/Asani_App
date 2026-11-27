@@ -194,6 +194,9 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
 - [ ] Not checked yet: clinic web on Supabase, real printing, the grace / suspended banners, Set password,
       Link to app account, Add doctor dialog, set follow-up dialog, the "PIN locked" view.
 - [ ] Left out until they work (D-53): Send payment proof, Contact support button, Booked from reminder %, Excel export.
+- [x] 2026-11-28 D-58: Super Admin screens rebuilt to the board (UI only). `flutter analyze` clean; viewed in Chrome on demo data at 1440 px.
+- [ ] Not checked yet (Super Admin): saving actions and dialogs, new clinic steps 2-4, Usage tab, 1180 px width, Supabase.
+- [ ] Left out until they work (D-58): invoice numbers, payment proof screenshot, extension reason, reminder email preview, admin password / sign out everywhere, map picker.
 
 ## 13. Move to Supabase (D-52, 2026-11-24)
 Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase prod) and §11 (TTL) are replaced by it.

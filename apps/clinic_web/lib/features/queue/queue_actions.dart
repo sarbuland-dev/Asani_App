@@ -14,15 +14,18 @@ import 'check_in_dialog.dart';
 /// Token actions shared by the Queue Board, token panel, check-in and
 /// patient pages (C-04). The backend validates everything again (BW-1).
 abstract final class QueueActions {
-  /// Actions a role may take on a token in its current status.
+  /// Actions of the token panel for a role and status (D-55, board W-11).
+  /// Check-in is the token code box, calling in order is Next, and there is no
+  /// Recall: a Skipped patient who checks in is called next automatically.
+  /// [TokenAction.callNow] is only the emergency "Call out of turn" link.
   static List<TokenAction> available(QueueToken t, UserRole role) {
     if (!role.canRunQueue) return const [];
     return switch (t.status) {
-      TokenStatus.booked => const [TokenAction.arrive, TokenAction.callNow, TokenAction.hold, TokenAction.cancel, TokenAction.noShow],
-      TokenStatus.arrived => const [TokenAction.callNow, TokenAction.hold, TokenAction.reprint, TokenAction.cancel, TokenAction.noShow],
-      TokenStatus.called => const [TokenAction.skip, TokenAction.hold, TokenAction.reprint],
-      TokenStatus.onHold => const [TokenAction.callNow, TokenAction.backToQueue, TokenAction.cancel, TokenAction.noShow],
-      TokenStatus.skipped => const [TokenAction.callNow, TokenAction.backToQueue, TokenAction.noShow],
+      TokenStatus.booked => const [TokenAction.hold, TokenAction.skip, TokenAction.noShow, TokenAction.cancel, TokenAction.callNow],
+      TokenStatus.arrived => const [TokenAction.reprint, TokenAction.hold, TokenAction.skip, TokenAction.noShow, TokenAction.cancel, TokenAction.callNow],
+      TokenStatus.called => const [TokenAction.reprint, TokenAction.hold, TokenAction.skip],
+      TokenStatus.onHold => const [TokenAction.backToQueue, TokenAction.reprint, TokenAction.noShow, TokenAction.cancel, TokenAction.callNow],
+      TokenStatus.skipped => const [TokenAction.noShow],
       TokenStatus.completed => const [TokenAction.reprint],
       TokenStatus.cancelled || TokenStatus.noShow => const [],
     };
