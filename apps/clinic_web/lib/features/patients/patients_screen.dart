@@ -1,16 +1,20 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import 'patient_profile_screen.dart';
 
-/// W-14 / C-08: search this clinic's patients by phone or name.
+/// W-14 / C-08: search this clinic's patients by phone or name. Profiles on
+/// the left, the picked patient's history on the right.
 class PatientsScreen extends ConsumerStatefulWidget {
-  const PatientsScreen(this.clinicId, {super.key});
+  const PatientsScreen(this.clinicId, {super.key, this.initialPatientId});
   final String clinicId;
+
+  /// Opened on one patient (/patients/:id).
+  final String? initialPatientId;
 
   @override
   ConsumerState<PatientsScreen> createState() => _PatientsScreenState();
@@ -18,6 +22,11 @@ class PatientsScreen extends ConsumerStatefulWidget {
 
 class _PatientsScreenState extends ConsumerState<PatientsScreen> {
   final _q = TextEditingController();
+  late String? _selectedId = widget.initialPatientId;
+
+  /// The search box is filled with the opened patient's phone once, so the
+  /// whole family shows.
+  late bool _prefill = widget.initialPatientId != null;
 
   @override
   void dispose() {
@@ -28,58 +37,116 @@ class _PatientsScreenState extends ConsumerState<PatientsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.watch(repoTickProvider);
+    if (_prefill) {
+      final phone = ref.watch(clinicPatientProvider((widget.clinicId, widget.initialPatientId!)))?.patient.phone;
+      if (phone != null) {
+        _prefill = false;
+        if (_q.text.isEmpty) _q.text = '0${PhoneUtils.formatLocal(PhoneUtils.normalizeLocal(phone))}';
+      }
+    }
     final query = _q.text.trim();
     final results = query.length < 2 ? const <ClinicPatient>[] : ref.read(repositoryProvider).searchPatients(widget.clinicId, query);
-    final shown = results;
+    if (_selectedId == null && results.isNotEmpty) _selectedId = results.first.patient.id;
+    final selected = _selectedId;
 
-    return PageScaffold(
+    return ClinicPage(
       title: 'Patients',
-      subtitle: 'Only patients who visited or booked at this clinic. Visits at other clinics are never shown.',
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(
-          controller: _q,
-          autofocus: true,
-          style: AppText.bodyLarge,
-          decoration: InputDecoration(
-            hintText: 'Search by phone number (0300 1234567) or name',
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: _q.text.isEmpty ? null : IconButton(onPressed: () => setState(_q.clear), icon: const Icon(Icons.close_rounded)),
-          ),
-          onChanged: (_) => setState(() {}),
+      subtitle: 'Only patients who visited or booked at this clinic are shown. Visits at other clinics are never shown.',
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: _searchBox()),
         ),
-        const SizedBox(height: Gap.xl),
-        if (query.length < 2)
+        const SizedBox(height: 18),
+        if (selected == null && query.length < 2)
           const EmptyState(icon: Icons.person_search_rounded, title: 'Find a patient', message: 'Type at least 2 characters of a phone number or name.')
-        else if (shown.isEmpty)
+        else if (selected == null)
           const EmptyState(icon: Icons.search_off_rounded, title: 'No patients found', message: 'No one with this phone or name has visited this clinic.')
         else
-          AppTable(
-            columns: const [
-              TableColumn('Patient', flex: 4),
-              TableColumn('Phone', flex: 3),
-              TableColumn('Relation', flex: 2),
-              TableColumn('Age / Sex', flex: 2),
-              TableColumn('Visits here', flex: 2),
-              TableColumn('Last visit', flex: 2),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (results.isNotEmpty) ...[
+              SizedBox(width: 300, child: _list(query, results)),
+              const SizedBox(width: 18),
             ],
-            onTap: (i) => context.go('/patients/${shown[i].patient.id}'),
-            rows: [
-              for (final p in shown)
-                [
-                  Row(children: [
-                    InitialsAvatar(name: p.patient.name, size: 34, bg: InitialsAvatar.colorsFor(p.patient.relation).$1, fg: InitialsAvatar.colorsFor(p.patient.relation).$2),
-                    const SizedBox(width: Gap.md),
-                    Expanded(child: Text(p.patient.name, style: AppText.labelMedium, overflow: TextOverflow.ellipsis)),
-                  ]),
-                  Text(Fmt.phone(p.patient.phone), style: AppText.bodyMedium),
-                  Text(p.patient.relation.label, style: AppText.bodyMedium),
-                  Text('${p.patient.age(pktNow()) ?? '—'} / ${p.patient.gender.short}', style: AppText.bodyMedium),
-                  Text('${p.visitCount}', style: AppText.labelMedium),
-                  Text(p.lastVisit == null ? '—' : Fmt.shortDay(p.lastVisit!.token.date), style: AppText.bodyMedium),
-                ],
-            ],
+            Expanded(child: PatientDetail(key: ValueKey(selected), clinicId: widget.clinicId, patientId: selected)),
+          ]),
+      ],
+    );
+  }
+
+  Widget _searchBox() {
+    OutlineInputBorder pill() =>
+        OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.pill), borderSide: const BorderSide(color: AppColors.primary, width: 2));
+    return TextField(
+      controller: _q,
+      autofocus: widget.initialPatientId == null,
+      style: AppText.bodyLarge.copyWith(fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: 'Search by phone number (0300 1234567) or name',
+        prefixIcon: const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.search_rounded, color: AppColors.primary)),
+        suffixIcon: _q.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                onPressed: () => setState(() {
+                  _q.clear();
+                  _selectedId = null;
+                }),
+                icon: const Icon(Icons.close_rounded),
+              ),
+        enabledBorder: pill(),
+        focusedBorder: pill(),
+      ),
+      onChanged: (_) => setState(() {
+        _prefill = false;
+        _selectedId = null;
+      }),
+    );
+  }
+
+  Widget _list(String query, List<ClinicPatient> results) {
+    final byPhone = PhoneUtils.isValidLocal(query);
+    final n = results.length;
+    return Panel(
+      radius: 16,
+      padding: const EdgeInsets.all(8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          child: Text(
+            byPhone ? '$n profile${n == 1 ? '' : 's'} on this phone' : '$n patient${n == 1 ? '' : 's'} found',
+            style: AppText.labelSmall.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
           ),
+        ),
+        for (final p in results) _tile(p),
       ]),
+    );
+  }
+
+  Widget _tile(ClinicPatient p) {
+    final selected = p.patient.id == _selectedId;
+    final visits = '${p.visitCount} visit${p.visitCount == 1 ? '' : 's'}';
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? ClinicColors.tint : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => setState(() => _selectedId = p.patient.id),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              selected ? Av.solid(p.patient.name) : Av(p.patient.name, bg: AppColors.cream),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TwoLine(p.patient.name, '${p.patient.relation.label} · ${p.patient.age(pktNow()) ?? '—'} ${p.patient.gender.short} · $visits'),
+              ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

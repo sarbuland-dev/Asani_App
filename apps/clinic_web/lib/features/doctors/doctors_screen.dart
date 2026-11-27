@@ -9,27 +9,6 @@ import '../../data/providers.dart';
 import 'doctor_form_dialog.dart';
 import '../../core/widgets/pin_gate.dart';
 
-/// W-17 / C-11 (D-19): the clinic adds, edits and deactivates its own
-/// doctors and sets leave. Doctors are records only; they never log in.
-class DoctorsScreen extends ConsumerWidget {
-  const DoctorsScreen(this.clinicId, {super.key});
-  final String clinicId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => PageScaffold(
-        title: 'Doctors',
-        subtitle: 'Letters (A, B, C…) are given automatically and never reused.',
-        actions: [
-          FilledButton.icon(
-            onPressed: () => addDoctor(context, ref, clinicId),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Add doctor'),
-          ),
-        ],
-        child: DoctorList(clinicId: clinicId),
-      );
-}
-
 /// Opens the doctor form and saves a new doctor (clinic login only).
 Future<void> addDoctor(BuildContext context, WidgetRef ref, String clinicId) async {
   if (!await requireManagerPin(context, ref, clinicId) || !context.mounted) return; // D-41
@@ -40,8 +19,8 @@ Future<void> addDoctor(BuildContext context, WidgetRef ref, String clinicId) asy
   }
 }
 
-/// Doctor cards. The clinic login can edit, set leave and deactivate; the
-/// Super Admin sees a read-only list with New marks and who changed what (A-03).
+/// Doctor list of the Super Admin's clinic page: read only, with New marks and
+/// who changed what (A-03). The clinic's own page is ClinicDoctorsScreen.
 class DoctorList extends ConsumerWidget {
   const DoctorList({super.key, required this.clinicId});
   final String clinicId;
@@ -153,7 +132,7 @@ class _DoctorCard extends ConsumerWidget {
         if (canManage) ...[
           const SizedBox(width: Gap.md),
           OutlinedButton.icon(
-            onPressed: d.active ? () => _addLeave(context, ref) : null,
+            onPressed: d.active ? () => addDoctorLeave(context, ref, d) : null,
             icon: const Icon(Icons.event_busy_rounded, size: 18),
             label: const Text('Add leave'),
           ),
@@ -170,47 +149,50 @@ class _DoctorCard extends ConsumerWidget {
           ),
           PopupMenuButton<String>(
             tooltip: 'More',
-            onSelected: (_) async {
-              if (d.active) {
-                if (!await requireManagerPin(context, ref, clinicId) || !context.mounted) return; // D-41
-                final ok = await confirmDialog(context,
-                    title: 'Deactivate ${d.name}?', message: 'No new bookings. Visit history is kept. You can reactivate later.', confirmLabel: 'Deactivate', danger: true);
-                if (!ok || !context.mounted) return;
-              }
-              await runAction(context, () => repo.setDoctorActive(d.id, !d.active), success: d.active ? 'Doctor deactivated.' : 'Doctor reactivated.');
-            },
+            onSelected: (_) => toggleDoctorActive(context, ref, d),
             itemBuilder: (_) => [PopupMenuItem(value: 'toggle', child: Text(d.active ? 'Deactivate doctor' : 'Reactivate doctor'))],
           ),
         ],
       ]),
     );
   }
+}
 
-  /// Leave date; existing tokens that day get a warning + bulk cancel.
-  Future<void> _addLeave(BuildContext context, WidgetRef ref) async {
-    final today = parseDayKey(dayKey(pktNow()));
-    final date = await showDatePicker(context: context, firstDate: today, lastDate: today.add(const Duration(days: 180)), helpText: 'Leave date for ${doctor.name}');
-    if (date == null || !context.mounted) return;
-    final repo = ref.read(repositoryProvider);
-    final key = dayKey(date);
-    var tokens = 0;
-    final ok = await runAction(context, () async => tokens = await repo.addLeave(doctor.id, key));
-    if (!ok || !context.mounted) return;
-    if (tokens == 0) {
-      showSnack(context, 'Leave added for ${Fmt.shortDay(key)}. Patients see "On leave".');
-      return;
-    }
-    final reason = await askReason(
-      context,
-      title: '$tokens token${tokens == 1 ? '' : 's'} already booked on ${Fmt.shortDay(key)}',
-      options: const ['Doctor on leave', 'Clinic closed', 'Other'],
-      confirmLabel: 'Cancel $tokens token${tokens == 1 ? '' : 's'}',
-      note: 'Patients who use the Asani app get a notification with this reason.', // D-23
-    );
-    if (reason == null || !context.mounted) {
-      if (context.mounted) showSnack(context, 'Leave added. Existing tokens were kept.');
-      return;
-    }
-    await runAction(context, () => repo.cancelTokensOn(doctor.id, key, reason), success: 'Leave added and $tokens tokens cancelled.');
+/// Leave date; existing tokens that day get a warning + bulk cancel.
+Future<void> addDoctorLeave(BuildContext context, WidgetRef ref, Doctor doctor) async {
+  final today = parseDayKey(dayKey(pktNow()));
+  final date = await showDatePicker(context: context, firstDate: today, lastDate: today.add(const Duration(days: 180)), helpText: 'Leave date for ${doctor.name}');
+  if (date == null || !context.mounted) return;
+  final repo = ref.read(repositoryProvider);
+  final key = dayKey(date);
+  var tokens = 0;
+  final ok = await runAction(context, () async => tokens = await repo.addLeave(doctor.id, key));
+  if (!ok || !context.mounted) return;
+  if (tokens == 0) {
+    showSnack(context, 'Leave added for ${Fmt.shortDay(key)}. Patients see "On leave".');
+    return;
   }
+  final reason = await askReason(
+    context,
+    title: '$tokens token${tokens == 1 ? '' : 's'} already booked on ${Fmt.shortDay(key)}',
+    options: const ['Doctor on leave', 'Clinic closed', 'Other'],
+    confirmLabel: 'Cancel $tokens token${tokens == 1 ? '' : 's'}',
+    note: 'Patients who use the Asani app get a notification with this reason.', // D-23
+  );
+  if (reason == null || !context.mounted) {
+    if (context.mounted) showSnack(context, 'Leave added. Existing tokens were kept.');
+    return;
+  }
+  await runAction(context, () => repo.cancelTokensOn(doctor.id, key, reason), success: 'Leave added and $tokens tokens cancelled.');
+}
+
+/// Deactivate (manager PIN, D-41) or reactivate a doctor.
+Future<void> toggleDoctorActive(BuildContext context, WidgetRef ref, Doctor d) async {
+  if (d.active) {
+    if (!await requireManagerPin(context, ref, d.clinicId) || !context.mounted) return; // D-41
+    final ok = await confirmDialog(context,
+        title: 'Deactivate ${d.name}?', message: 'No new bookings. Visit history is kept. You can reactivate later.', confirmLabel: 'Deactivate', danger: true);
+    if (!ok || !context.mounted) return;
+  }
+  await runAction(context, () => ref.read(repositoryProvider).setDoctorActive(d.id, !d.active), success: d.active ? 'Doctor deactivated.' : 'Doctor reactivated.');
 }

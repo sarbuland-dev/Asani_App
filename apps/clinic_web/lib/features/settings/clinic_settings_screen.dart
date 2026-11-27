@@ -2,14 +2,15 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/links.dart';
-import '../../core/web/print.dart';
-import '../../core/widgets/desktop.dart';
-import '../../core/widgets/qr_view.dart';
+import '../../core/widgets/clinic_kit.dart';
+import '../../core/widgets/pin_gate.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../account/change_password_screen.dart';
+import 'export_card.dart';
 
-/// W-19 / C-13: clinic details, print format, QR standee.
+/// W-18/19 / C-13: clinic details, print format, password, manager PIN and
+/// export. No QR standee (D-51).
 class ClinicSettingsScreen extends ConsumerStatefulWidget {
   const ClinicSettingsScreen(this.clinicId, {super.key});
   final String clinicId;
@@ -36,25 +37,10 @@ class _ClinicSettingsScreenState extends ConsumerState<ClinicSettingsScreen> {
     if (!(_form.currentState?.validate() ?? false)) return;
     await runAction(
       context,
-      () => ref.read(repositoryProvider).updateClinicSettings(widget.clinicId, address: _address!.text.trim(), area: _area!.text.trim(), phone: _phone!.text.trim(), printFormat: _format, location: parseLatLng(_location!.text)),
+      () => ref.read(repositoryProvider).updateClinicSettings(widget.clinicId,
+          address: _address!.text.trim(), area: _area!.text.trim(), phone: _phone!.text.trim(), printFormat: _format, location: parseLatLng(_location!.text)),
       success: 'Settings saved.',
     );
-  }
-
-  void _printStandee(ClinicAccount c) {
-    final qr = qrSvg(AppLinks.clinic(c.id), size: 340, color: '#0F766E');
-    printHtml('''<!doctype html><html><head><meta charset="utf-8"><title>Asani QR</title><style>
-@page { size: A4; margin: 0; }
-body { margin: 0; font-family: Inter, Arial, sans-serif; color: #0F172A; }
-.p { height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
-     background: linear-gradient(135deg, #0F766E, #14B8A6); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.card { background: #fff; border-radius: 32px; padding: 48px 56px; width: 150mm; }
-h1 { font-size: 40px; margin: 0 0 8px; } h2 { font-size: 22px; margin: 0 0 28px; color: #475569; font-weight: 500; }
-.brand { color: #0F766E; font-weight: 800; font-size: 34px; margin-top: 24px; } .s { color: #475569; font-size: 18px; }
-</style></head><body><div class="p"><div class="card">
-<h1>Scan to book your token</h1><h2>${esc(c.clinic.name)} · ${esc(c.clinic.area)}</h2>$qr
-<div class="brand">asani</div><div class="s">No waiting in line. Watch the live queue on your phone.</div>
-</div></div></body></html>''');
   }
 
   @override
@@ -66,118 +52,125 @@ h1 { font-size: 40px; margin: 0 0 8px; } h2 { font-size: 22px; margin: 0 0 28px;
     _phone ??= TextEditingController(text: c.clinic.phone);
     _location ??= TextEditingController(text: c.clinic.location == null ? '' : formatLatLng(c.clinic.location!));
     _format ??= c.printFormat;
+    final canExport = ref.watch(currentUserProvider)?.role.canRunQueue ?? false;
 
-    return PageScaffold(
-      title: 'Clinic settings',
-      actions: [FilledButton.icon(onPressed: _save, icon: const Icon(Icons.save_outlined), label: const Text('Save'))],
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return ClinicPage(title: 'Settings', children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
-          flex: 3,
-          child: Form(
-            key: _form,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              AppCard(
-                padding: const EdgeInsets.all(Gap.xl),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('Clinic details', style: AppText.titleMedium),
-                  const SizedBox(height: Gap.lg),
-                  FieldLabel(
-                    'Clinic name (changed by Asani)',
-                    child: TextFormField(initialValue: c.clinic.name, enabled: false, decoration: const InputDecoration(suffixIcon: Icon(Icons.lock_outline_rounded))),
-                  ),
-                  FieldLabel('Address', child: TextFormField(controller: _address, validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null)),
-                  Row(children: [
-                    Expanded(child: FieldLabel('Area', child: TextFormField(controller: _area, validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null))),
-                    const SizedBox(width: Gap.md),
-                    Expanded(child: FieldLabel('City', child: TextFormField(initialValue: c.clinic.city, enabled: false))),
-                  ]),
-                  // D-31 / BW-12: required, for Directions and "nearest first" in the app.
-                  FieldLabel(
-                    'Map location (required)',
-                    child: TextFormField(
-                      controller: _location,
-                      decoration: const InputDecoration(hintText: '31.4697, 74.2728', helperText: 'Paste a Google Maps link or type "lat, lng".'),
-                      validator: (v) {
-                        final p = parseLatLng(v ?? '');
-                        if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
-                        if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
-                        return null;
-                      },
-                    ),
-                  ),
-                  FieldLabel(
-                    'Phone (shown to patients)',
-                    child: TextFormField(controller: _phone, validator: (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: Gap.lg),
-              AppCard(
-                padding: const EdgeInsets.all(Gap.xl),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Clinic form printing', style: AppText.titleMedium),
-                  Text('Printed on Arrived & Print, walk-ins and Reprint.', style: AppText.bodyMedium),
-                  const SizedBox(height: Gap.lg),
-                  RadioGroup<PrintFormat>(
-                    groupValue: _format,
-                    onChanged: (v) => setState(() => _format = v),
-                    child: Column(children: [
-                      for (final f in PrintFormat.values)
-                        RadioListTile<PrintFormat>(
-                          value: f,
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(f.label, style: AppText.labelLarge),
-                          subtitle: Text(switch (f) {
-                            PrintFormat.thermal80 => 'Small receipt printer, 80 mm paper roll.',
-                            PrintFormat.a5 => 'Half of an A4 page, with a large Rx area.',
-                            PrintFormat.none => 'Nothing is printed.',
-                          }, style: AppText.labelSmall),
-                        ),
-                    ]),
-                  ),
-                ]),
-              ),
-            ]),
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            _details(c),
+            const SizedBox(height: 18),
+            const ChangePasswordCard(),
+          ]),
         ),
-        const SizedBox(width: Gap.xl),
-        Expanded(
-          flex: 2,
-          child: AppCard(
-            padding: EdgeInsets.zero,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              GradientHeader(
-                radius: 0,
-                padding: const EdgeInsets.all(Gap.xl),
-                child: Column(children: [
-                  Text('Scan to book your token', style: AppText.titleLarge.copyWith(color: AppColors.onPrimary)),
-                  Text(c.clinic.name, style: AppText.bodyMedium.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.9))),
-                  const SizedBox(height: Gap.lg),
-                  Container(
-                    padding: const EdgeInsets.all(Gap.lg),
-                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(Radii.card)),
-                    child: QrView(data: AppLinks.clinic(c.id), size: 180, color: AppColors.primary),
-                  ),
-                  const SizedBox(height: Gap.md),
-                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const AsaniMark(size: 28, color: AppColors.onPrimary, plusColor: AppColors.primaryContainer),
-                    Text('asani', style: AppText.titleLarge.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.w800)),
-                  ]),
-                ]),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(Gap.xl),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('Clinic QR standee', style: AppText.titleMedium),
-                  Text('Print it on A4 and keep it at reception, so patients book with the Asani app.', style: AppText.bodyMedium),
-                  const SizedBox(height: Gap.lg),
-                  FilledButton.icon(onPressed: () => _printStandee(c), icon: const Icon(Icons.print_rounded), label: const Text('Print poster (A4)')),
-                ]),
-              ),
-            ]),
-          ),
+        const SizedBox(width: 18),
+        SizedBox(
+          width: 320,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            ManagerPinCard(clinicId: widget.clinicId), // D-41
+            if (canExport) ...[const SizedBox(height: 18), ExportCard(clinicId: widget.clinicId)],
+          ]),
         ),
       ]),
+    ]);
+  }
+
+  Widget _details(ClinicAccount c) {
+    Widget field(String label, TextEditingController controller, String? Function(String?) validator, {String? help}) => Expanded(
+          child: LabeledField(label, help: help, child: TextFormField(controller: controller, validator: validator)),
+        );
+    String? required(String? v) => (v ?? '').trim().isEmpty ? 'Required' : null;
+
+    return Panel(
+      child: Form(
+        key: _form,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Clinic details', style: ClinicText.cardTitle),
+          const SizedBox(height: 16),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: LabeledField(
+                'Clinic name',
+                help: 'Changed by Asani support',
+                child: TextFormField(
+                  initialValue: c.clinic.name,
+                  enabled: false,
+                  style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary),
+                  decoration: const InputDecoration(fillColor: ClinicColors.quiet),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            field('Phone (shown to patients)', _phone!, (v) => (v ?? '').replaceAll(RegExp(r'[^0-9]'), '').length < 9 ? 'Enter a valid phone' : null),
+          ]),
+          const SizedBox(height: 14),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            field('Address', _address!, required),
+            const SizedBox(width: 14),
+            field('Area', _area!, required, help: 'City: ${c.clinic.city} (changed by Asani support)'),
+          ]),
+          const SizedBox(height: 14),
+          // D-31 / BW-12: required, for Directions and "nearest first" in the app.
+          LabeledField(
+            'Map location',
+            required: true,
+            help: 'Paste a Google Maps link or type "lat, lng". Used for Directions and "nearest first".',
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const _DrawnMap(),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _location,
+                decoration: const InputDecoration(hintText: '31.4697, 74.2728', prefixIcon: Icon(Icons.place_outlined, size: 20)),
+                validator: (v) {
+                  final p = parseLatLng(v ?? '');
+                  if (p == null) return 'Paste a Google Maps link or type "lat, lng"';
+                  if (!inPakistan(p)) return 'This location is not in Pakistan. Check the numbers.';
+                  return null;
+                },
+              ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          LabeledField(
+            'Print format',
+            help: switch (_format!) {
+              PrintFormat.thermal80 => 'Small receipt printer, 80 mm paper roll. Printed on Arrived & Print, walk-ins and Reprint.',
+              PrintFormat.a5 => 'Half of an A4 page, with a large Rx area. Printed on Arrived & Print, walk-ins and Reprint.',
+              PrintFormat.none => 'Nothing is printed.',
+            },
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedPill<PrintFormat>(
+                values: PrintFormat.values,
+                selected: _format!,
+                label: (f) => f == PrintFormat.none ? 'None' : f.label,
+                onChanged: (f) => setState(() => _format = f),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(alignment: Alignment.centerRight, child: FilledButton(onPressed: _save, child: const Text('Save changes'))),
+        ]),
+      ),
     );
   }
+}
+
+/// Decoration only: a drawn map tile with a pin (D-43: no map library).
+class _DrawnMap extends StatelessWidget {
+  const _DrawnMap();
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+        child: Container(
+          height: 110,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(color: ClinicColors.creamDeep, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+          child: Stack(alignment: Alignment.center, children: [
+            const Positioned(left: 0, right: 0, top: 62, height: 12, child: ColoredBox(color: ClinicColors.page)),
+            const Align(alignment: Alignment(-0.1, 0), child: SizedBox(width: 12, height: double.infinity, child: ColoredBox(color: ClinicColors.page))),
+            Align(alignment: const Alignment(-0.1, -0.35), child: Icon(Icons.location_on_rounded, size: 40, color: AppColors.primary)),
+          ]),
+        ),
+      );
 }

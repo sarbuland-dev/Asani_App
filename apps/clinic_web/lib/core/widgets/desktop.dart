@@ -324,7 +324,8 @@ class AppDialog extends StatelessWidget {
           if (actions.isNotEmpty)
             Container(
               padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.md, Gap.xl, Gap.lg),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+              // From the theme: the clinic and the admin screens use different palettes.
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerTheme.color ?? AppColors.border))),
               child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 for (var i = 0; i < actions.length; i++) ...[if (i > 0) const SizedBox(width: Gap.sm), actions[i]],
               ]),

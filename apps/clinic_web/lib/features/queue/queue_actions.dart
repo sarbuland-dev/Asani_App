@@ -2,8 +2,9 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/errors/app_exception.dart';
 import '../../core/net/connectivity.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
@@ -95,7 +96,19 @@ abstract final class QueueActions {
         break;
     }
     if (!context.mounted) return false;
-    final done = await runAction(context, () => repo.tokenAction(t.id, a, reason: reason));
+    final bool done;
+    if (a == TokenAction.arrive) {
+      // W-24: the check-in dialog shows the loader in its own button.
+      try {
+        await repo.tokenAction(t.id, a, reason: reason);
+        done = true;
+      } catch (e) {
+        if (context.mounted) showSnack(context, AppException.messageOf(e));
+        return false;
+      }
+    } else {
+      done = await runAction(context, () => repo.tokenAction(t.id, a, reason: reason));
+    }
     if (!done) return false;
     if (a == TokenAction.arrive || a == TokenAction.reprint) {
       printForm(ref, repo.tokenById(t.id) ?? t, context: context.mounted ? context : null);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,13 +8,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/net/connectivity.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../doctors/doctors_screen.dart';
 import 'check_in_dialog.dart';
+import 'now_serving.dart';
 import 'queue_actions.dart';
+import 'queue_stats.dart';
 import 'token_panel.dart';
 import 'walk_in_dialog.dart';
 
@@ -20,9 +24,9 @@ enum _NotArrivedChoice { skip, callAnyway }
 
 enum _Filter {
   all('All'),
-  arrived('Arrived only'),
-  app('App bookings'),
-  walkIn('Walk-ins');
+  arrived('Arrived'),
+  app('App'),
+  walkIn('Walk-in');
 
   const _Filter(this.label);
   final String label;
@@ -50,6 +54,10 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
   bool _showDone = false;
   bool _nextBusy = false;
 
+  /// W-24: "Calling A-11…" appears only if the call takes more than a moment.
+  String? _calling;
+  Timer? _callingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +67,7 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
+    _callingTimer?.cancel();
     _focus.dispose();
     super.dispose();
   }
@@ -114,14 +123,14 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
       return;
     }
     setState(() => _nextBusy = true);
+    final expected = _nextUpOf(ref.read(todayTokensProvider(widget.clinicId)).where((t) => t.token.doctorId == doctorId).toList());
+    _callingTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _calling = expected == null ? 'Calling…' : 'Calling ${expected.label}…');
+    });
     final repo = ref.read(repositoryProvider);
     NotArrived? notArrived;
     try {
-      final called = await showBusyWhile(
-        context,
-        () => repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived),
-        message: 'Calling the next patient…',
-      );
+      final called = await repo.next(widget.clinicId, doctorId, callNotArrived: callNotArrived);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -135,7 +144,13 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     } catch (e) {
       if (mounted) showSnack(context, AppException.messageOf(e));
     } finally {
-      if (mounted) setState(() => _nextBusy = false);
+      _callingTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _nextBusy = false;
+          _calling = null;
+        });
+      }
     }
     if (notArrived != null && mounted) await _askNotArrived(doctorId, notArrived);
   }
@@ -217,451 +232,496 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
     final list = all.where((t) => t.token.doctorId == doctor.id).toList()..sort((a, b) => a.number.compareTo(b.number));
     final readOnly = widget.readOnly || !clinic.status.acceptsBookings;
 
-    return Focus(
+    final board = Focus(
       focusNode: _focus,
       autofocus: true,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => _focus.requestFocus(),
-        // The token panel slides over the list, so the board keeps its width.
-        child: Stack(children: [
-          Positioned.fill(
-            child: ListView(padding: const EdgeInsets.fromLTRB(Gap.xxl, Gap.xl, Gap.xxl, Gap.xxl), children: [
-              _toolbar(user, clinic, readOnly),
-              const SizedBox(height: Gap.lg),
-              if (doctors.length > 1 || widget.readOnly) ...[_doctorTabs(doctors, all), const SizedBox(height: Gap.lg)],
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(width: 320, child: _leftColumn(doctor, list, user, readOnly)),
-                const SizedBox(width: Gap.xl),
-                Expanded(child: _waitingList(doctor, list, user, readOnly)),
-              ]),
-            ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _topBar(user, clinic, readOnly),
+          Expanded(
+            child: LayoutBuilder(builder: (context, box) {
+              // Wide screens: the token panel sits beside the board. Narrow
+              // ones: it slides over, so the table keeps its width.
+              final beside = box.maxWidth >= 1150;
+              final panel = _selectedTokenId == null
+                  ? null
+                  : TokenPanel(tokenId: _selectedTokenId!, readOnly: readOnly, onClose: () => setState(() => _selectedTokenId = null));
+              final column = ListView(
+                padding: EdgeInsets.fromLTRB(24, 18, panel != null && beside ? 16 : 24, 24),
+                children: [
+                  _doctorCards(doctors, all),
+                  const SizedBox(height: 14),
+                  ..._doctorBoard(doctor, list, user, readOnly),
+                ],
+              );
+              if (panel == null) return column;
+              if (beside) {
+                return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Expanded(child: column), panel]);
+              }
+              return Stack(children: [
+                Positioned.fill(child: column),
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  child: Material(
+                    elevation: 12,
+                    shadowColor: AppColors.navy.withValues(alpha: 0.4),
+                    child: ColoredBox(color: ClinicColors.page, child: Padding(padding: const EdgeInsets.only(left: 16), child: panel)),
+                  ),
+                ),
+              ]);
+            }),
           ),
-          if (_selectedTokenId != null)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              child: Material(
-                elevation: 12,
-                shadowColor: AppColors.textPrimary.withValues(alpha: 0.3),
-                child: TokenPanel(tokenId: _selectedTokenId!, readOnly: readOnly, onClose: () => setState(() => _selectedTokenId = null)),
+        ]),
+      ),
+    );
+    // The Super Admin opens this board read only inside their own screens.
+    return widget.readOnly ? ClinicThemed(child: ColoredBox(color: ClinicColors.page, child: board)) : board;
+  }
+
+  // ---------------------------------------------------------------- top bar
+
+  Widget _topBar(UserAccount user, ClinicAccount clinic, bool readOnly) {
+    final today = ref.watch(todayProvider).value ?? dayKey(pktNow());
+    final canType = user.role.canRunQueue && !widget.readOnly;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: const BoxDecoration(color: AppColors.background, border: Border(bottom: BorderSide(color: AppColors.border))),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Queue board', style: ClinicText.pageTitle.copyWith(fontSize: 22)),
+            Row(children: [
+              const LiveDot(),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  widget.readOnly ? '${clinic.clinic.name} · read-only view' : 'Live · ${Fmt.longDay(today)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: ClinicText.small,
+                ),
+              ),
+            ]),
+          ]),
+        ),
+        if (canType) ...[
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 320,
+            child: Tooltip(
+              message: 'Shortcut: /',
+              child: Panel(
+                radius: ClinicRadii.control,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                onTap: _openCheckIn,
+                child: Row(children: [
+                  const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('Enter token code to check in', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyMedium)),
+                  const Kbd('/'),
+                ]),
               ),
             ),
+          ),
+          const SizedBox(width: 14),
+          Tooltip(
+            message: 'Shortcut: W',
+            child: FilledButton.icon(
+              onPressed: readOnly ? null : _openWalkIn,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Walk-in'), SizedBox(width: 10), Kbd('W', onDark: true)]),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  // ----------------------------------------------------------- doctor cards
+
+  Widget _doctorCards(List<Doctor> doctors, List<QueueToken> all) {
+    return LayoutBuilder(builder: (context, box) {
+      // Up to three cards share the row; more of them scroll sideways.
+      final fit = doctors.length <= 3 && box.maxWidth / doctors.length >= 230;
+      final width = fit ? (box.maxWidth - 10 * (doctors.length - 1)) / doctors.length : 280.0;
+      final cards = Row(children: [
+        for (final (i, d) in doctors.indexed) ...[
+          if (i > 0) const SizedBox(width: 10),
+          SizedBox(width: width, child: _doctorCard(d, all.where((t) => t.token.doctorId == d.id).toList(), narrow: width < 270)),
+        ],
+      ]);
+      return fit ? cards : SingleChildScrollView(scrollDirection: Axis.horizontal, child: cards);
+    });
+  }
+
+  Widget _doctorCard(Doctor d, List<QueueToken> mine, {required bool narrow}) {
+    final day = ref.watch(queueDayProvider((widget.clinicId, d.id)));
+    final selected = d.id == _doctorId;
+    final onLeave = d.onLeave(pktNow());
+    final schedule = d.scheduleOn(pktNow());
+    final completed = mine.where((t) => t.status == TokenStatus.completed).length;
+    final total = mine.where((t) => t.status != TokenStatus.cancelled).length;
+    final booked = mine.where((t) => t.status.isActive).length;
+
+    final Widget chip;
+    if (onLeave) {
+      chip = const CChip.red('On leave', dot: false);
+    } else {
+      chip = switch (day.sessionStatus) {
+        SessionStatus.running => const CChip.green('Running'),
+        SessionStatus.paused => const CChip.amber('Paused'),
+        SessionStatus.ended => const CChip('Ended'),
+        SessionStatus.notStarted => CChip(schedule == null ? 'Off today' : 'Starts ${Fmt.time(schedule.start)}'),
+      };
+    }
+    final started = day.sessionStatus != SessionStatus.notStarted;
+    final detail = started
+        ? '$completed of $total seen${schedule == null ? '' : ' · ${Fmt.timeRangeShort(schedule)}'}'
+        : '$booked booked · ${d.specialityEnum.display}';
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Panel(
+        radius: 16,
+        borderColor: selected ? AppColors.primary : AppColors.border,
+        borderWidth: selected ? 2 : 1,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        onTap: () => setState(() {
+          _doctorId = d.id;
+          _selectedTokenId = null;
+        }),
+        child: Row(children: [
+          selected ? Av.solid(d.name, size: 38) : Av(d.name, size: 38, bg: AppColors.cream),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(d.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700))),
+                if (!narrow) ...[const SizedBox(width: 6), chip],
+              ]),
+              if (narrow) ...[const SizedBox(height: 4), chip],
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: total == 0 || !started ? 0 : completed / total,
+                  minHeight: 5,
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.cream,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis, style: ClinicText.small),
+            ]),
+          ),
         ]),
       ),
     );
   }
 
-  // ---------------------------------------------------------------- toolbar
+  // ------------------------------------------------------- selected doctor
 
-  Widget _toolbar(UserAccount user, ClinicAccount clinic, bool readOnly) {
-    return Row(children: [
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Queue Board', style: AppText.displaySmall.copyWith(fontSize: 26)),
-        Text(widget.readOnly ? '${clinic.clinic.name} · read-only view' : 'Live: updates on patients\' phones within seconds', style: AppText.bodyMedium),
-      ]),
-      const SizedBox(width: Gap.xl),
-      if (user.role.canRunQueue && !widget.readOnly)
-        Expanded(
-          child: Tooltip(
-            message: 'Shortcut: /',
-            child: Material(
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.button), side: const BorderSide(color: AppColors.primary, width: 1.4)),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Radii.button),
-                onTap: _openCheckIn,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: 14),
-                  child: Row(children: [
-                    const Icon(Icons.confirmation_number_outlined, color: AppColors.primary),
-                    const SizedBox(width: Gap.md),
-                    Expanded(child: Text('Enter token code to check in…', style: AppText.bodyLarge.copyWith(color: AppColors.textMuted))),
-                    const _Kbd('/'),
-                  ]),
-                ),
-              ),
-            ),
-          ),
-        )
-      else
-        const Spacer(),
-      if (user.role.canRunQueue && !widget.readOnly) ...[
-        const SizedBox(width: Gap.md),
-        Tooltip(
-          message: 'Shortcut: W',
-          child: FilledButton.icon(
-            onPressed: readOnly ? null : _openWalkIn,
-            icon: const Icon(Icons.person_add_alt_1_rounded),
-            label: const Text('Walk-in'),
-          ),
-        ),
-      ],
-    ]);
+  /// Waiting order as Next calls it: re-checked-in Skipped patients first
+  /// (D-24/D-35, oldest check-in first), then the queue number.
+  static int _queueOrder(QueueToken a, QueueToken b) {
+    final an = a.token.isNextUp, bn = b.token.isNextUp;
+    if (an && bn) return a.token.priorityAt!.compareTo(b.token.priorityAt!);
+    if (an) return -1;
+    if (bn) return 1;
+    return a.number.compareTo(b.number);
   }
 
-  Widget _doctorTabs(List<Doctor> doctors, List<QueueToken> all) {
-    return SizedBox(
-      height: 76,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: doctors.length,
-        separatorBuilder: (_, _) => const SizedBox(width: Gap.md),
-        itemBuilder: (context, i) {
-          final d = doctors[i];
-          final day = ref.watch(queueDayProvider((widget.clinicId, d.id)));
-          final waiting = all.where((t) => t.token.doctorId == d.id && t.status.isWaiting).length;
-          final selected = d.id == _doctorId;
-          final onLeave = d.onLeave(pktNow());
-          return SizedBox(
-            width: 280,
-            child: AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-              color: selected ? AppColors.primaryContainer.withValues(alpha: 0.55) : AppColors.surface,
-              borderColor: selected ? AppColors.primary : AppColors.border,
-              onTap: () => setState(() {
-                _doctorId = d.id;
-                _selectedTokenId = null;
-              }),
-              child: Row(children: [
-                LetterBadge(d.tokenPrefix, size: 40),
-                const SizedBox(width: Gap.md),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(d.name, style: AppText.labelLarge, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      if (onLeave)
-                        const Pill(label: 'On leave', fg: AppColors.danger, bg: AppColors.dangerContainer, dot: true)
-                      else
-                        SessionPill(day.sessionStatus),
-                      const SizedBox(width: Gap.sm),
-                      Text('$waiting waiting', style: AppText.labelSmall),
-                    ]),
-                  ]),
-                ),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  /// The tokens Next can pick, in order.
+  static List<QueueToken> _comingUp(List<QueueToken> list) =>
+      list.where((t) => t.token.isNextUp || t.status == TokenStatus.booked || t.status == TokenStatus.arrived).toList()..sort(_queueOrder);
 
-  // ---------------------------------------------------------- left column
+  static QueueToken? _nextUpOf(List<QueueToken> list) => _comingUp(list).firstOrNull;
 
-  Widget _leftColumn(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
+  List<Widget> _doctorBoard(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
     final day = ref.watch(queueDayProvider((widget.clinicId, d.id)));
     final called = list.where((t) => t.status == TokenStatus.called).firstOrNull;
-    final schedule = d.scheduleOn(pktNow());
-    final online = ref.watch(isOnlineProvider);
-    final canAct = !readOnly && online;
-    final canUndo = ref.watch(repositoryProvider).canUndoNext(d.id);
-    if (canUndo) ref.watch(secondTickerProvider); // re-check the 30 s window
+    final coming = _comingUp(list);
     final completed = list.where((t) => t.status == TokenStatus.completed).toList();
-    final waits = completed.map((t) => t.waitMinutes).whereType<int>().toList();
-    final avg = waits.isEmpty ? null : waits.reduce((a, b) => a + b) / waits.length;
+    final total = list.where((t) => t.status != TokenStatus.cancelled).length;
+    final online = ref.watch(isOnlineProvider);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(Radii.card),
-        child: GradientHeader(
-          radius: 0,
-          gradient: called != null ? AppColors.headerGradient : const LinearGradient(colors: [AppColors.navy, AppColors.primary]),
-          padding: const EdgeInsets.all(Gap.xl),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              LetterBadge(d.tokenPrefix, inverted: true),
-              const SizedBox(width: Gap.md),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(d.name, style: AppText.labelLarge.copyWith(color: AppColors.onPrimary), overflow: TextOverflow.ellipsis),
-                  Text(schedule == null ? 'Not scheduled today' : '${d.specialityEnum.display} · ${Fmt.timeRange(schedule)}',
-                      style: AppText.labelSmall.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.85)), overflow: TextOverflow.ellipsis),
-                ]),
-              ),
-              SessionPill(day.sessionStatus),
-            ]),
-            const SizedBox(height: Gap.xl),
-            Text('NOW SERVING', style: AppText.overline.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.8))),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(called?.label ?? '—', key: ValueKey(called?.label), style: AppText.tokenDisplay.copyWith(color: AppColors.onPrimary, fontSize: 80)),
-            ),
-            Text(called?.token.patientSnapshot.name ?? (day.sessionStatus == SessionStatus.running ? 'Press Next to call a patient' : 'No one called yet'),
-                style: AppText.titleMedium.copyWith(color: AppColors.onPrimary)),
-            const SizedBox(height: Gap.xl),
-            if (user.role.canRunQueue)
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.onPrimary,
-                    foregroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.onPrimary.withValues(alpha: 0.35),
-                    disabledForegroundColor: AppColors.onPrimary,
-                    textStyle: AppText.titleMedium.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  onPressed: canAct && day.sessionStatus == SessionStatus.running && !_nextBusy ? () => _next(d.id) : null,
-                  icon: const Icon(Icons.skip_next_rounded, size: 28),
-                  label: const Text('Next  (N)'),
-                ),
-              ),
-            if (canUndo && !readOnly)
-              Center(
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(foregroundColor: AppColors.onPrimary),
-                  onPressed: () => runAction(context, () => ref.read(repositoryProvider).undoNext(d.id), success: 'Last Next undone.'),
-                  icon: const Icon(Icons.undo_rounded, size: 18),
-                  label: const Text('Undo last Next'),
-                ),
-              ),
-          ]),
-        ),
+    return [
+      NowServing(
+        doctor: d,
+        day: day,
+        called: called,
+        upcoming: coming.take(3).toList(),
+        nextUpId: coming.firstOrNull?.id,
+        done: completed.length,
+        total: total,
+        onOpenToken: (t) => setState(() => _selectedTokenId = t.id),
+        onFollowUp: called != null && user.role.canRunQueue && !readOnly ? () => showFollowUpDialog(context, ref, called) : null,
+        actions: user.role.canRunQueue && !widget.readOnly ? _heroActions(d, day, list, !readOnly && online, readOnly) : null,
       ),
-      if (user.role.canRunQueue && !widget.readOnly) ...[
-        const SizedBox(height: Gap.md),
-        _sessionControls(d, day, list, canAct),
-      ],
-      if (called != null && user.role.canRunQueue && !readOnly) ...[
-        const SizedBox(height: Gap.sm),
-        OutlinedButton.icon(
-          onPressed: () => showFollowUpDialog(context, ref, called),
-          icon: const Icon(Icons.event_repeat_rounded, size: 18),
-          label: Text('Set follow-up for ${called.label}'),
-        ),
-      ],
-      const SizedBox(height: Gap.md),
-      Row(children: [
-        Expanded(child: StatTile(label: 'Waiting', value: '${list.where((t) => t.status.isWaiting).length}', big: false)),
-        const SizedBox(width: Gap.sm),
-        Expanded(
-          child: StatTile(label: 'Arrived', value: '${list.where((t) => t.status == TokenStatus.arrived).length}', big: false, bg: AppColors.successContainer, fg: AppColors.success),
-        ),
-      ]),
-      const SizedBox(height: Gap.sm),
-      Row(children: [
-        Expanded(child: StatTile(label: 'Completed', value: '${completed.length}', big: false, bg: AppColors.infoContainer, fg: AppColors.info)),
-        const SizedBox(width: Gap.sm),
-        Expanded(child: StatTile(label: 'Avg wait', value: WebFmt.minutes(avg), big: false, bg: AppColors.muted, fg: AppColors.textPrimary)),
-      ]),
-      const SizedBox(height: Gap.md),
-      Text('Patients get "3, 2, 1 ahead" and "Your turn" alerts automatically.', style: AppText.labelSmall, textAlign: TextAlign.center),
-    ]);
+      const SizedBox(height: 14),
+      QueueStats(
+        waiting: list.where((t) => t.status.isWaiting).toList(),
+        completed: completed,
+        total: total,
+        nextUp: coming.firstOrNull,
+      ),
+      const SizedBox(height: 14),
+      _waitingList(d, list, user, readOnly),
+      const SizedBox(height: 10),
+      Text('Patients get "3, 2, 1 ahead" and "Your turn" alerts automatically.', style: ClinicText.small, textAlign: TextAlign.center),
+    ];
   }
 
-  Widget _sessionControls(Doctor d, QueueDay day, List<QueueToken> list, bool canAct) {
+  /// Next, Undo, Start / Pause / Resume and End.
+  Widget _heroActions(Doctor d, QueueDay day, List<QueueToken> list, bool canAct, bool readOnly) {
     final s = day.sessionStatus;
-    return AppCard(
-      padding: const EdgeInsets.all(Gap.md),
-      child: Row(children: [
-        Text('Session', style: AppText.labelMedium),
-        const Spacer(),
-        if (s == SessionStatus.notStarted || s == SessionStatus.paused)
-          FilledButton.icon(
-            onPressed: canAct ? () => _session(d, SessionAction.start, list) : null,
-            icon: const Icon(Icons.play_arrow_rounded, size: 20),
-            label: Text(s == SessionStatus.paused ? 'Resume' : 'Start'),
-          ),
-        if (s == SessionStatus.running)
-          OutlinedButton.icon(
-            onPressed: canAct ? () => _session(d, SessionAction.pause, list) : null,
-            icon: const Icon(Icons.pause_rounded, size: 20),
-            label: const Text('Pause'),
-          ),
-        if (s == SessionStatus.running || s == SessionStatus.paused) ...[
-          const SizedBox(width: Gap.sm),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
-            onPressed: canAct ? () => _session(d, SessionAction.end, list) : null,
-            icon: const Icon(Icons.stop_rounded, size: 20),
-            label: const Text('End'),
-          ),
-        ],
-        if (s == SessionStatus.ended) Text('Ended for today', style: AppText.bodyMedium),
-      ]),
+    final running = s == SessionStatus.running;
+    final canUndo = ref.watch(repositoryProvider).canUndoNext(d.id);
+    if (canUndo) ref.watch(secondTickerProvider); // re-check the 30 s window
+    final busy = _nextBusy;
+    final startIsMain = s == SessionStatus.notStarted || s == SessionStatus.paused;
+
+    ButtonStyle style({required bool main}) => FilledButton.styleFrom(
+          backgroundColor: main ? AppColors.cream : AppColors.onPrimary.withValues(alpha: 0.1),
+          foregroundColor: main ? AppColors.primary : AppColors.onPrimary,
+          disabledBackgroundColor: AppColors.onPrimary.withValues(alpha: main ? 0.25 : 0.06),
+          disabledForegroundColor: AppColors.onPrimary.withValues(alpha: 0.5),
+          side: main ? null : BorderSide(color: AppColors.onPrimary.withValues(alpha: 0.16)),
+          minimumSize: const Size(0, 52),
+          textStyle: AppText.labelLarge.copyWith(fontWeight: FontWeight.w700, fontSize: main ? 16 : 14),
+        );
+
+    final next = FilledButton(
+      // While it is calling, the button keeps its look and cannot be pressed twice.
+      style: _calling != null
+          ? style(main: true).copyWith(
+              backgroundColor: const WidgetStatePropertyAll(AppColors.cream),
+              foregroundColor: const WidgetStatePropertyAll(AppColors.primary),
+            )
+          : style(main: !startIsMain),
+      onPressed: canAct && running && !busy ? () => _next(d.id) : null,
+      child: BusyLabel(
+        busy: _calling != null,
+        busyText: _calling ?? '',
+        color: AppColors.primary,
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Next patient'), SizedBox(width: 8), Kbd('N')]),
+      ),
     );
+
+    return Row(children: [
+      if (startIsMain) ...[
+        Expanded(
+          child: FilledButton.icon(
+            style: style(main: true),
+            onPressed: canAct && !busy ? () => _session(d, SessionAction.start, list) : null,
+            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+            label: Text(s == SessionStatus.paused ? 'Resume session' : 'Start session'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        next,
+      ] else if (s == SessionStatus.ended)
+        Expanded(child: Text('Session ended for today', style: AppText.labelLarge.copyWith(color: AppColors.onPrimaryMuted)))
+      else
+        Expanded(child: next),
+      if (canUndo && !readOnly) ...[
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          style: style(main: false),
+          onPressed: busy ? null : () => runAction(context, () => ref.read(repositoryProvider).undoNext(d.id), success: 'Last Next undone.'),
+          icon: const Icon(Icons.undo_rounded, size: 18),
+          label: const Text('Undo'),
+        ),
+      ],
+      if (running) ...[
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          style: style(main: false),
+          onPressed: canAct && !busy ? () => _session(d, SessionAction.pause, list) : null,
+          icon: const Icon(Icons.pause_rounded, size: 18),
+          label: const Text('Pause'),
+        ),
+      ],
+      if (running || s == SessionStatus.paused) ...[
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          style: style(main: false),
+          onPressed: canAct && !busy ? () => _session(d, SessionAction.end, list) : null,
+          icon: const Icon(Icons.stop_rounded, size: 18),
+          label: const Text('End'),
+        ),
+      ],
+    ]);
   }
 
   // --------------------------------------------------------- waiting list
 
   Widget _waitingList(Doctor d, List<QueueToken> list, UserAccount user, bool readOnly) {
     bool done(QueueToken t) => t.status == TokenStatus.completed || t.status == TokenStatus.cancelled || t.status == TokenStatus.noShow;
-    final active = list.where((t) => !done(t)).toList()
-      ..sort((a, b) {
-        // Called first, then re-checked-in Skipped patients (D-24/D-35, the
-        // order Next calls them: oldest check-in first), then queue order.
-        if (a.status == TokenStatus.called) return -1;
-        if (b.status == TokenStatus.called) return 1;
-        final an = a.token.isNextUp, bn = b.token.isNextUp;
-        if (an && bn) return a.token.priorityAt!.compareTo(b.token.priorityAt!);
-        if (an) return -1;
-        if (bn) return 1;
-        return a.number.compareTo(b.number);
-      });
+    // The called patient is shown in "Now serving", not in the list.
+    final active = list.where((t) => !done(t) && t.status != TokenStatus.called).toList()..sort(_queueOrder);
     final finished = list.where(done).toList()..sort((a, b) => b.number.compareTo(a.number));
-    var shown = _showDone ? finished : active;
-    shown = shown.where((t) => switch (_filter) {
+    bool matches(QueueToken t, _Filter f) => switch (f) {
           _Filter.all => true,
           _Filter.arrived => t.status == TokenStatus.arrived,
           _Filter.app => t.source == TokenSource.app,
           _Filter.walkIn => t.source == TokenSource.walkIn,
-        }).toList();
+        };
+    final source = _showDone ? finished : active;
+    final shown = source.where((t) => matches(t, _filter)).toList();
+    final nextUpId = _nextUpOf(list)?.id;
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        _segment('Waiting (${active.length})', !_showDone, () => setState(() => _showDone = false)),
-        const SizedBox(width: Gap.sm),
-        _segment('Done today (${finished.length})', _showDone, () => setState(() => _showDone = true)),
-      ]),
-      const SizedBox(height: Gap.sm),
-      Wrap(spacing: Gap.xs, runSpacing: Gap.xs, children: [
-        for (final f in _Filter.values) ChoiceChip(label: Text(f.label), selected: _filter == f, onSelected: (_) => setState(() => _filter = f)),
-      ]),
-      const SizedBox(height: Gap.md),
-      AppCard(
-        padding: EdgeInsets.zero,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Container(
-            color: AppColors.muted,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-            child: Row(children: [
-              _h('TOKEN', 2),
-              _h('PATIENT', 5),
-              _h('STATUS', 3),
-              _h(_showDone ? 'WAITED' : 'BOOKED', 2),
-              const SizedBox(width: 170),
-            ]),
-          ),
-          if (shown.isEmpty)
+    return Panel(
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
-              padding: const EdgeInsets.all(Gap.lg),
-              child: EmptyState(
-                icon: _showDone ? Icons.task_alt_rounded : Icons.event_seat_outlined,
-                title: _showDone ? 'Nothing finished yet' : 'No one waiting',
-                message: _showDone ? 'Completed, cancelled and no-show tokens appear here.' : 'New app bookings and walk-ins appear here automatically.',
-              ),
+              padding: const EdgeInsets.only(top: 5),
+              child: Text('${_showDone ? 'Done today' : 'Waiting list'} · ${d.name}', style: AppText.titleSmall.copyWith(fontWeight: FontWeight.w800)),
             ),
-          for (var i = 0; i < shown.length; i++) ...[
-            if (i > 0) const Divider(),
-            _row(shown[i], user, readOnly),
-          ],
-        ]),
-      ),
-    ]);
-  }
-
-  Widget _segment(String label, bool selected, VoidCallback onTap) => Material(
-        color: selected ? AppColors.textPrimary : AppColors.surface,
-        shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.textPrimary : AppColors.border)),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: 10),
-            child: Text(label, style: AppText.labelMedium.copyWith(color: selected ? AppColors.onPrimary : AppColors.textPrimary)),
-          ),
-        ),
-      );
-
-  Widget _h(String text, int flex) => Expanded(flex: flex, child: Text(text, style: AppText.overline.copyWith(fontSize: 11, letterSpacing: 0.8)));
-
-  Widget _row(QueueToken t, UserAccount user, bool readOnly) {
-    final s = t.token.patientSnapshot;
-    final age = s.age();
-    final selected = t.id == _selectedTokenId;
-    final isCalled = t.status == TokenStatus.called;
-    final online = ref.watch(isOnlineProvider);
-    final actions = readOnly ? const <TokenAction>[] : QueueActions.available(t, user.role);
-    final quick = actions.where((a) => a == TokenAction.arrive || a == TokenAction.callNow).firstOrNull;
-
-    return Material(
-      color: selected ? AppColors.primaryContainer.withValues(alpha: 0.45) : (isCalled ? AppColors.infoContainer.withValues(alpha: 0.6) : AppColors.surface),
-      child: InkWell(
-        onTap: () => setState(() => _selectedTokenId = selected ? null : t.id),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.md),
-          child: Row(children: [
+            const SizedBox(width: 12),
             Expanded(
-              flex: 2,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(t.label, style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w800, color: isCalled ? AppColors.info : AppColors.primary)),
-                if (t.token.isNextUp)
-                  const Pill(label: 'Next up', fg: AppColors.onPrimary, bg: AppColors.warning)
-                else if (isNewBooking(t))
-                  const Pill(label: 'New', fg: AppColors.onPrimary, bg: AppColors.primaryLight),
-              ]),
-            ),
-            Expanded(flex: 5, child: TwoLine(s.name, '${age ?? '—'} / ${s.gender.short} · ${Fmt.phone(s.phone)}')),
-            Expanded(
-              flex: 3,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                StatusChip(t.status),
-                const SizedBox(height: 2),
-                Row(children: [
-                  Icon(t.source == TokenSource.app ? Icons.phone_iphone_rounded : Icons.directions_walk_rounded, size: 13, color: AppColors.textMuted),
-                  const SizedBox(width: 3),
-                  Text(t.source.label, style: AppText.labelSmall),
-                ]),
-              ]),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(_showDone ? WebFmt.minutes(t.waitMinutes) : Fmt.clock(t.token.createdAt), style: AppText.bodyMedium, maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
-            ),
-            SizedBox(
-              width: 170,
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                if (quick != null)
-                  quick == TokenAction.arrive
-                      ? FilledButton(
-                          style: FilledButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: Gap.md), textStyle: AppText.labelMedium),
-                          onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
-                          child: Text(QueueActions.label(quick, t)), // "Check in" → slip check dialog
-                        )
-                      : OutlinedButton(
-                          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38)),
-                          onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
-                          child: Text(QueueActions.label(quick, t)),
-                        ),
-                if (actions.isNotEmpty)
-                  PopupMenuButton<TokenAction>(
-                    tooltip: 'More actions',
-                    enabled: online,
-                    icon: const Icon(Icons.more_vert_rounded),
-                    onSelected: (a) => QueueActions.perform(context, ref, t, a),
-                    itemBuilder: (_) => [
-                      for (final a in actions)
-                        PopupMenuItem(
-                          value: a,
-                          child: Row(children: [
-                            Icon(QueueActions.icon(a), size: 18, color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textSecondary),
-                            const SizedBox(width: Gap.md),
-                            Text(QueueActions.label(a, t), style: AppText.labelMedium.copyWith(color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textPrimary)),
-                          ]),
-                        ),
-                    ],
-                  ),
+              child: Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.end, children: [
+                for (final f in _Filter.values)
+                  FilterPill('${f.label} ${source.where((t) => matches(t, f)).length}', selected: _filter == f, onTap: () => setState(() => _filter = f)),
+                const SizedBox(width: 6),
+                FilterPill(
+                  _showDone ? 'Back to waiting ${active.length}' : 'Done today ${finished.length}',
+                  selected: _showDone,
+                  onTap: () => setState(() {
+                    _showDone = !_showDone;
+                    _filter = _Filter.all;
+                  }),
+                ),
               ]),
             ),
           ]),
         ),
-      ),
+        SimpleTable(
+          columns: [
+            const TableColumn('Token', flex: 3),
+            const TableColumn('Patient', flex: 8),
+            const TableColumn('Source', flex: 3),
+            const TableColumn('Status', flex: 4),
+            TableColumn(_showDone ? 'Waited' : 'Booked', flex: 3),
+            const TableColumn('', flex: 6, align: TextAlign.right),
+          ],
+          empty: EmptyState(
+            icon: _showDone ? Icons.task_alt_rounded : Icons.event_seat_outlined,
+            title: _showDone ? 'Nothing finished yet' : 'No one waiting',
+            message: _showDone ? 'Completed, cancelled and no-show tokens appear here.' : 'New app bookings and walk-ins appear here automatically.',
+          ),
+          onTap: (i) => setState(() => _selectedTokenId = shown[i].id == _selectedTokenId ? null : shown[i].id),
+          rowColor: (i) => shown[i].id == _selectedTokenId
+              ? ClinicColors.tint
+              : (!_showDone && shown[i].id == nextUpId ? ClinicColors.amberTint : null),
+          rows: [for (final t in shown) _row(t, user, readOnly, !_showDone && t.id == nextUpId)],
+        ),
+      ]),
     );
   }
-}
 
-/// Keyboard key hint, e.g. [ / ].
-class _Kbd extends StatelessWidget {
-  const _Kbd(this.text);
-  final String text;
+  List<Widget> _row(QueueToken t, UserAccount user, bool readOnly, bool nextUp) {
+    final s = t.token.patientSnapshot;
+    final online = ref.watch(isOnlineProvider) && !_nextBusy;
+    final actions = readOnly ? const <TokenAction>[] : QueueActions.available(t, user.role);
+    // One button per row: what this patient most likely needs now.
+    final preferred = switch (t.status) {
+      TokenStatus.booked => TokenAction.arrive,
+      TokenStatus.onHold => TokenAction.backToQueue,
+      TokenStatus.arrived || TokenStatus.skipped => TokenAction.callNow,
+      _ => null,
+    };
+    final quick = actions.contains(preferred) ? preferred : null;
+    final filled = quick == TokenAction.callNow && t.status == TokenStatus.arrived;
+    const compact = ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(Size(0, 34)),
+      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
+    );
 
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: AppColors.muted, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.border)),
-        child: Text(text, style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
-      );
+    return [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 52),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(color: nextUp ? AppColors.primary : AppColors.cream, borderRadius: BorderRadius.circular(10)),
+          child: Center(
+            widthFactor: 1,
+            child: Text(t.label,
+                maxLines: 1,
+                style: AppText.labelMedium.copyWith(fontSize: 15, fontWeight: FontWeight.w800, color: nextUp ? AppColors.onPrimary : AppColors.primary)),
+          ),
+        ),
+      ),
+      Row(children: [
+        nextUp ? Av.solid(s.name, size: 34) : Av(s.name, size: 34),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [
+              Flexible(child: Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700))),
+              if (t.token.isNextUp || isNewBooking(t)) ...[
+                const SizedBox(width: 6),
+                t.token.isNextUp
+                    ? const CChip('Next up', fg: AppColors.surface, bg: AppColors.warning, fontSize: 10)
+                    : const CChip('New', fg: AppColors.onPrimary, bg: AppColors.primaryLight, fontSize: 10),
+              ],
+            ]),
+            Text('${s.age() ?? '—'} / ${s.gender.short} · ${Fmt.phone(s.phone)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: ClinicText.small),
+          ]),
+        ),
+      ]),
+      Row(children: [
+        Icon(t.source == TokenSource.app ? Icons.phone_iphone_rounded : Icons.directions_walk_rounded, size: 14, color: AppColors.textSecondary),
+        const SizedBox(width: 5),
+        Flexible(child: Text(t.source.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyMedium.copyWith(fontSize: 13))),
+      ]),
+      TokenStatusChip(t.status),
+      Text(_showDone ? WebFmt.minutes(t.waitMinutes) : Fmt.clock(t.token.createdAt),
+          maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: ClinicText.body),
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        if (quick != null)
+          Flexible(
+            child: filled
+                ? FilledButton(
+                    style: compact,
+                    onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
+                    child: Text(QueueActions.label(quick, t), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  )
+                : OutlinedButton(
+                    style: compact,
+                    onPressed: online ? () => QueueActions.perform(context, ref, t, quick) : null,
+                    child: Text(QueueActions.label(quick, t), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ), // "Check in" → slip check dialog (D-26)
+          ),
+        if (actions.isNotEmpty)
+          PopupMenuButton<TokenAction>(
+            tooltip: 'More actions',
+            enabled: online,
+            icon: const Icon(Icons.more_vert_rounded, size: 20),
+            onSelected: (a) => QueueActions.perform(context, ref, t, a),
+            itemBuilder: (_) => [
+              for (final a in actions)
+                PopupMenuItem(
+                  value: a,
+                  child: Row(children: [
+                    Icon(QueueActions.icon(a), size: 18, color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textSecondary),
+                    const SizedBox(width: Gap.md),
+                    Text(QueueActions.label(a, t), style: AppText.labelMedium.copyWith(color: QueueActions.isDanger(a) ? AppColors.danger : AppColors.textPrimary)),
+                  ]),
+                ),
+            ],
+          ),
+      ]),
+    ];
+  }
 }

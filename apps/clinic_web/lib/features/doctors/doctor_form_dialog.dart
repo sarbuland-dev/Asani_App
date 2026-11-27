@@ -2,12 +2,8 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../core/widgets/desktop.dart';
-
-const _dayNames = {'mon': 'Monday', 'tue': 'Tuesday', 'wed': 'Wednesday', 'thu': 'Thursday', 'fri': 'Friday', 'sat': 'Saturday', 'sun': 'Sunday'};
-
-/// Times in 30-minute steps for the schedule dropdowns.
-final _times = [for (var m = 6 * 60; m <= 23 * 60 + 30; m += 30) minutesToHhmm(m)];
+import '../../core/widgets/clinic_kit.dart';
+import 'week_schedule.dart';
 
 /// What the form returns: the doctor, plus a PMDC number typed now (null = keep the saved one, D-33).
 typedef DoctorFormResult = ({Doctor doctor, String? pmdc});
@@ -39,7 +35,7 @@ class _DoctorFormState extends State<_DoctorForm> {
   late final _avg = TextEditingController(text: '${widget.initial?.avgConsultMinutes ?? 10}');
   late final _max = TextEditingController(text: '${widget.initial?.maxTokensPerDay ?? 40}');
   late final _window = TextEditingController(text: '${widget.initial?.bookingWindowDays ?? 7}');
-  late final Map<String, DaySchedule?> _schedule = {
+  late Map<String, DaySchedule?> _schedule = {
     for (final k in weekdayKeys) k: widget.initial == null ? (k == 'sun' ? null : const DaySchedule('17:00', '21:00')) : widget.initial!.schedule[k],
   };
 
@@ -50,16 +46,6 @@ class _DoctorFormState extends State<_DoctorForm> {
     }
     super.dispose();
   }
-
-  /// First working day (Mon → Sun), the source for "Copy … to all days".
-  String? get _firstOn => weekdayKeys.where((k) => _schedule[k] != null).firstOrNull;
-
-  void _copyFirstToAll() => setState(() {
-        final src = _schedule[_firstOn];
-        for (final k in weekdayKeys) {
-          if (_schedule[k] != null) _schedule[k] = src;
-        }
-      });
 
   String? _num(String? v, int min, int max) {
     final n = int.tryParse(v ?? '');
@@ -107,15 +93,6 @@ class _DoctorFormState extends State<_DoctorForm> {
             validator: (v) => _num(v, min, max),
           ),
         ),
-      );
-
-  DropdownButton<String> _timeDrop(String value, ValueChanged<String> onChanged) => DropdownButton<String>(
-        value: _times.contains(value) ? value : null,
-        hint: Text(Fmt.time(value)),
-        underline: const SizedBox.shrink(),
-        borderRadius: BorderRadius.circular(Radii.button),
-        items: [for (final t in _times) DropdownMenuItem(value: t, child: Text(Fmt.time(t)))],
-        onChanged: (v) => v == null ? null : onChanged(v),
       );
 
   @override
@@ -180,40 +157,10 @@ class _DoctorFormState extends State<_DoctorForm> {
             const SizedBox(width: Gap.md),
             _numField('Booking window', _window, 0, 60, 'days'),
           ]),
-          Row(children: [
-            Expanded(child: Text('Weekly schedule', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary))),
-            // One button: the first working day's timing goes to every working day.
-            TextButton.icon(
-              onPressed: _schedule.values.whereType<DaySchedule>().length < 2 ? null : _copyFirstToAll,
-              icon: const Icon(Icons.content_copy_rounded, size: 18),
-              label: Text(_firstOn == null ? 'Copy to all days' : 'Copy ${_dayNames[_firstOn]} timing to all days'),
-            ),
-          ]),
+          Text('Weekly schedule', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary)),
+          Text('Click a day to change it.', style: ClinicText.small),
           const SizedBox(height: Gap.sm),
-          AppCard(
-            padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.sm),
-            child: Column(children: [
-              for (final k in weekdayKeys)
-                SizedBox(
-                  height: 52,
-                  child: Row(children: [
-                    SizedBox(width: 120, child: Text(_dayNames[k]!, style: AppText.labelMedium)),
-                    Switch(
-                      value: _schedule[k] != null,
-                      onChanged: (on) => setState(() => _schedule[k] = on ? const DaySchedule('17:00', '21:00') : null),
-                    ),
-                    const SizedBox(width: Gap.md),
-                    if (_schedule[k] == null)
-                      Text('Off', style: AppText.bodyMedium)
-                    else ...[
-                      _timeDrop(_schedule[k]!.start, (v) => setState(() => _schedule[k] = DaySchedule(v, _schedule[k]!.end))),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: Gap.md), child: Text('to', style: AppText.bodyMedium)),
-                      _timeDrop(_schedule[k]!.end, (v) => setState(() => _schedule[k] = DaySchedule(_schedule[k]!.start, v))),
-                    ],
-                  ]),
-                ),
-            ]),
-          ),
+          WeekSchedule(schedule: _schedule, onChanged: (v) => setState(() => _schedule = v)),
         ]),
       ),
     );

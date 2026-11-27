@@ -2,21 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/desktop.dart';
-import '../../data/providers.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../core/widgets/pin_gate.dart';
+import '../../data/providers.dart';
 
 /// W-18 / C-12: the clinic has one login (D-18), so there is no staff
 /// management, only Change password. Changing it signs the clinic out on
-/// every other computer (useful when a receptionist leaves).
-class ChangePasswordScreen extends ConsumerStatefulWidget {
-  const ChangePasswordScreen({super.key});
+/// every other computer (useful when a receptionist leaves). A card on the
+/// Settings page (board W-18/19).
+class ChangePasswordCard extends ConsumerStatefulWidget {
+  const ChangePasswordCard({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordCard> createState() => _ChangePasswordCardState();
 }
 
-class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
+class _ChangePasswordCardState extends ConsumerState<ChangePasswordCard> {
   final _form = GlobalKey<FormState>();
   final _current = TextEditingController();
   final _next = TextEditingController();
@@ -51,101 +52,64 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     }
   }
 
+  Widget _password(String label, TextEditingController c, {String? help, required FormFieldValidator<String> validator, ValueChanged<String>? onSubmitted}) => Expanded(
+        child: LabeledField(
+          label,
+          help: help,
+          child: TextFormField(controller: c, obscureText: !_show, validator: validator, onFieldSubmitted: onSubmitted),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider)!;
-    InputDecoration deco(String hint) => InputDecoration(
-          hintText: hint,
-          prefixIcon: const Icon(Icons.lock_outline_rounded),
-          suffixIcon: IconButton(
-            tooltip: _show ? 'Hide passwords' : 'Show passwords',
-            onPressed: () => setState(() => _show = !_show),
-            icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-          ),
-        );
+    final user = ref.watch(currentUserProvider);
+    if (user == null) return const SizedBox.shrink();
+    final changed = user.passwordChangedAt;
 
-    return PageScaffold(
-      title: 'Change password',
-      subtitle: 'Everyone at this clinic uses this one login.',
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          flex: 3,
-          child: AppCard(
-            padding: const EdgeInsets.all(Gap.xl),
-            child: Form(
-              key: _form,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                FieldLabel(
-                  'Clinic email (changed only by Asani)',
-                  child: TextFormField(
-                    initialValue: user.email,
-                    enabled: false,
-                    decoration: const InputDecoration(prefixIcon: Icon(Icons.mail_outline_rounded), suffixIcon: Icon(Icons.lock_outline_rounded)),
-                  ),
-                ),
-                FieldLabel(
-                  'Current password',
-                  child: TextFormField(
-                    controller: _current,
-                    obscureText: !_show,
-                    decoration: deco('Current password'),
-                    validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
-                  ),
-                ),
-                FieldLabel(
-                  'New password',
-                  child: TextFormField(
-                    controller: _next,
-                    obscureText: !_show,
-                    decoration: deco('At least 8 characters'),
-                    validator: (v) {
-                      if ((v ?? '').length < 8) return 'At least 8 characters';
-                      if (v == _current.text) return 'Use a different password';
-                      return null;
-                    },
-                  ),
-                ),
-                FieldLabel(
-                  'Confirm new password',
-                  child: TextFormField(
-                    controller: _confirm,
-                    obscureText: !_show,
-                    decoration: deco('Type it again'),
-                    validator: (v) => v != _next.text ? "Passwords don't match" : null,
-                    onFieldSubmitted: (_) => _save(),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(onPressed: _busy ? null : _save, icon: const Icon(Icons.check_rounded), label: const Text('Change password')),
-                ),
-              ]),
+    return Panel(
+      child: Form(
+        key: _form,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Expanded(child: Text('Change password', style: ClinicText.cardTitle)),
+            TextButton.icon(
+              onPressed: () => setState(() => _show = !_show),
+              icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
+              label: Text(_show ? 'Hide passwords' : 'Show passwords'),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          LabeledField(
+            'Clinic email (login)',
+            help: 'Changed only by Asani. Everyone at this clinic uses this one login.',
+            child: TextFormField(
+              initialValue: user.email,
+              enabled: false,
+              style: AppText.bodyLarge.copyWith(color: AppColors.textSecondary),
+              decoration: const InputDecoration(fillColor: ClinicColors.quiet),
             ),
           ),
-        ),
-        const SizedBox(width: Gap.xl),
-        Expanded(
-          flex: 2,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            // D-41: set / change the manager PIN.
-            if (ref.watch(currentUserProvider)?.clinicId case final id?) ManagerPinCard(clinicId: id),
-            const Banner2(
-              icon: Icons.devices_rounded,
-              fg: AppColors.info,
-              bg: AppColors.infoContainer,
-              text: 'After a change, every other computer using this login is signed out and needs the new password.',
-            ),
-            const SizedBox(height: Gap.md),
-            const Banner2(
-              icon: Icons.badge_outlined,
-              text: 'When a receptionist leaves, change the password so they can no longer log in.',
-            ),
-            const SizedBox(height: Gap.md),
-            if (user.passwordChangedAt != null)
-              Text('Last changed ${WebFmt.ago(user.passwordChangedAt!)}', style: AppText.labelSmall),
+          const SizedBox(height: 14),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _password('Current password', _current, validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null),
+            const SizedBox(width: 14),
+            _password('New password', _next, help: 'At least 8 characters', validator: (v) {
+              if ((v ?? '').length < 8) return 'At least 8 characters';
+              if (v == _current.text) return 'Use a different password';
+              return null;
+            }),
+            const SizedBox(width: 14),
+            _password('Confirm new password', _confirm, validator: (v) => v != _next.text ? "Passwords don't match" : null, onSubmitted: (_) => _save()),
           ]),
-        ),
-      ]),
+          const SizedBox(height: 14),
+          const NoteBox('Changing the password signs the clinic out on all other computers. When a receptionist leaves, change it.'),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: changed == null ? const SizedBox.shrink() : Text('Last changed ${WebFmt.ago(changed)}', style: ClinicText.small)),
+            FilledButton(onPressed: _busy ? null : _save, child: const Text('Update password')),
+          ]),
+        ]),
+      ),
     );
   }
 }

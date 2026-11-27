@@ -6,15 +6,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../core/web/download.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../queue/walk_in_dialog.dart';
 import 'link_account_dialog.dart';
 
-/// W-14 / C-08: one patient's history at this clinic only.
-class PatientProfileScreen extends ConsumerWidget {
-  const PatientProfileScreen({super.key, required this.clinicId, required this.patientId});
+/// W-14 / C-08: one patient's history at this clinic only (the right side of
+/// the Patients page).
+class PatientDetail extends ConsumerWidget {
+  const PatientDetail({super.key, required this.clinicId, required this.patientId});
   final String clinicId;
   final String patientId;
 
@@ -36,94 +37,117 @@ class PatientProfileScreen extends ConsumerWidget {
     final visits = cp.visits;
     final writable = clinic?.status.acceptsBookings ?? false;
 
-    return PageScaffold(
-      title: p.name,
-      subtitle: '${p.relation.label} · ${p.age(pktNow()) ?? '—'} / ${p.gender.label} · ${Fmt.phone(p.phone)}',
-      leading: HeaderBackButton(dark: true, onPressed: () => context.go('/patients')),
-      actions: [
-        // D-40: only walk-ins (no app account) are edited by the clinic.
-        if (user.role.canRunQueue && p.ownerUid == null)
-          OutlinedButton.icon(
-            onPressed: () => _edit(context, ref, p),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Edit details'),
-          ),
-        if (p.ownerUid != null) const Center(child: Text('Managed by the patient in the Asani app')),
-        // D-52 (S-2): reception links a walk-in to the patient's app account, in person.
-        if (user.role.canRunQueue && p.ownerUid == null && p.status == PatientStatus.active)
-          OutlinedButton.icon(
-            onPressed: () => showLinkAccountDialog(context, clinicId: clinicId, walkIn: p),
-            icon: const Icon(Icons.link_rounded, size: 18),
-            label: const Text('Link to app account'),
-          ),
-        if (user.role.canRunQueue)
-          FilledButton.icon(
-            onPressed: writable
-                ? () async {
-                    final t = await showWalkInDialog(context, clinicId, phone: p.phone, patientId: p.id);
-                    if (t != null && context.mounted) context.go('/queue');
-                  }
-                : null,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Book token'),
-          ),
-      ],
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        CardGrid(minWidth: 220, children: [
-          KpiCard(label: 'Visits here', value: '${cp.visitCount}', icon: Icons.event_available_rounded),
-          KpiCard(label: 'Last visit', value: cp.lastVisit == null ? '—' : Fmt.shortDay(cp.lastVisit!.token.date), icon: Icons.history_rounded),
-          KpiCard(
-            label: 'Phone',
-            value: Fmt.phone(p.phone),
-            icon: Icons.call_outlined,
-            hint: 'Click to copy',
-            onTap: () async {
-              await copyText(p.phone);
-              if (context.mounted) showSnack(context, 'Phone number copied.');
-            },
-          ),
-          KpiCard(label: 'App account', value: p.ownerUid == null ? 'No' : 'Yes', icon: Icons.phone_iphone_rounded),
+    final age = p.age(pktNow());
+    final summary = [
+      cp.lastVisit == null ? 'No completed visits yet' : 'Last visit ${Fmt.shortDay(cp.lastVisit!.token.date)}',
+      '${cp.visitCount} visit${cp.visitCount == 1 ? '' : 's'} here',
+      if (p.ownerUid != null) 'Details are managed by the patient in the Asani app',
+    ].join(' · ');
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Panel(
+        radius: 16,
+        child: Wrap(spacing: 16, runSpacing: 14, alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Av.solid(p.name, size: 60),
+            const SizedBox(width: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.name, style: AppText.titleMedium.copyWith(fontSize: 20, fontWeight: FontWeight.w700)),
+                InkWell(
+                  onTap: () async {
+                    await copyText(p.phone);
+                    if (context.mounted) showSnack(context, 'Phone number copied.');
+                  },
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Flexible(child: Text('${p.relation.label} · ${age ?? '—'} · ${p.gender.label} · ${Fmt.phone(p.phone)}', style: AppText.bodyMedium)),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
+                  ]),
+                ),
+                Text(summary, style: AppText.bodyMedium),
+              ]),
+            ),
+          ]),
+          Wrap(spacing: 10, runSpacing: 10, children: [
+            // D-40: only walk-ins (no app account) are edited by the clinic.
+            if (user.role.canRunQueue && p.ownerUid == null)
+              OutlinedButton.icon(
+                onPressed: () => _edit(context, ref, p),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Edit details'),
+              ),
+            // D-52 (S-2): reception links a walk-in to the patient's app account, in person.
+            if (user.role.canRunQueue && p.ownerUid == null && p.status == PatientStatus.active)
+              OutlinedButton.icon(
+                onPressed: () => showLinkAccountDialog(context, clinicId: clinicId, walkIn: p),
+                icon: const Icon(Icons.link_rounded, size: 18),
+                label: const Text('Link to app account'),
+              ),
+            if (user.role.canRunQueue)
+              FilledButton.icon(
+                onPressed: writable
+                    ? () async {
+                        final t = await showWalkInDialog(context, clinicId, phone: p.phone, patientId: p.id);
+                        if (t != null && context.mounted) context.go('/queue');
+                      }
+                    : null,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Book token'),
+              ),
+          ]),
         ]),
-        if (cp.followUps.isNotEmpty) ...[
-          const SectionTitle('Follow-ups'),
-          AppTable(
-            columns: const [TableColumn('Due', flex: 2), TableColumn('Doctor', flex: 3), TableColumn('Note', flex: 3), TableColumn('Status', flex: 2)],
-            rows: [
-              for (final f in cp.followUps)
-                [
-                  Text(Fmt.relativeDay(f.dueDate), style: AppText.labelMedium),
-                  Text(doctorName(f.doctorId), style: AppText.bodyMedium),
-                  Text(f.note ?? '—', style: AppText.bodyMedium),
-                  FollowUpPill(effectiveFollowUpStatus(f, today)),
-                ],
-            ],
-          ),
-        ],
-        const SectionTitle('Visit history at this clinic'),
-        AppTable(
+      ),
+      // D-51: lime is the colour of follow-ups.
+      for (final f in cp.followUps) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(color: ClinicColors.limeTint, borderRadius: BorderRadius.circular(16), border: Border.all(color: ClinicColors.limeSoft)),
+          child: Row(children: [
+            const Icon(Icons.event_repeat_rounded, size: 20, color: ClinicColors.limeText),
+            const SizedBox(width: 10),
+            Text('Follow-up', style: AppText.labelMedium.copyWith(color: ClinicColors.limeText, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${doctorName(f.doctorId)} · due ${Fmt.relativeDay(f.dueDate)}${f.note == null ? '' : ' · "${f.note}"'}',
+                style: AppText.bodyMedium.copyWith(color: ClinicColors.limeText),
+              ),
+            ),
+            CChip(effectiveFollowUpStatus(f, today).label, bg: AppColors.surface, fg: ClinicColors.limeText),
+          ]),
+        ),
+      ],
+      const SizedBox(height: 16),
+      Panel(
+        radius: 16,
+        padding: EdgeInsets.zero,
+        child: SimpleTable(
           columns: const [
-            TableColumn('Date', flex: 3),
+            TableColumn('Date', flex: 4),
+            TableColumn('Doctor', flex: 5),
             TableColumn('Token', flex: 2),
-            TableColumn('Doctor', flex: 3),
-            TableColumn('Source', flex: 2),
+            TableColumn('Source', flex: 3),
             TableColumn('Wait', flex: 2),
-            TableColumn('Status', flex: 2),
+            TableColumn('Status', flex: 3),
           ],
-          empty: const Padding(padding: EdgeInsets.all(Gap.xl), child: Center(child: Text('No visits yet.'))),
+          empty: Padding(padding: const EdgeInsets.all(24), child: Center(child: Text('No visits yet.', style: AppText.bodyMedium))),
           rows: [
             for (final v in visits)
               [
-                Text(Fmt.longDay(v.token.date), style: AppText.labelMedium),
-                Text(v.label, style: AppText.labelLarge.copyWith(color: AppColors.primary)),
-                Text(doctorName(v.token.doctorId), style: AppText.bodyMedium),
-                SourcePill(v.source),
-                Text(WebFmt.minutes(v.waitMinutes), style: AppText.bodyMedium),
-                StatusChip(v.status),
+                Text(Fmt.longDay(v.token.date), style: ClinicText.body),
+                Text(doctorName(v.token.doctorId), style: ClinicText.body),
+                Text(v.label, style: AppText.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+                Text(v.source.label, style: AppText.bodyMedium),
+                Text(WebFmt.minutes(v.waitMinutes), style: ClinicText.body),
+                TokenStatusChip(v.status),
               ],
           ],
         ),
-      ]),
-    );
+      ),
+    ]);
   }
 
   /// Typo fixes only (name/age/gender), logged (C-08, Q-W07 open).

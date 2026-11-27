@@ -4,14 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/app_exception.dart';
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/clinic_repository.dart';
 import '../../data/providers.dart';
 
 /// D-52 (S-2, S-3): reception links a walk-in profile to the patient's Asani app account, with the patient in front
 /// of them. The app account's phone is NOT verified, so nothing is linked automatically: reception searches the number,
 /// the patient confirms which family member they are (or "New member"), then Link. Logged in the activity log.
-/// Basic UI for now (functionality first).
 Future<void> showLinkAccountDialog(BuildContext context, {required String clinicId, required Patient walkIn}) =>
     showDialog<void>(context: context, builder: (_) => _LinkAccountDialog(clinicId: clinicId, walkIn: walkIn));
 

@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/net/connectivity.dart';
-import '../../core/utils/formatters.dart';
+import '../../core/theme/clinic_theme.dart';
 import '../../core/widgets/desktop.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import 'clinic_frame.dart';
 
 class _NavItem {
   const _NavItem(this.label, this.icon, this.path, {this.exact = false});
@@ -27,18 +28,7 @@ List<_NavItem> _itemsFor(UserRole role) => switch (role) {
           _NavItem('Activity', Icons.history_rounded, '/admin/activity'),
           _NavItem('Settings', Icons.tune_rounded, '/admin/settings'),
         ],
-      UserRole.clinic => const [
-          _NavItem('Queue Board', Icons.format_list_numbered_rounded, '/queue'),
-          _NavItem('Patients', Icons.people_alt_outlined, '/patients'),
-          _NavItem('Upcoming bookings', Icons.event_note_outlined, '/upcoming'),
-          _NavItem('Follow-ups', Icons.event_repeat_rounded, '/follow-ups'),
-          _NavItem('Daily summary', Icons.insights_rounded, '/summary'),
-          _NavItem('Doctors', Icons.medical_services_outlined, '/doctors'),
-          _NavItem('Clinic settings', Icons.settings_outlined, '/settings'),
-          _NavItem('Billing', Icons.receipt_long_outlined, '/billing'),
-          _NavItem('Change password', Icons.key_rounded, '/password'),
-          _NavItem('Help', Icons.help_outline_rounded, '/help'),
-        ],
+      UserRole.clinic => const [], // the clinic has its own frame (ClinicFrame)
     };
 
 /// Desktop frame: left sidebar, top bar (W-03), banners, page.
@@ -54,26 +44,29 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     if (user == null) return const SizedBox.shrink();
-    final clinic = user.clinicId == null ? null : ref.watch(clinicProvider(user.clinicId!));
 
-    final frame = Row(children: [
-      _Sidebar(user: user, location: location),
-      Expanded(
-        child: Column(children: [
-          _TopBar(user: user, clinic: clinic),
-          const OfflineBanner(),
-          if (clinic != null) _ClinicBanner(clinic: clinic, isAdmin: user.role == UserRole.clinic),
-          Expanded(child: child),
-        ]),
-      ),
-    ]);
+    // The clinic screens follow the new board; the Super Admin keeps the old look.
+    final isClinic = user.isClinic;
+    final frame = isClinic
+        ? ClinicFrame(user: user, location: location, child: child)
+        : Row(children: [
+            _Sidebar(user: user, location: location),
+            Expanded(
+              child: Column(children: [
+                const _TopBar(),
+                const OfflineBanner(),
+                Expanded(child: child),
+              ]),
+            ),
+          ]);
 
-    return Scaffold(
+    final scaffold = Scaffold(
       body: LayoutBuilder(builder: (context, c) {
         if (c.maxWidth >= minWidth) return frame;
         return SingleChildScrollView(scrollDirection: Axis.horizontal, child: SizedBox(width: minWidth, height: c.maxHeight, child: frame));
       }),
     );
+    return isClinic ? ClinicThemed(child: scaffold) : scaffold;
   }
 }
 
@@ -153,38 +146,29 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-/// W-03: clinic name, who is logged in, Log out (shared reception PCs).
+/// Super Admin top bar: today, who is logged in, Log out.
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.user, required this.clinic});
-  final UserAccount user;
-  final ClinicAccount? clinic;
+  const _TopBar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    if (user == null) return const SizedBox.shrink();
     final today = ref.watch(todayProvider).value ?? dayKey(pktNow());
     return Container(
       height: 68,
       padding: const EdgeInsets.symmetric(horizontal: Gap.xxl),
       decoration: const BoxDecoration(color: AppColors.surface, border: Border(bottom: BorderSide(color: AppColors.border))),
       child: Row(children: [
-        if (clinic != null) ...[
-          const IconBox(icon: Icons.local_hospital_rounded, size: 38),
-          const SizedBox(width: Gap.md),
-          Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(clinic!.clinic.name, style: AppText.titleMedium),
-            Text('${clinic!.clinic.area}, ${clinic!.clinic.city}', style: AppText.labelSmall),
-          ]),
-        ] else
-          Text('Super Admin', style: AppText.titleMedium),
+        Text('Super Admin', style: AppText.titleMedium),
         const SizedBox(width: Gap.lg),
         Pill(label: Fmt.longDay(today), fg: AppColors.textSecondary, bg: AppColors.muted, icon: Icons.calendar_today_rounded),
         const Spacer(),
-        // Shared clinic login: show the login, not one person's name (§5.4).
-        InitialsAvatar(name: user.isClinic ? (clinic?.clinic.name ?? user.name) : user.name, size: 38),
+        InitialsAvatar(name: user.name, size: 38),
         const SizedBox(width: Gap.md),
         Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(user.isClinic ? 'Clinic login' : user.name, style: AppText.labelMedium),
-          Text(user.isClinic ? user.email : user.role.label, style: AppText.labelSmall),
+          Text(user.name, style: AppText.labelMedium),
+          Text(user.role.label, style: AppText.labelSmall),
         ]),
         const SizedBox(width: Gap.lg),
         OutlinedButton.icon(
@@ -196,34 +180,6 @@ class _TopBar extends ConsumerWidget {
           label: const Text('Log out'),
         ),
       ]),
-    );
-  }
-}
-
-/// Grace (yellow) and suspended (red) banners (C-15, BW-8).
-class _ClinicBanner extends ConsumerWidget {
-  const _ClinicBanner({required this.clinic, required this.isAdmin});
-  final ClinicAccount clinic;
-  final bool isAdmin;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = clinic.status;
-    if (status != ClinicStatus.grace && status != ClinicStatus.suspended) return const SizedBox.shrink();
-    final open = ref.watch(invoicesProvider(clinic.id)).where((i) => i.isOpen).toList()..sort((a, b) => a.dueDate.compareTo(b.dueDate));
-    final suspendOn = open.isEmpty ? null : open.first.dueDate.add(Duration(days: ref.watch(adminSettingsProvider).suspendDays));
-    final suspended = status == ClinicStatus.suspended;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.xxl, Gap.md, Gap.xxl, 0),
-      child: Banner2(
-        icon: suspended ? Icons.block_rounded : Icons.warning_amber_rounded,
-        fg: suspended ? AppColors.danger : AppColors.warning,
-        bg: suspended ? AppColors.dangerContainer : AppColors.warningContainer,
-        text: suspended
-            ? 'This clinic is suspended. You can view and export, but no new tokens or Next until the payment is recorded.'
-            : 'Payment pending, please pay${suspendOn == null ? '' : ' by ${WebFmt.date(suspendOn)}'} to avoid interruption.',
-        action: isAdmin ? TextButton(onPressed: () => context.go('/billing'), child: const Text('View billing')) : null,
-      ),
     );
   }
 }

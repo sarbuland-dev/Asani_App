@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/models.dart';
 import '../../data/providers.dart';
-import '../../features/account/change_password_screen.dart';
 import '../../features/admin/activity_screen.dart';
 import '../../features/admin/admin_settings_screen.dart';
 import '../../features/admin/clinic_detail_screen.dart';
@@ -17,10 +16,9 @@ import '../../features/admin/same_doctor_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/set_password_screen.dart';
 import '../../features/billing/billing_screen.dart';
-import '../../features/doctors/doctors_screen.dart';
+import '../../features/doctors/clinic_doctors_screen.dart';
 import '../../features/followups/follow_ups_screen.dart';
 import '../../features/help/help_screen.dart';
-import '../../features/patients/patient_profile_screen.dart';
 import '../../features/patients/patients_screen.dart';
 import '../../features/queue/queue_board_screen.dart';
 import '../../features/settings/clinic_settings_screen.dart';
@@ -74,13 +72,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/patients', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => PatientsScreen(id)))),
           GoRoute(
             path: '/patients/:id',
-            pageBuilder: (c, s) => page(ClinicScope(builder: (id) => PatientProfileScreen(clinicId: id, patientId: s.pathParameters['id']!))),
+            pageBuilder: (c, s) => page(ClinicScope(builder: (id) => PatientsScreen(id, initialPatientId: s.pathParameters['id']!))),
           ),
           GoRoute(path: '/follow-ups', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => FollowUpsScreen(id)))),
           GoRoute(path: '/summary', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => SummaryScreen(id)))),
           GoRoute(path: '/upcoming', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => UpcomingScreen(id)))), // D-42
-          GoRoute(path: '/doctors', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => DoctorsScreen(id)))),
-          GoRoute(path: '/password', pageBuilder: (c, s) => page(const ChangePasswordScreen())),
+          GoRoute(path: '/doctors', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => ClinicDoctorsScreen(id)))),
+          GoRoute(path: '/password', redirect: (c, s) => '/settings'),
           GoRoute(path: '/settings', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => ClinicSettingsScreen(id)))),
           GoRoute(path: '/billing', pageBuilder: (c, s) => page(ClinicScope(builder: (id) => PinGuard(clinicId: id, child: BillingScreen(id)))) /* D-41 */),
           GoRoute(path: '/help', pageBuilder: (c, s) => page(const HelpScreen())),

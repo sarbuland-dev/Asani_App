@@ -189,6 +189,12 @@ Sarbuland will confirm a few things first; nothing built yet. Open choices (aske
       (and `core/widgets/qr_view.dart` if nothing else uses it) and the print templates screen.
 - [ ] Open question: does **Arrived & Print** still print the Asani clinic form (C-07), or nothing at all?
 
+- [x] 2026-11-27 D-53: all clinic screens rebuilt to the board (UI only, Super Admin unchanged); QR standee removed
+      (D-51). `flutter analyze` clean; checked in Chrome on demo data at 1440 and 1280 px.
+- [ ] Not checked yet: clinic web on Supabase, real printing, the grace / suspended banners, Set password,
+      Link to app account, Add doctor dialog, set follow-up dialog, the "PIN locked" view.
+- [ ] Left out until they work (D-53): Send payment proof, Contact support button, Booked from reminder %, Excel export.
+
 ## 13. Move to Supabase (D-52, 2026-11-24)
 Plan: `docs/10-supabase-migration.md`. Once it lands, §2 (Blaze), §3 (Firebase prod) and §11 (TTL) are replaced by it.
 - [x] 2026-11-24 Phase 0: plan approved by Sarbuland; open questions S-1…S-7 answered (plan §7).

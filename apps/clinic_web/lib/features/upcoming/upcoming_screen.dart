@@ -2,12 +2,12 @@ import 'package:asani_core/asani_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/widgets/desktop.dart';
+import '../../core/widgets/clinic_kit.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 
 /// Upcoming bookings (PRD D-42): tokens booked for a later day, per doctor.
-/// View only: check-in still happens on the day (BW-5). Plain placeholder UI.
+/// View only: check-in still happens on the day (BW-5).
 final _upcomingProvider = FutureProvider.autoDispose.family<List<QueueToken>, (String, String)>((ref, a) {
   ref.watch(repoTickProvider); // reload when the backend changes
   return ref.watch(repositoryProvider).loadTokens(a.$1, a.$2, a.$2);
@@ -33,30 +33,34 @@ class _UpcomingScreenState extends ConsumerState<UpcomingScreen> {
     final days = [for (var i = 1; i <= window; i++) dayKey(_today.add(Duration(days: i)))];
     final tokens = ref.watch(_upcomingProvider((widget.clinicId, _date)));
 
-    return PageScaffold(
+    return ClinicPage(
       title: 'Upcoming bookings',
       subtitle: 'Tokens booked for a later day. Patients are checked in on the day itself.',
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final d in days)
-            ChoiceChip(label: Text(Fmt.relativeDay(d)), selected: d == _date, onSelected: (_) => setState(() => _date = d)),
+          for (final d in days) FilterPill(Fmt.relativeDay(d), selected: d == _date, onTap: () => setState(() => _date = d)),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         tokens.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('Could not load bookings: $e'),
+          loading: () => const Shimmer(height: 220),
+          error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(_upcomingProvider((widget.clinicId, _date)))),
           data: (list) {
+            if (list.isEmpty) {
+              return EmptyState(icon: Icons.event_available_rounded, title: 'No bookings yet', message: 'No bookings for ${Fmt.longDay(_date)} yet.');
+            }
             final active = list.where((t) => t.token.status != TokenStatus.cancelled).toList();
             final cancelled = list.length - active.length;
-            if (list.isEmpty) return Text('No bookings for ${Fmt.longDay(_date)} yet.');
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('${Fmt.longDay(_date)} · ${active.length} booked${cancelled > 0 ? ' · $cancelled cancelled' : ''}'),
+              Text('${Fmt.longDay(_date)} · ${active.length} booked${cancelled > 0 ? ' · $cancelled cancelled' : ''}', style: AppText.labelMedium),
               for (final d in doctors)
-                if (list.any((t) => t.token.doctorId == d.id)) _DoctorDay(doctor: d, tokens: list.where((t) => t.token.doctorId == d.id).toList()),
+                if (list.any((t) => t.token.doctorId == d.id)) ...[
+                  const SizedBox(height: 14),
+                  _DoctorDay(doctor: d, tokens: list.where((t) => t.token.doctorId == d.id).toList()),
+                ],
             ]);
           },
         ),
-      ]),
+      ],
     );
   }
 }
@@ -70,25 +74,42 @@ class _DoctorDay extends StatelessWidget {
   Widget build(BuildContext context) {
     final sorted = [...tokens]..sort((a, b) => a.token.number.compareTo(b.token.number));
     final booked = sorted.where((t) => t.token.status != TokenStatus.cancelled).length;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('${doctor.name} (${doctor.tokenPrefix}) · $booked of ${doctor.maxTokensPerDay} booked',
-              style: Theme.of(context).textTheme.titleMedium),
-          for (final t in sorted)
-            ListTile(
-              dense: true,
-              leading: Text(t.token.label),
-              title: Text(t.token.patientSnapshot.name),
-              subtitle: Text([
-                t.source == TokenSource.walkIn ? 'Walk-in' : 'App',
-                'booked ${Fmt.dateTime(t.token.createdAt)}',
-                if (t.token.status == TokenStatus.cancelled) 'CANCELLED${t.cancelReason == null ? '' : ' · ${t.cancelReason}'}',
-              ].join(' · ')),
-            ),
-        ]),
-      ),
+    return Panel(
+      radius: 18,
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: Row(children: [
+            Av(doctor.name, size: 34),
+            const SizedBox(width: 10),
+            Expanded(child: Text('${doctor.name} (${doctor.tokenPrefix})', style: AppText.titleSmall.copyWith(fontWeight: FontWeight.w800))),
+            CChip.tint('$booked of ${doctor.maxTokensPerDay} booked'),
+          ]),
+        ),
+        SimpleTable(
+          columns: const [
+            TableColumn('Token', flex: 2),
+            TableColumn('Patient', flex: 6),
+            TableColumn('Source', flex: 2),
+            TableColumn('Booked', flex: 3),
+            TableColumn('Status', flex: 4),
+          ],
+          rows: [
+            for (final t in sorted)
+              [
+                Text(t.token.label, style: AppText.labelMedium.copyWith(color: AppColors.primary, fontWeight: FontWeight.w800)),
+                Text(t.token.patientSnapshot.name, style: AppText.labelMedium),
+                Text(t.source.label, style: AppText.bodyMedium),
+                Text(Fmt.dateTime(t.token.createdAt), style: ClinicText.body),
+                if (t.token.status == TokenStatus.cancelled)
+                  CChip.red('Cancelled${t.cancelReason == null ? '' : ' · ${t.cancelReason}'}')
+                else
+                  TokenStatusChip(t.token.status),
+              ],
+          ],
+        ),
+      ]),
     );
   }
 }
