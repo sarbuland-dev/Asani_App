@@ -39,6 +39,7 @@ It uses the **same Firebase project** as the patient app (same Auth, Firestore, 
 | D-04 | Patient notifications (3, 2, 1 ahead, Your turn) are sent by the backend, not by the clinic app. |
 | D-10 | Anything unclear is confirmed with Sarbuland before building. |
 | D-51 | 2026-11-24, full text in PRD.md §9: **no QR standee and no Print templates screen** (clinics provide their own); lime only for follow-ups on the web screens. |
+| D-55 | 2026-11-28, full text in PRD.md §9: queue rows have no buttons; Next calls in order; no Recall (automatic on check-in); "Call out of turn" link in the panel for emergencies. |
 | D-17 | **Monorepo in the same `Asani_app` repo** (see §2.1). Patient app moves once into `apps/patient_app`; clinic web is `apps/clinic_web`; shared code in `packages/asani_core`. |
 
 ### 2.1 Repository structure (D-17, confirmed 2026-11-12)
@@ -205,12 +206,12 @@ Order of "next" (D-24, closes Q-W03): the **lowest token number** among *Booked*
 Undo: **"Undo last Next"** available for 30 seconds (in case of a wrong click).
 
 ### C-04 Token actions (P0)
-From a token row or its detail panel:
+From the token's detail panel (click its row; rows have no buttons, D-55). Check-in is the token code box (C-05):
 | Action | Result |
 |---|---|
 | **Arrived & Print** | Status Arrived + prints the clinic form (C-07) |
-| **Call now** | Call this token out of order (emergency) |
-| **Skip** | Patient not present when called; can be **Recall**ed later |
+| **Call out of turn** | Emergency only: small link in the token panel (D-55). Calling in order is always **Next** |
+| **Skip** | Patient not present when called. No Recall: when they check in they are called right after the current patient (D-24, D-55) |
 | **Hold** | Temporarily aside (e.g. sent for tests); can be called later |
 | **Cancel** | Cancel token (reason: patient request / duplicate / other) |
 | **Mark No-show** | Patient never came |
