@@ -1,10 +1,9 @@
 # 02 — Setup
 
-> **D-52 (2026-11-27): the backend is Supabase; the Firebase backend (Firestore, Cloud Functions, rules, emulators) was
-> removed.** Parts of this file still describe the Firebase way and are kept as background only. Current sources:
-> docs/10-supabase-migration.md, DATABASE.md, ARCHITECTURE.md, docs/02 §2b (setup), TESTING_CHECKLIST.md.
+Developer machine and project setup for the monorepo: patient app, clinic web, shared packages and the Supabase
+backend. Primary dev machine: **Windows + Android Studio**.
 
-Developer machine and Firebase setup for the monorepo: patient app, clinic web, shared packages and functions. Primary dev machine: **Windows + Android Studio**.
+Since D-52 the backend is **Supabase**; Firebase is used only for push notifications (§3, §4).
 
 ---
 
@@ -12,18 +11,16 @@ Developer machine and Firebase setup for the monorepo: patient app, clinic web, 
 
 | Tool | Version | Check |
 |---|---|---|
-| Flutter SDK | stable, with Dart ≥ 3.9 | `flutter --version` |
+| Flutter SDK | stable, with Dart ≥ 3.9 (CI uses Flutter 3.44.6) | `flutter --version` |
 | Android Studio | latest stable + Flutter & Dart plugins | |
 | Android SDK | API 35+, build-tools, platform-tools | `flutter doctor` |
 | Java (bundled JDK 17 with Android Studio) | 17 | |
-| Node.js | 22 (functions `engines`) | `node -v` |
-| Firebase CLI | latest | `npm i -g firebase-tools` → `firebase --version` |
-| FlutterFire CLI | latest | `dart pub global activate flutterfire_cli` |
-| Java for emulators | **21** (the Firebase CLI 15 emulators need it; rules tests too) | `java -version` · `winget install EclipseAdoptium.Temurin.21.JDK` |
+| Node.js | 22 (database test tools, queue simulator, Supabase CLI through `npx`) | `node -v` |
+| Chrome | latest (clinic web) | |
 | Git + GitHub Desktop | | |
-| VS Code (optional) | For TypeScript functions | |
+| Firebase CLI + FlutterFire CLI | only to create the push config again (§4) | |
 
-Add Dart's pub cache bin to `PATH` (Windows: `%LOCALAPPDATA%\Pub\Cache\bin`) so `flutterfire` works.
+Docker and the Firebase emulators are **not** needed.
 
 Run `flutter doctor` and fix everything except iOS items (iOS needs a Mac, see §7).
 
@@ -36,8 +33,7 @@ git clone https://github.com/sarbuland-dev/Asani_App.git
 cd Asani_App
 
 flutter pub get                 # Dart pub workspace: patient_app, clinic_web, asani_core, asani_ui
-cd functions && npm install && cd ..
-cd tools/admin-scripts && npm install && cd ../..
+cd tools/db-test && npm install && cd ../..
 cd tools/queue-sim && npm install && cd ../..
 ```
 
@@ -50,11 +46,12 @@ Layout (PRD-CLINIC-WEB §2.1):
 | `apps/clinic_web` | Clinic dashboard + super admin, Flutter Web |
 | `packages/asani_core` | Pure Dart: models, enums, PKT dates, phone utils, token code, `Fmt`, `AppLogger` |
 | `packages/asani_ui` | Flutter: theme (colors, fonts, spacing, ThemeData) + shared widgets |
-| `functions/` | Cloud Functions (TypeScript) |
+| `supabase/` | Migrations, seed, database tests, Edge Functions |
+| `tools/db-test`, `tools/queue-sim` | Database test tools and the queue simulator |
 
 ---
 
-## 2b. Supabase (D-52, the new backend)
+## 2b. Supabase (D-52, the backend)
 
 We use the **cloud project only** (no Docker, docs/10 §7 S-1). Firebase stays for push (FCM) only.
 
@@ -85,7 +82,7 @@ npx supabase@latest db push --db-url $u --include-seed
 `db push` applies only new files in `supabase/migrations`, in name order. Never edit a migration that was already pushed;
 add a new one.
 
-**Run the database tests** (RLS today; booking/queue from phase 2). Each test file runs in a transaction that is rolled
+**Run the database tests** (RLS, booking and queue, push jobs, login, clinic and admin). Each test file runs in a transaction that is rolled
 back, so nothing stays in the dev database:
 ```powershell
 cd tools/db-test; npm install; node run.js
@@ -96,7 +93,8 @@ cd tools/db-test; npm install; node run.js
 | `supabase/migrations/` | Tables, RLS, Postgres functions (in order) |
 | `supabase/seed.sql` | Dev clinics and doctors (same as the demo backend) |
 | `supabase/tests/database/` | pgTAP tests |
-| `supabase/functions/` | Edge Functions (`send-push`) |
+| `supabase/functions/` | Edge Functions (`send-push`, `admin-clinic-login`) |
+| `tools/db-test/` | Test runner and smoke tests for the cloud database |
 
 **Patient email login (D-52, phase 4): Supabase dashboard settings** (owner, once per project):
 1. **Authentication → Sign In / Providers → Email**: Email provider on; **Email OTP Expiration = 600** seconds;
@@ -120,8 +118,7 @@ cd tools/db-test; npm install; node run.js
      sender name `Asani`, host `smtp-relay.brevo.com`, port `587`, username = SMTP login, password = SMTP key.
    - **Authentication → Rate Limits**: raise "emails sent" to about 100 per hour once SMTP works.
    - Until we have our own domain (Q-06) codes may land in spam; tell testers to check spam.
-4. Run the app: `flutter run --flavor dev --dart-define=BACKEND=supabase` (phase 4: login is real, the other data
-   is still demo).
+4. Run the app: `flutter run --flavor dev --dart-define=BACKEND=supabase`.
 
 **Clinic web on Supabase (D-52, phase 7): dashboard settings** (owner, once):
 1. **Authentication → URL Configuration**: Site URL `http://localhost:8092`; Redirect URLs add `http://localhost:8092/**`
@@ -134,16 +131,7 @@ cd tools/db-test; npm install; node run.js
    `tools/admin-scripts/dev-test-logins.local.txt`).
 4. Run: `cd apps/clinic_web; flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase`.
 
-**Edge Functions (deploy / secrets)** need a personal access token: supabase.com/dashboard/account/tokens →
-Generate new token, preset Read-only plus **Edge Functions** and **Secrets** read & write. Save it as one line in
-`supabase/.access-token.local` (git-ignored). Then:
-```powershell
-$env:SUPABASE_ACCESS_TOKEN = (Get-Content supabase\.access-token.local -Raw).Trim()
-npx supabase@latest functions deploy send-push --remote=lgnbxxcmogbbzmuqyrgu --no-verify-jwt --use-api
-```
-`send-push` secrets (`PUSH_SECRET`, `FCM_SERVICE_ACCOUNT` base64) are set with `supabase secrets set --env-file`;
-see docs/10 §6b.
-| `tools/db-test/` | Test runner for the cloud database |
+**Edge Functions** (deploy and secrets): §8.
 
 ---
 
@@ -195,75 +183,82 @@ If it asks to add the Google Services Gradle plugin, answer **yes**.
 
 ---
 
-## 5. Run locally with emulators (default way to develop)
+## 5. Run the patient app
 
-```bash
-# repo root
-firebase emulators:start --import=./emulator-data --export-on-exit
-```
-Emulator UI: http://localhost:4000
+All commands from `apps/patient_app`.
 
-Seed data (first time or after a wipe):
-```bash
-cd tools/admin-scripts
-set FIRESTORE_EMULATOR_HOST=127.0.0.1:8080        # PowerShell: $env:FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
-set FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
-node seed-dev.js
-```
+| Mode | Command | Data and login |
+|---|---|---|
+| Demo (default) | `flutter run --flavor dev` | on the phone; any email, code **123456** |
+| Supabase | `flutter run --flavor dev --dart-define=BACKEND=supabase` | `asani-dev`; real 6-digit email code (§2b) |
 
-Run the app:
-```bash
-cd apps/patient_app
-flutter run --flavor dev --dart-define=ENV=dev --dart-define=USE_EMULATOR=true
-```
-When `USE_EMULATOR=true`, the app connects Auth, Firestore and Functions to the host machine. On a **physical phone**, also pass `--dart-define=EMULATOR_HOST=<your PC's LAN IP>` and start emulators with `"host": "0.0.0.0"` in `firebase.json`. On the Android emulator the host is `10.0.2.2`.
-
-OTP in the Auth emulator: the code appears in the emulator terminal and the Emulator UI → Authentication.
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` default to `asani-dev` (`lib/core/config/env.dart`). `ENV` is `dev` by default.
+In demo mode, phone **300 1234567** in profile setup shows a sample family.
 
 ---
 
 ## 5b. Clinic web
 
+All commands from `apps/clinic_web`.
+
 ```bash
-cd apps/clinic_web
-flutter run -d chrome                                                         # demo backend, one-click logins
-flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
-flutter build web --release --dart-define=BACKEND=firebase                    # → build/web
+flutter run -d chrome                                                   # demo data, one-click logins
+flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase    # asani-dev (dev logins: §2b)
+flutter build web --release --dart-define=BACKEND=supabase              # output in build/web
 ```
-Firebase mode needs Email/Password sign-in enabled on the dev project and a clinic or super admin login
-(`tools/admin-scripts/create-clinic-login.js`, `create-super-admin.js`). Until Blaze, run the functions with
-`cd functions && npm run serve:dev`. More in `apps/clinic_web/README.md`.
+
+Use port **8092** with Supabase: the invite and password-reset links are set up for it (§2b).
+
+---
+
+## 5c. Patient app on a real Android phone
+
+1. On the phone, turn on **Developer options → USB debugging**, connect the cable and accept the prompt
+   (Xiaomi / Redmi also needs **Install via USB**).
+2. From `apps/patient_app`:
+   ```bash
+   flutter devices
+   flutter run -d <phone id> --flavor dev --dart-define=BACKEND=supabase
+   ```
+3. Allow notifications. Test push on a real phone, also with the app swiped away. On Xiaomi / Redmi turn on
+   **Autostart** (Account → Show me how).
+
+To give testers an APK without a cable, build
+`flutter build apk --release --flavor dev --dart-define=BACKEND=supabase`. The file is
+`build/app/outputs/flutter-apk/app-dev-release.apk`; the testers' install steps are in `TESTER_INSTALL.md`.
 
 ---
 
 ## 6. Queue simulator
 
-Acts as the receptionist until the desktop app exists.
+Acts as a clinic's receptionist on **`asani-dev` only**, through the same Postgres functions as the clinic web, so the
+queue rules and patient notifications are real. It needs `supabase/.db-url.local` (§2b).
+
 ```bash
 cd tools/queue-sim
-node queue-sim.js status --doctor doc_ayesha            # today's queue
-node queue-sim.js start  --doctor doc_ayesha            # sessionStatus=running
-node queue-sim.js next   --doctor doc_ayesha            # complete current, call next
-node queue-sim.js arrive --token tk_8f2a
-node queue-sim.js skip   --token tk_8f2a
-node queue-sim.js end    --doctor doc_ayesha            # remaining booked → noShow
+node queue-sim.js status  --doctor d_ayesha
+node queue-sim.js start   --doctor d_ayesha
+node queue-sim.js next    --doctor d_ayesha            # add --anyway to call a patient who has not arrived
+node queue-sim.js arrive  --doctor d_ayesha --number 3
+node queue-sim.js end     --doctor d_ayesha
 ```
-Add `--project dev` to run against `asani-dev` instead of emulators (needs `serviceAccount.dev.json`, **never committed**).
+
+All commands are in `tools/queue-sim/README.md`. Apart from `status`, they change the dev data and can send real
+pushes.
 
 ---
 
-## 5c. Patient app on a real Android phone + functions emulator
+## 7. iOS
 
-```bash
-cd functions && npm run serve:dev                    # terminal 1: functions on this PC
-adb reverse tcp:5001 tcp:5001                        # phone's 127.0.0.1:5001 → this PC
-cd apps/patient_app
-flutter run -d <phone id> --flavor dev --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true \
-  --dart-define=EMULATOR_HOST=127.0.0.1 --dart-define=AUTH_TEST_MODE=true
-```
-`EMULATOR_HOST=127.0.0.1` keeps Firebase from rewriting the host to `10.0.2.2` (that only works inside the
-Android emulator). Debug builds allow plain HTTP to 127.0.0.1 / localhost / 10.0.2.2
-(`android/app/src/debug/res/xml/network_security_config.xml`); release builds stay HTTPS only.
+iOS builds need **macOS + Xcode**. Options:
+1. **Codemagic** (or similar cloud macOS CI): build, sign and upload to TestFlight from Windows.
+2. A borrowed/shared Mac for first-time signing setup.
+
+One-time iOS steps (on a Mac or via CI):
+- Apple Developer account, App ID `pk.asani.patient` with **Push Notifications** capability.
+- In Xcode: enable *Push Notifications* and *Background Modes → Remote notifications*.
+- APNs key uploaded to Firebase (§3).
+- `cd ios && pod install`.
 
 ---
 
@@ -290,32 +285,35 @@ cd .. && flutter build appbundle --flavor prod --release
 
 ---
 
-## 7. iOS
+## 8. Edge Functions and database tools
 
-iOS builds need **macOS + Xcode**. Options:
-1. **Codemagic** (or similar cloud macOS CI): build, sign and upload to TestFlight from Windows.
-2. A borrowed/shared Mac for first-time signing setup.
+| Function | Does |
+|---|---|
+| `send-push` | Sends queued notifications through FCM (called by the database) |
+| `admin-clinic-login` | Super Admin: create, resend, disable and enable a clinic login |
 
-One-time iOS steps (on a Mac or via CI):
-- Apple Developer account, App ID `pk.asani.patient` with **Push Notifications** capability.
-- In Xcode: enable *Push Notifications* and *Background Modes → Remote notifications*.
-- APNs key uploaded to Firebase (§3).
-- `cd ios && pod install`.
+**Deploy only when Sarbuland asks, and only to `asani-dev`.** It needs a personal access token:
+supabase.com/dashboard/account/tokens → Generate new token, preset Read-only plus **Edge Functions** and **Secrets**
+read & write. Save it as one line in `supabase/.access-token.local` (git-ignored). Then, from the repo root:
 
----
+```powershell
+$env:SUPABASE_ACCESS_TOKEN = (Get-Content supabase\.access-token.local -Raw).Trim()
+npx supabase@latest functions deploy send-push --remote=lgnbxxcmogbbzmuqyrgu --no-verify-jwt --use-api
+npx supabase@latest functions deploy admin-clinic-login --remote=lgnbxxcmogbbzmuqyrgu --use-api
+```
 
-## 8. Functions
+Secrets are set with `supabase secrets set` (docs/10 §6b): `PUSH_SECRET` and `FCM_SERVICE_ACCOUNT` (base64) for
+`send-push`; `CLINIC_WEB_URL` for `admin-clinic-login`. Never commit them.
+
+### Database test tools
+From `tools/db-test`. They use `asani-dev`; the last three create their own temporary rows and delete them.
 
 ```bash
-cd functions
-npm run build
-npm run lint
-npm test                       # uses emulators
-firebase deploy --only functions --project dev     # only when asked
+node run.js                  # pgTAP tests, rolled back
+node client-smoke.js         # what the patient app does, from outside
+node concurrency.js          # many bookings at once: no duplicate token numbers
+node admin-login-smoke.js    # admin-clinic-login, without sending a real email
 ```
-Set secrets with `firebase functions:secrets:set NAME` (none needed in Phase 1).
-
-Rules tests (Firestore emulator, Java 21): `cd functions && npm run test:rules`.
 
 ---
 
@@ -325,9 +323,11 @@ Rules tests (Firestore emulator, Java 21): `cd functions && npm run test:rules`.
 
 | Workflow | Runs on changes in | Does |
 |---|---|---|
-| `patient_app.yml` | `apps/patient_app/**`, `packages/**`, root pubspec | analyze, test, dev debug APK |
-| `clinic_web.yml` | `apps/clinic_web/**`, `packages/**`, root pubspec | analyze, test, web build; Hosting deploy **disabled** until the `FIREBASE_SERVICE_ACCOUNT_ASANI_DEV` secret and a `hosting` block exist |
-| `functions.yml` | `functions/**`, `firestore.rules`, indexes, `firebase.json` | lint, build, unit tests, rules tests on the emulator; never deploys |
+| `patient_app.yml` | `apps/patient_app/**`, `packages/**`, root pubspec | analyze and test (shared packages too), dev debug APK (demo data) |
+| `clinic_web.yml` | `apps/clinic_web/**`, `packages/**`, root pubspec | analyze, tests if any, web build for Supabase; Hosting deploy **disabled** |
+| `supabase.yml` | `supabase/**`, `tools/db-test/**` | SQL syntax check; pgTAP tests on `asani-dev` **only if** the GitHub secret `SUPABASE_DB_URL` is set |
+
+CI never pushes migrations or deploys.
 
 ---
 
@@ -341,7 +341,11 @@ Already in `.gitignore`:
 **/*.jks
 **/*.keystore
 **/*.p8
-emulator-data/
+**/*.local.json
+supabase/.db-url.local
+supabase/.access-token.local
+supabase/functions/.env*
+tools/admin-scripts/*.local.txt
 apps/patient_app/android/app/src/prod/google-services.json
 apps/patient_app/ios/Runner/prod/GoogleService-Info.plist
 ```
