@@ -18,7 +18,7 @@ Two modes:
 | Supabase (D-52) | `flutter run --flavor dev --dart-define=BACKEND=supabase` | real 6-digit email code, data in `asani-dev` |
 
 Supabase setup (email code settings, SMTP): docs/02-setup.md §2b. Push uses Firebase Cloud Messaging only
-(`firebase_options_dev.dart`, `google-services.json`); see FIREBASE_SETUP.md for that part.
+(`firebase_options_dev.dart`, `google-services.json`); see docs/02-setup.md §3 and §4.
 
 Demo mode:
 - Any email works and the code is **123456**. Use phone **300 1234567** in profile setup to see a sample family, visit

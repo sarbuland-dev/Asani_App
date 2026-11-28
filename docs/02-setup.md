@@ -147,74 +147,51 @@ see docs/10 §6b.
 
 ---
 
-## 3. Firebase projects (one-time, owner only)
+## 3. Firebase for push only (one-time, owner only)
 
-Create **two** projects in the Firebase console:
+Since D-52 Firebase does **one job: push notifications (FCM)**, on the free Spark plan. Login, data and functions are
+on Supabase (§2b). No Blaze plan, Firestore, Firebase Authentication or App Check is needed.
 
-| Project ID | Use |
+| Firebase project | Use |
 |---|---|
-| `asani-dev` (actual ID **`asani-b2b17`**, alias `dev` in `.firebaserc`) | Development, testing, MCP tools |
-| `asani-prod` | Real clinics |
+| **`asani-b2b17`** (the dev project, called `asani-dev` in some documents) | Development and testing |
+| `asani-prod` (not created yet) | Real clinics |
 
-For **each** project:
-1. Upgrade to **Blaze** plan → set a **budget alert** (e.g. $10/month for dev).
-2. **Firestore** → Create database → Native mode → location **`asia-south1`** ⚠️ cannot be changed later.
-3. **Authentication** → Sign-in method → enable **Phone**.
-   - Settings → **SMS region policy** → *Allow* only **Pakistan (PK)**.
-   - Dev only: add test phone numbers (e.g. `+92 300 0000001` → code `123456`) for quick testing without SMS.
-4. **App Check** → register Android (Play Integrity) and iOS (App Attest). Use debug tokens in dev.
-5. **Cloud Messaging** → iOS: upload an **APNs Auth Key** (.p8) from the Apple Developer account.
-6. **Crashlytics** → enable.
-
-Log in from the CLI:
-```bash
-firebase login
-firebase use --add      # select asani-dev, alias "dev"
-firebase use --add      # select asani-prod, alias "prod"
-firebase use dev        # default to dev ALWAYS
-```
+For each project:
+1. **Cloud Messaging** is on by default. For iPhone, upload an **APNs Auth Key** (.p8) from the Apple Developer
+   account (Project settings → Cloud Messaging).
+2. The `send-push` Edge Function needs a service account of the same project in its `FCM_SERVICE_ACCOUNT` secret
+   (§2b; never commit it).
 
 ---
 
-## 4. Connect the Flutter app
+## 4. Connect the Flutter app to Firebase
 
-Android application IDs: `pk.asani.patient.dev` (dev), `pk.asani.patient` (prod). iOS bundle IDs: same.
+Needed only when the app config must be created again: the dev **Android** config is already in the repo. iOS is not
+configured yet.
+
+Application IDs (Android) and bundle IDs (iOS): `pk.asani.patient.dev` (dev), `pk.asani.patient` (prod).
+
+Tools, once: `npm install -g firebase-tools`, `dart pub global activate flutterfire_cli`, then `firebase login`.
 
 ```bash
 cd apps/patient_app
 
-flutterfire configure --project=asani-dev \
-  --out=lib/firebase_options_dev.dart \
-  --android-package-name=pk.asani.patient.dev \
-  --ios-bundle-id=pk.asani.patient.dev \
-  --platforms=android,ios
-
-flutterfire configure --project=asani-prod \
-  --out=lib/firebase_options_prod.dart \
-  --android-package-name=pk.asani.patient \
-  --ios-bundle-id=pk.asani.patient \
-  --platforms=android,ios
+flutterfire configure --project=asani-b2b17   --out=lib/firebase_options_dev.dart   --android-package-name=pk.asani.patient.dev   --ios-bundle-id=pk.asani.patient.dev   --android-out=android/app/src/dev/google-services.json   --platforms=android,ios
 ```
 
-### Android SHA keys (required for Phone Auth + App Check)
+For prod, first add `lib/firebase_options_prod.dart` and the prod `google-services.json` to `.gitignore` (§9), then:
+
 ```bash
-cd android
-./gradlew signingReport        # Windows: gradlew signingReport
+flutterfire configure --project=asani-prod   --out=lib/firebase_options_prod.dart   --android-package-name=pk.asani.patient   --ios-bundle-id=pk.asani.patient   --android-out=android/app/src/prod/google-services.json   --platforms=android,ios
 ```
-Copy **SHA-1** and **SHA-256** for debug (and later release/upload keys) into Firebase console → Project settings → Android app. Then re-download `google-services.json` if asked.
 
-> Missing SHA keys is the #1 cause of phone auth failures. See docs/08.
+If it asks to add the Google Services Gradle plugin, answer **yes**.
 
 ### Flavors
-`android/app/build.gradle.kts` defines product flavors `dev` and `prod` with matching `applicationId`, and `google-services.json` placed in `android/app/src/dev/` and `android/app/src/prod/`.
-
-`lib/main.dart` chooses options:
-```dart
-const env = String.fromEnvironment('ENV', defaultValue: 'dev');
-final options = env == 'prod'
-    ? prod.DefaultFirebaseOptions.currentPlatform
-    : dev.DefaultFirebaseOptions.currentPlatform;
-```
+`android/app/build.gradle.kts` defines product flavors `dev` and `prod` with matching `applicationId`, and
+`google-services.json` goes in `android/app/src/dev/` and `android/app/src/prod/`.
+`lib/core/config/firebase_setup.dart` picks the dev or prod options.
 
 ---
 
@@ -309,8 +286,6 @@ cd .. && flutter build appbundle --flavor prod --release
 
 - `key.properties` and `*.jks` are git-ignored; never commit them or paste the passwords anywhere.
 - Turn on **Play App Signing** in the Play Console (Google keeps the app signing key; this is only the upload key).
-- Add the upload key's (and Play's app signing key's) **SHA-1 and SHA-256** to the prod Firebase Android app
-  (`keytool -list -v -keystore … -alias upload`), or phone login fails in the release build.
 - Losing the upload key is recoverable with Play App Signing (Google can reset it), but keep a backup anyway.
 
 ---
@@ -324,8 +299,7 @@ iOS builds need **macOS + Xcode**. Options:
 One-time iOS steps (on a Mac or via CI):
 - Apple Developer account, App ID `pk.asani.patient` with **Push Notifications** capability.
 - In Xcode: enable *Push Notifications* and *Background Modes → Remote notifications*.
-- Phone auth: add the **REVERSED_CLIENT_ID** URL scheme from `GoogleService-Info.plist`.
-- APNs key uploaded to Firebase (step 3.5).
+- APNs key uploaded to Firebase (§3).
 - `cd ios && pod install`.
 
 ---
