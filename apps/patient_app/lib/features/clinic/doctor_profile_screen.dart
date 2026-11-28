@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/error_state.dart';
 import '../../data/providers.dart';
 import 'clinic_screen.dart' show ClinicHeader, DoctorFace, QueueStat;
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-07b Doctor profile (board P3b): opened from "Search by doctor" → Book
 /// token, so the patient sees this doctor at this clinic before booking.
@@ -72,7 +73,8 @@ class DoctorProfileScreen extends ConsumerWidget {
             child: CustomScrollView(slivers: [
               SliverToBoxAdapter(child: ClinicHeader(clinic: clinic, title: 'Doctor')),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, Gap.xl),
+                // With the booking bar below, the bar clears the phone's buttons.
+                padding: EdgeInsets.fromLTRB(18, 14, 18, canBookClinic ? Gap.xl : bottomClearance(context)),
                 sliver: SliverList.list(children: [
                   _DoctorToday(doctor: doctor, day: day, availability: availability, next: next),
                   const SizedBox(height: Gap.md),

@@ -12,37 +12,23 @@ import '../../core/widgets/error_state.dart';
 import '../doctor_search/doctor_search_providers.dart';
 import '../doctor_search/doctors_tab.dart' show weeklyTimings;
 import 'clinic_card.dart' show clinicInitials, clinicOpenInfo;
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-07 Clinic page: choose a doctor (PRD F-03).
-class ClinicScreen extends ConsumerStatefulWidget {
+class ClinicScreen extends ConsumerWidget {
   const ClinicScreen({super.key, required this.clinicId});
   final String clinicId;
 
   @override
-  ConsumerState<ClinicScreen> createState() => _ClinicScreenState();
-}
-
-class _ClinicScreenState extends ConsumerState<ClinicScreen> {
-  bool _redirected = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final clinicAsync = ref.watch(clinicProvider(widget.clinicId));
-    final doctorsAsync = ref.watch(doctorsProvider(widget.clinicId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The page always shows, even with one doctor (D-66).
+    final clinicAsync = ref.watch(clinicProvider(clinicId));
+    final doctorsAsync = ref.watch(doctorsProvider(clinicId));
     final clinic = clinicAsync.value;
-    final doctors = doctorsAsync.value;
-
-    // Exactly one doctor → go straight to booking (PRD F-03).
-    if (!_redirected && clinic != null && clinic.status.acceptsBookings && doctors != null && doctors.length == 1) {
-      _redirected = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.pushReplacement('/book/${clinic.id}/${doctors.first.id}');
-      });
-    }
 
     if (clinicAsync.hasError) {
       return StatusBarScrim(
-      child: Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(widget.clinicId)))));
+      child: Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(clinicId)))));
     }
     if (clinicAsync.isLoading && clinic == null) {
       return const LoadingScreen(message: 'Loading clinic…');
@@ -61,7 +47,7 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
         slivers: [
           SliverToBoxAdapter(child: ClinicHeader(clinic: clinic)),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(Gap.screen, 14, Gap.screen, Gap.xxl),
+            padding: EdgeInsets.fromLTRB(Gap.screen, 14, Gap.screen, bottomClearance(context)),
             sliver: SliverList.list(children: [
               if (!clinic.status.acceptsBookings)
                 Padding(
@@ -87,7 +73,7 @@ class _ClinicScreenState extends ConsumerState<ClinicScreen> {
               const SizedBox(height: Gap.md),
               ...doctorsAsync.when(
                 loading: () => [const SkeletonList(height: 200)],
-                error: (e, _) => [ErrorState(error: e, onRetry: () => ref.invalidate(doctorsProvider(widget.clinicId)))],
+                error: (e, _) => [ErrorState(error: e, onRetry: () => ref.invalidate(doctorsProvider(clinicId)))],
                 data: (list) => list.isEmpty
                     ? [const EmptyState(icon: Icons.medical_services_outlined, title: 'No doctors listed', message: 'This clinic has not added doctors yet.')]
                     : [for (final d in list) _DoctorCard(clinic: clinic, doctor: d)],

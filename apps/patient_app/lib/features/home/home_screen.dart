@@ -8,10 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../clinic/clinic_card.dart';
-import '../shell/main_shell.dart';
 import 'city_sheet.dart';
 import '../../core/widgets/error_state.dart';
 import '../notifications/notifications_list_screen.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-05 Home (PRD F-02, board P2, D-43). Green header with the avatar, bell,
 /// greeting and city; then ONE top card that depends on the user:
@@ -49,7 +49,7 @@ class HomeScreen extends ConsumerWidget {
             slivers: [
               SliverToBoxAdapter(child: _Header(name: user?.name ?? '', city: city, isNew: isNew)),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, Gap.lg, 20, kNavBarClearance),
+                padding: EdgeInsets.fromLTRB(20, Gap.lg, 20, bottomClearance(context)),
                 sliver: SliverList.list(
                   children: [
                     if (active.isNotEmpty)

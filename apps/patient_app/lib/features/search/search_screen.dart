@@ -10,6 +10,7 @@ import '../../data/providers.dart';
 import '../clinic/clinic_card.dart';
 import '../home/city_sheet.dart' show kLiveCity;
 import '../../core/widgets/error_state.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-06 search: clinic name or area, filters as you type (250 ms debounce).
 class SearchScreen extends ConsumerStatefulWidget {
@@ -143,6 +144,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(clinicsProvider(city))),
                 data: (_) => results.isEmpty
                     ? SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: bottomClearance(context)),
                         child: Column(children: [
                           EmptyState(
                             icon: Icons.search_off_rounded,
@@ -166,7 +168,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ]),
                       )
                     : ListView(
-                        padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.sm, Gap.screen, Gap.xl),
+                        padding: EdgeInsets.fromLTRB(Gap.screen, Gap.sm, Gap.screen, bottomClearance(context)),
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(bottom: Gap.md),

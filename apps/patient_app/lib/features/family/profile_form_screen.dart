@@ -6,6 +6,7 @@ import '../../core/errors/app_exception.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import 'profile_form.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-14 add / edit family member.
 class ProfileFormScreen extends ConsumerWidget {
@@ -22,7 +23,7 @@ class ProfileFormScreen extends ConsumerWidget {
     return Scaffold(
       // Board P6 S-14 (D-50): the form draws the green header with the preview card inside.
       body: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: Gap.xl),
+              padding: EdgeInsets.only(bottom: bottomClearance(context)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

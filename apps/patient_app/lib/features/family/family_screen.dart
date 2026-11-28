@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
-import '../shell/main_shell.dart';
 import 'family_summary.dart';
 import 'profile_form.dart';
 import '../../core/widgets/error_state.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-13 Family tab (PRD F-07, boards P6 and P13): green header with how many
 /// profiles are on this number and a cream "+"; the family summary card over
@@ -127,7 +127,7 @@ class FamilyScreen extends ConsumerWidget {
               ],
               data: (list) => [
                 SliverPadding(
-                  padding: EdgeInsets.fromLTRB(20, showSummary ? Gap.md : Gap.lg, 20, kNavBarClearance),
+                  padding: EdgeInsets.fromLTRB(20, showSummary ? Gap.md : Gap.lg, 20, bottomClearance(context)),
                   sliver: SliverGrid.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,

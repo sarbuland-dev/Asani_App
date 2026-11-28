@@ -127,6 +127,8 @@ Look (2026-11-16): a floating teal pill bar (`AppColors.primary`) above the bott
 
 Booking is a full-screen flow pushed on top of the tabs (no bottom bar), with a back arrow on each step.
 
+Every page scrolls its last item clear of what covers the bottom: the floating bar on the tabs, and the phone's own buttons or gesture line everywhere (`bottomClearance` in `lib/core/widgets/bottom_clearance.dart`).
+
 ```
 Splash → (first launch) Intro pages → Phone → OTP → Name & Consent → Home   (D-29)
 Splash → (not logged in, intro seen) Phone → OTP → Name & Consent → Home
@@ -274,6 +276,11 @@ token-slip card overlapping it that fills in as the user types (initials avatar,
 - Empty result: "No clinic found for 'xyz'. Check the spelling or try the area name."
 
 ### S-06b Search: Doctors tab (PRD F-13, F-14)
+**Header (board P3, 2026-11-28; replaces the tabs and city chip drawn below):** green, rounded bottom, a round back
+button. Before a speciality: "Search by doctor" + "Pick a speciality to see doctors near you". After: "Heart doctors" +
+"4 in Lahore · nearest first" (no "nearest first" without location); back returns to the grid, or leaves the screen
+when it was opened straight on a speciality.
+
 ```
 ┌──────────────────────────────┐
 │ ←  Search            Lahore▾ │

@@ -148,7 +148,7 @@ Run on Redmi and iPhone before every release. Use `asani-dev` + queue-sim.
 ### QA-2 Discovery
 1. Home lists Lahore clinics; search "shifa" and an area name.
 2. Change city → list updates; empty city shows empty state.
-3. Clinic with one doctor → goes straight to booking.
+3. Clinic with one doctor → its clinic page shows (D-66); **Book token** starts booking.
 4. Doctor on leave / full / not started labels are correct.
 5. Suspended clinic → banner, no book buttons.
 

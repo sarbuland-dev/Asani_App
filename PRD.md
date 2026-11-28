@@ -91,7 +91,7 @@ Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2**
 - Shows clinic name, address, phone (tap to call), and the **list of active doctors**.
 - Each doctor card shows: name, speciality, today's timing, availability badge and **live queue** (now serving, number waiting, estimated wait).
 - Availability states: `Available today`, `Not started yet` (session later today), `On leave today`, `Not available today` (no schedule), `Tokens full`.
-- If the clinic has **exactly one doctor**, skip the list and go straight to booking for that doctor.
+- The clinic page **always shows**, also when the clinic has only one doctor (D-66); booking starts when the patient taps **Book token**.
 - Speciality is shown with its patient label, e.g. "Heart (Cardiologist)" (fixed list, F-13).
 - If the doctor is linked to the same doctor at another Asani clinic (F-14), the card shows "Also sits at: {clinic} · {days/timing}", tappable.
 - Patients can also find doctors across clinics by **speciality** (F-13, D-31).
@@ -329,6 +329,7 @@ Flow: **Search → Doctors tab → speciality chip → doctor card → booking f
 | D-63 | 2026-11-28 | **Patient app page transition = board P11** (iPhone-style slide, 300 ms, swipe back, off with "Remove animations"). Replaces "platform default" (DESIGN.md §9). |
 | D-64 | 2026-11-28 | **Asani is in Lahore only for now.** The city pill (Home, Search, Account) opens the board P12 sheet: a Lahore sunset picture, a *Live now* chip, "Asani is in Lahore for now", the Lahore card ticked, and *Got it*. No other city can be chosen and Search no longer offers clinics in other cities; an old account with another city is moved back to Lahore when the sheet closes. The sunset colours are an illustration-only exception to the forest + cream palette. Replaces the city selector in F-02. When a second city goes live, the sheet becomes a picker again. |
 | D-65 | 2026-11-28 | **Family tab summary** (board P13). A card over the header shows *N visits so far* (completed tokens, all profiles) with one bar per member, **most visits first**; with more than four members the bars **scroll sideways**. Below: **live tokens** (today, waiting or being served; opens the Tokens tab) and **pending follow-ups** (opens the profile of the member whose follow-up is next; booking stays a separate tap). A button that would show **0 is hidden**; with no visits there is no chart; with all three at zero there is no card. It uses data the app already loads. |
+| D-66 | 2026-11-28 | **A clinic with one doctor shows its clinic page** like any other clinic. It no longer jumps straight to booking (replaces that rule in F-03), so the patient can see the clinic: address, map, call and the doctor. |
 
 ## 10. Open questions (confirm before building the related part)
 

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/errors/app_exception.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-14 profile form (PRD F-07). Used as a full screen and in a bottom sheet.
 /// Calls [onSaved] with the saved (or chosen existing) profile.
@@ -449,7 +450,7 @@ Future<Patient?> showAddFamilySheet(BuildContext context) {
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.xl),
+        padding: EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, bottomClearance(ctx)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

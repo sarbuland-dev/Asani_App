@@ -7,6 +7,7 @@ import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../home/home_screen.dart' show followUpBookingPath;
 import 'profile_form.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-15 profile detail (PRD F-08, F-09; board P6): green header with back,
 /// "Profile" and Edit, the person, and Visits · n | Follow-ups · n tabs.
@@ -118,7 +119,7 @@ class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, Gap.xxl),
+              padding: EdgeInsets.fromLTRB(20, 16, 20, bottomClearance(context)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 if (_followUps) ...[
                   if (followUps.isEmpty)

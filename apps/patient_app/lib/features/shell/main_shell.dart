@@ -136,6 +136,3 @@ class _NavItem extends StatelessWidget {
     return selected ? tab : Tooltip(message: label, excludeFromSemantics: true, child: tab);
   }
 }
-
-/// Bottom padding so content scrolls clear of the floating bar.
-const double kNavBarClearance = 98;

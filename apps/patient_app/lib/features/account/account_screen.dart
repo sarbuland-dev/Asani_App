@@ -14,7 +14,7 @@ import '../../data/providers.dart';
 import '../auth/phone_field.dart';
 import '../../data/repositories/repositories.dart';
 import '../home/home_screen.dart' show showCityPicker;
-import '../shell/main_shell.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 
 /// S-16 Account (PRD F-10).
@@ -46,7 +46,7 @@ class AccountScreen extends ConsumerWidget {
     return StatusBarScrim(
       child: Scaffold(
       body: ListView(
-        padding: const EdgeInsets.only(bottom: kNavBarClearance),
+        padding: EdgeInsets.only(bottom: bottomClearance(context)),
         children: [
           // Board P6 S-16: "Account" and a cream card with the user. The name is
           // changed from Family > the Self profile > Edit (that also updates the account).

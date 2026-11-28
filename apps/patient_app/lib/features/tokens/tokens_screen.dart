@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
-import '../shell/main_shell.dart';
 import 'token_widgets.dart';
 import '../../core/widgets/error_state.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-12 Tokens tab: Active | Past (PRD F-08).
 class TokensScreen extends ConsumerStatefulWidget {
@@ -55,6 +55,7 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
               error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(myTokensProvider)),
               data: (list) => list.isEmpty
                   ? SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: bottomClearance(context)),
                       child: _past
                           ? const EmptyState(
                               icon: Icons.history_rounded,
@@ -70,7 +71,7 @@ class _TokensScreenState extends ConsumerState<TokensScreen> {
                             ),
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(Gap.screen, Gap.lg, Gap.screen, kNavBarClearance),
+                      padding: EdgeInsets.fromLTRB(Gap.screen, Gap.lg, Gap.screen, bottomClearance(context)),
                       children: [
                         // Past: grouped by month (board), newest first.
                         for (var i = 0; i < list.length; i++) ...[

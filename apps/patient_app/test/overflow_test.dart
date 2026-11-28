@@ -12,18 +12,45 @@ import 'package:patient_app/core/utils/device.dart';
 import 'package:asani_ui/asani_ui.dart';
 import 'package:patient_app/data/demo/demo_backend.dart';
 import 'package:patient_app/data/providers.dart';
+import 'package:patient_app/features/shell/main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Opens every screen on small phones and with large text, and fails on any
-/// layout overflow ("A RenderFlex overflowed by N pixels").
+/// layout overflow ("A RenderFlex overflowed by N pixels"). On the phone with
+/// bottom buttons it also fails when text is still under the floating tab bar or
+/// those buttons after scrolling to the end.
 ///
 /// Verdana (wider than Inter) stands in for Inter so results are on the safe side.
 /// Windows only; skipped elsewhere.
 const _sizes = [
-  (name: 'small 320x640 @1.0', size: Size(320, 640), scale: 1.0),
-  (name: 'phone 360x740 @1.3', size: Size(360, 740), scale: 1.3),
-  (name: 'tiny 320x568 @1.3', size: Size(320, 568), scale: 1.3),
+  (name: 'small 320x640 @1.0', size: Size(320, 640), scale: 1.0, bottom: 0.0),
+  (name: 'phone 360x740 @1.3', size: Size(360, 740), scale: 1.3, bottom: 0.0),
+  (name: 'tiny 320x568 @1.3', size: Size(320, 568), scale: 1.3, bottom: 0.0),
+  // Android's three bottom buttons (48 dp).
+  (name: 'bottom buttons 360x640', size: Size(360, 640), scale: 1.0, bottom: 48.0),
 ];
+
+/// Texts on screen that end below the floating tab bar's top edge, or below the
+/// top of the phone's bottom buttons on pages without the bar.
+List<String> _hiddenAtBottom(WidgetTester tester, Size size, double bottom) {
+  var limit = size.height - bottom;
+  final barTexts = <Element>{};
+  final bar = find.byType(AnimatedFlex);
+  if (bar.evaluate().isNotEmpty) {
+    limit = tester.getRect(bar.first).top - 5; // the bar's own top padding
+    barTexts.addAll(find.descendant(of: bar, matching: find.byType(Text)).evaluate());
+  }
+  final hidden = <String>[];
+  for (final e in find.byType(Text).evaluate()) {
+    final box = e.renderObject;
+    if (barTexts.contains(e) || box is! RenderBox || !box.hasSize) continue;
+    final r = box.localToGlobal(Offset.zero) & box.size;
+    if (r.bottom > limit + 0.5 && r.top < size.height && r.left < size.width && r.right > 0) {
+      hidden.add('"${(e.widget as Text).data}" is under the bottom bar');
+    }
+  }
+  return hidden;
+}
 
 Future<void> _loadFonts() async {
   final loader = FontLoader('Inter');
@@ -60,6 +87,8 @@ void main() {
 
       tester.view.physicalSize = cfg.size * 3;
       tester.view.devicePixelRatio = 3;
+      tester.view.padding = FakeViewPadding(bottom: cfg.bottom * 3);
+      tester.view.viewPadding = FakeViewPadding(bottom: cfg.bottom * 3);
       tester.platformDispatcher.textScaleFactorTestValue = cfg.scale;
       addTearDown(() {
         tester.view.reset();
@@ -97,12 +126,16 @@ void main() {
         current = label;
         router.go(path);
         await settle();
-        // Scroll every scrollable to the end so lower content is laid out too.
-        for (final s in find.byType(Scrollable).evaluate().toList()) {
-          final state = (s as StatefulElement).state as ScrollableState;
-          if (state.position.maxScrollExtent > 0) state.position.jumpTo(state.position.maxScrollExtent);
+        // Scroll every scrollable to the end so lower content is laid out too
+        // (again, because lazy lists only learn their full length on the way).
+        for (var pass = 0; pass < 3; pass++) {
+          for (final s in find.byType(Scrollable).evaluate().toList()) {
+            final state = (s as StatefulElement).state as ScrollableState;
+            if (state.position.maxScrollExtent > 0) state.position.jumpTo(state.position.maxScrollExtent);
+          }
+          await settle();
         }
-        await settle();
+        if (cfg.bottom > 0) problems.addAll([for (final h in _hiddenAtBottom(tester, cfg.size, cfg.bottom)) '$label → $h']);
       }
 
       // First launch: intro pages (D-29), then the login screens.
@@ -162,6 +195,10 @@ void main() {
       for (final (label, path) in screens) {
         await visit(label, path);
       }
+
+      // D-66: a clinic with one doctor shows its page instead of jumping to booking.
+      await visit('clinic one doctor', '/clinic/c_modeltown');
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/clinic/c_modeltown');
 
       // Sheets and dialogs opened from the shell screens
       Future<void> openAndClose(String label, String path, Finder button) async {

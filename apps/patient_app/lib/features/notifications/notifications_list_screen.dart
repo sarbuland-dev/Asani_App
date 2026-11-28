@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/widgets/error_state.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// S-19 Notifications list (PRD D-45, board P7). Every push of the last 30
 /// days; opening the list marks all read; a tap opens the same place as the
@@ -140,7 +141,7 @@ class _NotificationsListScreenState extends ConsumerState<NotificationsListScree
     }
     final otherToday = todays.where((n) => !(n.type == 'queue' && n.tokenId != null)).toList();
 
-    return ListView(padding: const EdgeInsets.fromLTRB(18, 0, 18, Gap.xl), children: [
+    return ListView(padding: EdgeInsets.fromLTRB(18, 0, 18, bottomClearance(context)), children: [
       if (todays.isNotEmpty) _group('Today'),
       for (final entry in byToken.entries) ...[
         if (entry.value.any((n) => _step(n) == 4)) _TurnCard(n: entry.value.firstWhere((n) => _step(n) == 4)),
@@ -502,7 +503,7 @@ class _EmptyState extends ConsumerState<_Empty> with SingleTickerProviderStateMi
           ]),
         );
 
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 18, 20, 26), children: [
+    return ListView(padding: EdgeInsets.fromLTRB(20, 18, 20, bottomClearance(context)), children: [
       Semantics(
         label: 'No notifications yet',
         child: ExcludeSemantics(

@@ -1,6 +1,7 @@
 import 'package:asani_core/asani_core.dart';
 import 'package:asani_ui/asani_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import '../../core/widgets/error_state.dart';
 import '../../data/location_service.dart';
 import '../../data/providers.dart';
 import 'doctor_search_providers.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// Search → Doctors tab (PRD F-13, F-14; board P3 S-06b). A grid of
 /// speciality tiles ("What do you need help with?"); picking one shows that
@@ -60,12 +62,34 @@ class _DoctorsTabState extends ConsumerState<DoctorsTab> {
     ref.watch(locationAccessProvider);
     _maybeAskLocation();
     final picked = _picked;
-    if (picked != null) {
-      return _Results(speciality: picked, onBack: () => setState(() => _picked = null));
-    }
+    // Back from the results returns to the grid, unless the screen was opened
+    // straight on a speciality; then it leaves, as the person came.
+    final backToGrid = picked != null && widget.initialSpeciality == null;
+    void showGrid() => setState(() => _picked = null);
+
+    return PopScope(
+      canPop: !backToGrid,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) showGrid();
+      },
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _DoctorsHeader(speciality: picked, onBack: backToGrid ? showGrid : null),
+        Expanded(
+          // The header already covers the status bar.
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: picked != null ? _Results(speciality: picked, onBack: showGrid) : _grid(context),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _grid(BuildContext context) {
     final tiles = _more ? Speciality.values : _main;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
+      padding: EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, bottomClearance(context)),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
@@ -88,6 +112,74 @@ class _DoctorsTabState extends ConsumerState<DoctorsTab> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Board P3 S-06b green header: a round back button, then "Search by doctor"
+/// with one line under it, or, once a speciality is picked, "Heart doctors"
+/// with "4 in Lahore · nearest first" beside the button.
+class _DoctorsHeader extends ConsumerWidget {
+  const _DoctorsHeader({required this.speciality, required this.onBack});
+  final Speciality? speciality;
+
+  /// Null = the usual back (leave the screen).
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final picked = speciality;
+    String? count;
+    if (picked != null) {
+      final city = ref.watch(selectedCityProvider);
+      final nearest = ref.watch(userLocationProvider).value != null;
+      final cards = ref.watch(doctorCardsProvider(picked)).value;
+      count = cards == null ? city : '${cards.length} in $city${nearest ? ' · nearest first' : ''}';
+    }
+    final title = Text(
+      picked == null ? 'Search by doctor' : '${picked.label} doctors',
+      style: AppText.titleMedium.copyWith(color: AppColors.onPrimary, fontSize: 20, fontWeight: FontWeight.w700),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kStatusBarLight,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(Radii.header)),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, Gap.sm, 20, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                HeaderBackButton(onPressed: onBack),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: picked == null
+                        ? title
+                        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            title,
+                            Text(count!, style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted)),
+                          ]),
+                  ),
+                ),
+              ]),
+              if (picked == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 14, 2, 0),
+                  child: Text('Pick a speciality to see doctors near you',
+                      style: AppText.labelSmall.copyWith(color: AppColors.onPrimaryMuted, fontSize: 13)),
+                ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -183,19 +275,9 @@ class _Results extends ConsumerWidget {
           loading: () => const Center(child: AsaniLoader()),
           error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(clinicsProvider(city))),
           data: (cards) => ListView(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.xxl),
+            padding: EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, bottomClearance(context)),
             children: [
-              Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${speciality.label} doctors', style: AppText.titleMedium.copyWith(fontWeight: FontWeight.w800)),
-                    Text('${cards.length} in $city${location == null ? '' : ' · nearest first'}', style: AppText.labelSmall),
-                  ]),
-                ),
-                TextButton.icon(onPressed: onBack, icon: const Icon(Icons.grid_view_rounded, size: 18), label: const Text('All')),
-              ]),
               if (location == null) ...[
-                const SizedBox(height: Gap.sm),
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
                   decoration: BoxDecoration(color: AppColors.cream, borderRadius: BorderRadius.circular(12)),
@@ -206,8 +288,8 @@ class _Results extends ConsumerWidget {
                     TextButton(onPressed: () => askForLocation(ref), child: const Text('Turn on')),
                   ]),
                 ),
+                const SizedBox(height: Gap.md),
               ],
-              const SizedBox(height: Gap.md),
               if (cards.isEmpty)
                 EmptyState(
                   icon: Icons.medical_services_outlined,
@@ -406,8 +488,9 @@ Future<void> showLocationPrimer(BuildContext context, WidgetRef ref) async {
   await showModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
+    isScrollControlled: true,
     builder: (ctx) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.sm, Gap.xl, Gap.xl),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Center(

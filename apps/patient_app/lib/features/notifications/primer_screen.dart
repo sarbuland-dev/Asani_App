@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/push/push_service.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
+import '../../core/widgets/bottom_clearance.dart';
 
 /// Shows a route's page as a bottom sheet (board P4 S-17, D-50).
 class BottomSheetPage<T> extends Page<T> {
@@ -101,7 +102,7 @@ class _PrimerScreenState extends ConsumerState<PrimerScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.md, Gap.xl, Gap.xl),
+      padding: EdgeInsets.fromLTRB(Gap.xl, Gap.md, Gap.xl, bottomClearance(context)),
       // Board P4 S-17: handle, green bell tile, the promise, the 4 alerts, Allow / Not now.
       child: Column(
         mainAxisSize: MainAxisSize.min,
