@@ -45,6 +45,6 @@ Dr. Ayesha linked at Al-Shifa and DHA.
 
 ## 4. Open
 
-- [ ] **Material Symbols** icon package (approved) in `packages/asani_ui`, so both apps share the speciality icons
-      (today: SVG icons from the screens board in the patient app).
+- [x] 2026-11-28 **Material Symbols** (`material_symbols_icons`) in `packages/asani_ui`: `SpecialityIcon` is used by the
+      patient app tiles and the clinic web speciality pickers (replaces the board SVGs and `flutter_svg`).
 - [ ] Real clinics without a location must add it before their doctors show a distance.

@@ -274,9 +274,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               Icon(Icons.chevron_right_rounded),
                             ]),
                     ),
-                    Center(
-                      child: TextButton(onPressed: _saving ? null : _useAnotherEmail, child: const Text('Use another email')),
-                    ),
+                    const SizedBox(height: Gap.sm),
                   ],
                 ),
               ),

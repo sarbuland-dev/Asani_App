@@ -12,9 +12,9 @@ select plan(76);
 insert into auth.users (id, email, aud, role) values
   ('00000000-0000-0000-0000-0000000006c1', 'clinic1@asani.test', 'authenticated', 'authenticated'),
   ('00000000-0000-0000-0000-0000000006c2', 'clinic2@asani.test', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-0000000006ad', 'admin@asani.test',   'authenticated', 'authenticated'),
+  ('00000000-0000-0000-0000-0000000006ad', 'pgtap-admin@asani.test',   'authenticated', 'authenticated'),
   ('00000000-0000-0000-0000-0000000006a1', 'patient@asani.test', 'authenticated', 'authenticated');
-insert into public.admin_users (id, email, name) values ('00000000-0000-0000-0000-0000000006ad', 'admin@asani.test', 'Sarbuland');
+insert into public.admin_users (id, email, name) values ('00000000-0000-0000-0000-0000000006ad', 'pgtap-admin@asani.test', 'Sarbuland');
 insert into public.clinics (id, name, city, status, lat, lng) values
   ('k_c1', 'Kay Clinic', 'Lahore', 'active', 31.5, 74.3),
   ('k_c2', 'Second Clinic', 'Lahore', 'active', 31.4, 74.2);

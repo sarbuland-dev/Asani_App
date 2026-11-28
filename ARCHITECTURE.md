@@ -73,7 +73,7 @@ rules live in one place. Direct client writes are only: own account settings, ow
 2. `verifyOTP(email, code, type: email)` → session.
 3. No `users` row yet → profile setup → `create_profile(name, age, gender, phone)` creates the account row and the
    Self profile in one transaction (`phone_verified = false`; `phone-taken` if another account has the number).
-4. The phone saves its FCM token in `devices` after sign-in. Clinic / Super Admin logins are refused by the app.
+4. The phone saves its Firebase Installation ID in `devices` after sign-in (D-61). Clinic / Super Admin logins are refused by the app.
 
 ### 3.2 Booking
 `book_token(clinic, doctor, patient, date)`: locks the doctor's queue-day row, checks BR-1…BR-6, number = last + 1,

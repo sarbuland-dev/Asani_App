@@ -12,7 +12,7 @@ insert into auth.users (id, email, aud, role) values
   ('00000000-0000-0000-0000-00000000000a', 'a@asani.test', 'authenticated', 'authenticated'),
   ('00000000-0000-0000-0000-00000000000b', 'b@asani.test', 'authenticated', 'authenticated'),
   ('00000000-0000-0000-0000-00000000000c', 'clinic@asani.test', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-00000000000d', 'admin@asani.test', 'authenticated', 'authenticated');
+  ('00000000-0000-0000-0000-00000000000d', 'pgtap-admin@asani.test', 'authenticated', 'authenticated');
 
 insert into public.users (id, email, phone, name) values
   ('00000000-0000-0000-0000-00000000000a', 'a@asani.test', '+923000000001', 'Patient A'),

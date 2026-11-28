@@ -48,6 +48,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(adminDataLoadingProvider)) return const AdminLoading(title: 'Dashboard');
     final clinics = ref.watch(clinicsProvider);
     final month = ref.watch(invoicesProvider(null)).where((i) => i.month == thisMonthKey()).toList();
     final expected = month.where((i) => i.status != InvoiceStatus.waived).fold<int>(0, (a, i) => a + i.amount);

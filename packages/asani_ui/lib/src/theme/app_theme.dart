@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'colors.dart';
+import 'page_transition.dart';
 import 'spacing.dart';
 import 'typography.dart';
 
 export 'colors.dart';
+export 'page_transition.dart';
 export 'spacing.dart';
 export 'typography.dart';
 
@@ -22,6 +24,7 @@ ThemeData buildAppTheme() {
 
   return ThemeData(
     useMaterial3: true,
+    pageTransitionsTheme: asaniPageTransitions,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     textTheme: AppText.textTheme(),

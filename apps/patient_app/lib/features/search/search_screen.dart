@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../clinic/clinic_card.dart';
+import '../home/city_sheet.dart' show kLiveCity;
 import '../../core/widgets/error_state.dart';
 
 /// S-06 search: clinic name or area, filters as you type (250 ms debounce).
@@ -196,7 +197,8 @@ class _OtherCities extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (query.trim().isEmpty) return const SizedBox.shrink();
-    final cities = (ref.watch(citiesProvider).value ?? const <String>[]).where((c) => c != city);
+    // D-64: only the live city is offered.
+    final cities = (ref.watch(citiesProvider).value ?? const <String>[]).where((c) => c != city && c == kLiveCity);
     final hits = <(String, int)>[];
     for (final c in cities) {
       final n = (ref.watch(clinicsProvider(c)).value ?? const <Clinic>[]).where((x) => x.matches(query)).length;

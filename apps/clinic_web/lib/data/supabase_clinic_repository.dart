@@ -45,6 +45,10 @@ class SupabaseClinicRepository implements ClinicRepository {
   bool _needsPassword;
   final _changes = StreamController<void>.broadcast();
   final _subs = <String, StreamSubscription<dynamic>>{};
+  final _answered = <String>{};
+
+  /// What the Super Admin's dashboard and clinics list are built from.
+  static const _adminStreams = ['clinics', 'billing', 'stats', 'doctors', 'logins', 'invoices', 'activity'];
   Timer? _notifyTimer;
 
   UserAccount? _user;
@@ -86,10 +90,13 @@ class SupabaseClinicRepository implements ClinicRepository {
     if (_subs.containsKey(key)) return;
     _subs[key] = stream.listen((rows) {
       onData(rows);
+      _answered.add(key);
       _notify();
     }, onError: (Object e) {
       AppLogger.warn('stream $key: $e');
       _subs.remove(key);
+      _answered.add(key);
+      _notify();
     });
   }
 
@@ -168,7 +175,7 @@ class SupabaseClinicRepository implements ClinicRepository {
     final snap = Map<String, Object?>.from((r['patient_snapshot'] as Map?) ?? const {});
     final token = Token.fromMap({
       ...m,
-      'patientSnapshot': {...snap, 'name': snap['name'] ?? '', 'phone': snap['phone'] ?? '', 'birthYear': (snap['birthYear'] as num?)?.toInt()},
+      'patientSnapshot': {...snap, 'name': Fmt.personName('${snap['name'] ?? ''}'), 'phone': snap['phone'] ?? '', 'birthYear': (snap['birthYear'] as num?)?.toInt()},
       'notified': const <String>[], // the clinic never needs the notification steps
     });
     return QueueToken(
@@ -183,7 +190,7 @@ class SupabaseClinicRepository implements ClinicRepository {
     );
   }
 
-  static Patient _patientFrom(Map<String, dynamic> r) => Patient.fromMap({..._plain(r), 'phone': r['phone'] ?? '', 'name': r['name'] ?? ''});
+  static Patient _patientFrom(Map<String, dynamic> r) => Patient.fromMap({..._plain(r), 'phone': r['phone'] ?? '', 'name': Fmt.personName('${r['name'] ?? ''}')});
 
   static FollowUp _followUpFrom(Map<String, dynamic> r) => FollowUp.fromMap({..._plain(r), 'ownerUid': r['owner_uid'] ?? ''});
 
@@ -328,6 +335,7 @@ class SupabaseClinicRepository implements ClinicRepository {
       s.cancel();
     }
     _subs.clear();
+    _answered.clear();
     for (final m in <Map<dynamic, dynamic>>[
       _clinicRows, _billing, _doctors, _addedAt, _days, _undoAt, _tokens, _byClinicDate, _patients, _patientHistory, _searches,
       _lookups, _followUps, _logins, _invoices, _stats, _suggestions, _pmdc,
@@ -653,6 +661,9 @@ class SupabaseClinicRepository implements ClinicRepository {
   ClinicAccount? clinic(String clinicId) => _account(clinicId);
 
   @override
+  bool get adminDataLoading => _user?.role == UserRole.superAdmin && !_adminStreams.every(_answered.contains);
+
+  @override
   List<ClinicAccount> clinics() => [for (final id in _clinicRows.keys) ?_account(id)]..sort((a, b) => a.clinic.name.compareTo(b.clinic.name));
 
   @override
@@ -865,11 +876,11 @@ class SupabaseClinicRepository implements ClinicRepository {
     try {
       final r = await _db.rpc('queue_action', params: {'p_action': 'next', 'p_doctor_id': doctorId, 'p_call_not_arrived': callNotArrived});
       final c = (r is Map ? r['called'] : null) as Map?;
-      return c == null ? null : CalledInfo('${c['label']}', '${c['name'] ?? ''}');
+      return c == null ? null : CalledInfo('${c['label']}', Fmt.personName('${c['name'] ?? ''}'));
     } on PostgrestException catch (e) {
       if (e.message == 'not-arrived') {
         final d = jsonDecode(e.details?.toString() ?? '{}') as Map;
-        throw NotArrived('${d['tokenId']}', '${d['label']}', '${d['name'] ?? ''}');
+        throw NotArrived('${d['tokenId']}', '${d['label']}', Fmt.personName('${d['name'] ?? ''}'));
       }
       throw _dbError('queue_action next', e);
     } catch (e) {
@@ -910,7 +921,7 @@ class SupabaseClinicRepository implements ClinicRepository {
           for (final m in (r['profiles'] as List? ?? const []).whereType<Map<Object?, Object?>>())
             PhoneProfile(
               id: '${m['id']}',
-              name: '${m['name'] ?? ''}',
+              name: Fmt.personName('${m['name'] ?? ''}'),
               relation: Relation.parse(m['relation']),
               gender: Gender.parse(m['gender']),
               age: (m['age'] as num?)?.toInt(),

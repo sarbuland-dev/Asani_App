@@ -138,7 +138,7 @@ class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
                   const SizedBox(height: Gap.md),
                   FilledButton(
                     onPressed: () => context.go('/home'),
-                    child: Text('Book a token for ${patient.name.split(' ').first}'),
+                    child: const Text('Book a token'),
                   ),
                 ],
               ]),

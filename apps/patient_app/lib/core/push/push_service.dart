@@ -93,11 +93,8 @@ class PushService {
     _subs
       ..add(FirebaseMessaging.onMessage.listen(_onForeground))
       ..add(FirebaseMessaging.onMessageOpenedApp.listen(_onOpened))
-      // getToken/onTokenRefresh are deprecated in firebase_messaging 17 in favour of
-      // register()/onRegistered (Installation IDs). The Admin SDK sends to FCM
-      // registration tokens, so we keep these until the server moves too.
-      // ignore: deprecated_member_use
-      ..add(_messaging.onTokenRefresh.listen((_) => register()))
+      // Fires after every register() and when the Firebase Installation ID changes.
+      ..add(_messaging.onRegistered.listen(_saveDevice))
       ..add(_account.uidChanges.listen((uid) async {
         if (uid != null && await permission() == PushPermission.granted) await register();
       }));
@@ -161,18 +158,25 @@ class PushService {
     return id;
   }
 
-  /// Saves this phone's FCM token for the signed-in account.
+  /// Registers this phone with FCM; the ID arrives on `onRegistered`, which
+  /// saves it for the signed-in account.
   Future<void> register() async {
+    if (_account.uid == null || !_isMobile) return;
+    try {
+      await _messaging.register();
+    } catch (e) {
+      AppLogger.warn('Could not register this phone for alerts: $e');
+    }
+  }
+
+  Future<void> _saveDevice(String installationId) async {
     final uid = _account.uid;
     if (uid == null || !_isMobile) return;
     try {
-      // ignore: deprecated_member_use
-      final token = await _messaging.getToken();
-      if (token == null) return;
       await _account.saveDevice(uid, await _deviceId(),
-          token: token, platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android', appVersion: appVersion);
+          token: installationId, platform: defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android', appVersion: appVersion);
     } catch (e) {
-      AppLogger.warn('Could not register this phone for alerts: $e');
+      AppLogger.warn('Could not save this phone for alerts: $e');
     }
   }
 

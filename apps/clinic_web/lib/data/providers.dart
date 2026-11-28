@@ -43,6 +43,7 @@ final needsNewPasswordProvider = Provider<bool>((ref) => _live(ref, (r) => r.nee
 
 final clinicProvider = Provider.family<ClinicAccount?, String>((ref, id) => _live(ref, (r) => r.clinic(id)));
 final clinicsProvider = Provider<List<ClinicAccount>>((ref) => _live(ref, (r) => r.clinics()));
+final adminDataLoadingProvider = Provider<bool>((ref) => _live(ref, (r) => r.adminDataLoading));
 
 final doctorsProvider = Provider.family<List<Doctor>, String>((ref, clinicId) => _live(ref, (r) => r.doctors(clinicId)));
 final allDoctorsProvider =

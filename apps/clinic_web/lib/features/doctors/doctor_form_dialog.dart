@@ -127,7 +127,8 @@ class _DoctorFormState extends State<_DoctorForm> {
                 child: DropdownButtonFormField<Speciality>(
                   initialValue: _spec,
                   hint: const Text('Pick a speciality'),
-                  items: [for (final s in Speciality.values) DropdownMenuItem(value: s, child: Text(s.display))],
+                  isExpanded: true,
+                  items: [for (final s in Speciality.values) DropdownMenuItem(value: s, child: SpecialityOption(s, color: AppColors.primary))],
                   onChanged: (v) => setState(() => _spec = v),
                   validator: (v) => v == null ? 'Required' : null,
                 ),

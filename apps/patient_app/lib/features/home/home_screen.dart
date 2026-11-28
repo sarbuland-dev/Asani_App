@@ -9,6 +9,7 @@ import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../clinic/clinic_card.dart';
 import '../shell/main_shell.dart';
+import 'city_sheet.dart';
 import '../../core/widgets/error_state.dart';
 import '../notifications/notifications_list_screen.dart';
 
@@ -33,7 +34,10 @@ class HomeScreen extends ConsumerWidget {
     final active = ref.watch(myActiveTokensProvider).value ?? const [];
     final past = ref.watch(myPastTokensProvider).value ?? const [];
     final followUps = ref.watch(upcomingFollowUpsProvider);
-    final isNew = active.isEmpty && past.isEmpty;
+    // Until the tokens have arrived we can't tell a new user from a returning one.
+    final tokensKnown = ref.watch(myTokensProvider.select((t) => t.hasValue));
+    final tokensLoading = ref.watch(myTokensProvider.select((t) => t.isLoading && !t.hasValue));
+    final isNew = tokensKnown && active.isEmpty && past.isEmpty;
     // Book again: the last visit that really happened, else the last token.
     final lastVisit = past.where((t) => t.status == TokenStatus.completed).firstOrNull ?? past.firstOrNull;
 
@@ -52,7 +56,9 @@ class HomeScreen extends ConsumerWidget {
                       _ActiveTokens(tokens: active)
                     else if (lastVisit != null)
                       _BookAgainCard(token: lastVisit)
-                    else
+                    else if (tokensLoading)
+                      const SkeletonList(count: 1, height: 150)
+                    else if (isNew)
                       const _HowItWorks(),
                     const SizedBox(height: 14),
                     const _SearchCards(),
@@ -910,45 +916,9 @@ class _GlossyIcon extends CustomPainter {
   bool shouldRepaint(_GlossyIcon old) => old.kind != kind;
 }
 
-Future<void> showCityPicker(BuildContext context, WidgetRef ref) async {
-  final current = ref.read(selectedCityProvider);
-  var loaded = ref.read(citiesProvider).value;
-  if (loaded == null) {
-    try {
-      loaded = await ref.read(citiesProvider.future).timeout(const Duration(seconds: 5));
-    } catch (_) {
-      loaded = const <String>[]; // offline: show only the current city
-    }
-    if (!context.mounted) return;
-  }
-  final cities = loaded.contains(current) ? loaded : [current, ...loaded];
-  final picked = await showModalBottomSheet<String>(
-    context: context,
-    useRootNavigator: true, // above the floating nav bar
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.xl, 0, Gap.xl, Gap.sm),
-            child: Text('Choose your city', style: AppText.titleLarge),
-          ),
-          for (final c in cities)
-            ListTile(
-              minTileHeight: 56,
-              contentPadding: const EdgeInsets.symmetric(horizontal: Gap.xl),
-              title: Text(c, style: AppText.bodyLarge),
-              trailing: c == current ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
-              onTap: () => Navigator.pop(ctx, c),
-            ),
-          const SizedBox(height: Gap.md),
-        ],
-      ),
-    ),
-  );
-  if (picked != null) await ref.read(authRepositoryProvider).setCity(picked);
-}
+/// The city pill opens the "Lahore for now" sheet (D-64, board P12). When a
+/// second city goes live this becomes a real picker again.
+Future<void> showCityPicker(BuildContext context, WidgetRef ref) => showCitySheet(context, ref);
 
 /// Follow-up due (board P2): dark lime card with a Book button (lime 400 is
 /// the approved exception for follow-ups).

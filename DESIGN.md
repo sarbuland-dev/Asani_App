@@ -414,6 +414,7 @@ State variations:
 - Token list cards: number, patient, doctor, clinic, date, status chip.
 
 ### S-13 Family tab
+- **Summary card** over the header's lower edge (board P13, D-65): "N visits so far" + one bar per member (most first, four fit, more scroll sideways; first names), then two buttons, "N live token(s)" and "N follow-up(s)" (lime tint). Zero buttons hidden; no visits = no chart; everything zero = no card.
 - List of profiles: avatar initials, name, relation, age/gender, "4 visits".
 - FAB / button: "+ Add family member".
 
@@ -486,7 +487,10 @@ Android notification channels: `queue_alerts` (high importance, sound + vibratio
 
 ## 9. Motion
 
-- Page transitions: platform default.
+- Page transitions (board P11, D-63), patient app, both platforms: a page that opens on top (clinic, doctor, booking,
+  token, notifications…) slides in from the right with a soft shadow; the old page moves a third to the left and dims.
+  About 300 ms. Back or a swipe from the left edge reverses it. Bottom tabs switch instantly. With "Remove animations"
+  on, the page just appears.
 - Queue number changes: count-up/down animation 300 ms.
 - "Your turn" pulse: 1.2 s loop, disabled when the OS "reduce motion" setting is on.
 

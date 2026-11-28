@@ -60,6 +60,11 @@ abstract final class Fmt {
     return e164;
   }
 
+  /// "ali khan" → "Ali Khan", for showing a patient's name. Only the first
+  /// letter of each part changes; the rest stays as typed ("McKay").
+  static String personName(String name) =>
+      name.replaceAllMapped(RegExp(r'(^|[\s\-.(])([a-z])'), (m) => '${m[1]}${m[2]!.toUpperCase()}');
+
   static String initials(String name) {
     final parts = name.replaceAll('Dr.', '').trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';

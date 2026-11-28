@@ -91,6 +91,14 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 // ------------------------------------------------------------------ FCM
 type SendResult = 'ok' | 'dead' | 'retry';
 
+/**
+ * Which FCM target field a saved device value needs. Apps now save a Firebase Installation ID (22 characters);
+ * older installs saved a registration token (much longer, with a ":"). `fcm_token` holds either.
+ */
+function target(value: string): { fid: string } | { token: string } {
+  return /^[A-Za-z0-9_-]{22}$/.test(value) ? { fid: value } : { token: value };
+}
+
 /** Android channel per type (same as the Firebase functions): follow-ups have their own channel. */
 function channelFor(type: string): string {
   return type === 'followUp' ? 'follow_ups' : 'queue_alerts';
@@ -107,7 +115,7 @@ async function sendOne(row: OutboxRow, deviceToken: string): Promise<{ result: S
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await accessToken()}` },
     body: JSON.stringify({
       message: {
-        token: deviceToken,
+        ...target(deviceToken),
         notification: { title: row.title, body: row.body },
         data,
         android: { priority: 'HIGH', notification: { channel_id: channelFor(type), ...(tag ? { tag } : {}) } },

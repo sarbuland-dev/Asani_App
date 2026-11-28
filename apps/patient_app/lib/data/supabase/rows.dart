@@ -40,7 +40,13 @@ abstract final class Rows {
 
   static QueueDay queueDay(Map<String, dynamic> r) => QueueDay.fromMap(plain(r));
 
-  static Patient patient(Map<String, dynamic> r) => Patient.fromMap(plain(r));
+  /// Patient names are capitalised when read; the database keeps them as typed (D-59).
+  static Map<String, Object?> _named(Map<Object?, Object?> m) => {
+        ...m.cast<String, Object?>(),
+        if (m['name'] is String) 'name': Fmt.personName(m['name']! as String),
+      };
+
+  static Patient patient(Map<String, dynamic> r) => Patient.fromMap(_named(plain(r)));
 
   static FollowUp followUp(Map<String, dynamic> r) => FollowUp.fromMap(plain(r));
 
@@ -57,6 +63,8 @@ abstract final class Rows {
   static Token token(Map<String, dynamic> r) {
     final m = plain(r);
     final notified = r['notified'];
+    final snapshot = m['patientSnapshot'];
+    if (snapshot is Map) m['patientSnapshot'] = _named(snapshot);
     m['notified'] = notified is Map ? [for (final k in notified.keys) _steps[k]?.name].whereType<String>().toList() : const <String>[];
     m['notifiedAt'] = notified is Map
         ? {

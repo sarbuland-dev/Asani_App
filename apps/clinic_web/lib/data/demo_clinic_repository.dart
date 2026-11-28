@@ -133,6 +133,9 @@ class DemoClinicRepository implements ClinicRepository {
   bool get needsNewPassword => false;
 
   @override
+  bool get adminDataLoading => false;
+
+  @override
   Future<void> setNewPassword(String password) => _latency(300);
 
   // ===================================================================

@@ -62,6 +62,7 @@ class _ClinicsScreenState extends ConsumerState<ClinicsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(adminDataLoadingProvider)) return const AdminLoading(title: 'Clinics');
     final all = ref.watch(clinicsProvider);
     final repo = ref.watch(repositoryProvider);
     final cities = all.map((c) => c.clinic.city).toSet().toList()..sort();

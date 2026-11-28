@@ -1,4 +1,5 @@
 import 'package:asani_core/asani_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -94,10 +95,13 @@ class AccountScreen extends ConsumerWidget {
               card([
                 _Tile(
                   icon: Icons.notifications_none_rounded,
-                  label: 'Notifications',
-                  chip: on ? 'On' : 'Off',
-                  chipOn: on,
-                  onTap: () => _toggleNotifications(context, ref, on),
+                  label: 'Queue alerts',
+                  // The web preview never receives pushes.
+                  chip: kIsWeb ? 'Phone only' : (on ? 'On' : 'Off'),
+                  chipOn: !kIsWeb && on,
+                  onTap: () => kIsWeb
+                      ? showSnack(context, 'Queue alerts come to the Asani app on a phone.')
+                      : _toggleNotifications(context, ref, on),
                 ),
                 _Tile(icon: Icons.location_on_outlined, label: 'City', value: city, onTap: () => showCityPicker(context, ref)),
                 // D-52: the login email can't be changed here.

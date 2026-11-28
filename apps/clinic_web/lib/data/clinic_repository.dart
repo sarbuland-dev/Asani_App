@@ -150,6 +150,10 @@ abstract interface class ClinicRepository {
   AdminSettings get settings;
   List<ClinicAccount> clinics();
 
+  /// True until the Super Admin's first data has arrived: lists and totals
+  /// would be partial before that.
+  bool get adminDataLoading;
+
   /// D-19 / A-01: when each doctor was added (doctorId → time), for the
   /// Super Admin's "New doctors" card and the New marker.
   Map<String, DateTime> doctorAddedAt();

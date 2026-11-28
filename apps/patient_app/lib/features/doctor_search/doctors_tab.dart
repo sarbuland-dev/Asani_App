@@ -8,7 +8,6 @@ import '../../core/widgets/error_state.dart';
 import '../../data/location_service.dart';
 import '../../data/providers.dart';
 import 'doctor_search_providers.dart';
-import 'speciality_icons.dart';
 
 /// Search → Doctors tab (PRD F-13, F-14; board P3 S-06b). A grid of
 /// speciality tiles ("What do you need help with?"); picking one shows that

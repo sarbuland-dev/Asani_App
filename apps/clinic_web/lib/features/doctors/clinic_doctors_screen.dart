@@ -435,7 +435,7 @@ class _DoctorEditorState extends ConsumerState<_DoctorEditor> {
               initialValue: _spec,
               isExpanded: true,
               hint: const Text('Pick a speciality'),
-              items: [for (final s in Speciality.values) DropdownMenuItem(value: s, child: Text(s.display, overflow: TextOverflow.ellipsis))],
+              items: [for (final s in Speciality.values) DropdownMenuItem(value: s, child: SpecialityOption(s, color: AppColors.primary))],
               onChanged: (v) => setState(() => _spec = v),
               validator: (v) => v == null ? 'Required' : null,
             ),

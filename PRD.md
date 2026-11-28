@@ -68,7 +68,7 @@ Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2**
 - On the very first launch, three short intro pages explain the app before login; they can be skipped and are not shown again (D-29).
 - **"Continue with email"**: the user enters an email and receives a **6-digit code** by email (Supabase email OTP; no password, no magic link). The code is valid **10 minutes**.
 - Resend after 60 seconds, at most 3 times per login. Clear error messages for invalid email, wrong code, expired code, too many attempts and no internet.
-- First login ("Tell us about you"): **name, age, gender and mobile number** (`+92 3XX XXXXXXX`), accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this (D-15). "Use another email" signs out.
+- First login ("Tell us about you"): **name, age, gender and mobile number** (`+92 3XX XXXXXXX`), accept the **Terms and Privacy Policy** (checkbox, links). A `self` patient profile is created from this (D-15). The back arrow at the top signs out, to use another email (D-62).
 - The mobile number is **required but not verified** (`phoneVerified = false`). **One phone = one app account**: a number already used by another account shows "This number is already used by another Asani account" (`phone-taken`). The field accepts `3001234567`, `03001234567`, `923001234567` and `+92 300 1234567`.
 - The number can be changed later in **Account → Mobile number** (same checks; the account's family profiles get the new number).
 - **No auto-linking**: walk-in profiles a clinic created with the same number are **not** attached on login (the number is not verified). Reception links them in person (D-52, phase 6).
@@ -80,7 +80,7 @@ Priority: **P0** = MVP must-have · **P1** = in Phase 1 if time allows · **P2**
 ### F-02 Clinic search and discovery (P0)
 - Search has two tabs: **Clinics** | **Doctors** (D-31). Both use the selected city. This feature (F-02) is the **Clinics** tab and stays exactly as it is; the Doctors tab is F-13.
 - Home shows: search bar, **active token banner** (if any), **Recent clinics** (where the user booked before, latest first, max 5), then **All clinics** in the user's city.
-- City: default **Lahore**; user can change the city from a selector (only cities that have clinics).
+- City: **Lahore only for now** (D-64). The city pill opens a sheet that says Asani is in Lahore for now; no other city can be picked.
 - Search matches clinic **name** or **area** (case-insensitive, partial match).
 - Only clinics with status `active`, `pilot` or `grace` are listed. `suspended` clinics are hidden from search but still visible in Recent with a "Online booking not available" state.
 - Clinic card: name, area, number of doctors, "Open today" / "Closed today".
@@ -154,6 +154,7 @@ Rules:
 - "Self" profile cannot be removed.
 - Removing a profile is a soft delete (`status: deleted`); its history is kept for clinics.
 - Merging profiles: **not in Phase 1** (see Decisions log).
+- **Family summary** (D-65): above the profiles, completed visits as a bar per member, plus the family's live tokens and pending follow-ups.
 
 ### F-08 Visit history (P0)
 - Per profile: list of past tokens: date, clinic, doctor, token number, status, wait time.
@@ -321,6 +322,13 @@ Flow: **Search → Doctors tab → speciality chip → doctor card → booking f
 | D-56 | 2026-11-28 | **Queue board opens the current token by itself:** the *Now serving* patient (Next up when nobody is served). It follows when Next calls someone new or the doctor tab changes. Reception can still open any other token or close the panel; it stays so until the current token changes. The panel is **always side by side** (slimmer on small screens), never on top of the board. |
 | D-57 | 2026-11-28 | **Next skips patients who have not arrived, without asking** (changes the D-24 dialog: no *Back / Skip / Call anyway*). In the same tap the next **arrived** patient is called; several in a row are all skipped. An **amber notice with OK** then says who "has not arrived yet". Skip rules are unchanged (the "You missed your turn" push, D-34; called right after the current patient on check-in, D-35). *Call out of turn* in the token panel stays for emergencies. |
 | D-58 | 2026-11-28 | **Super Admin is redesigned to the screens board** (A-10 to A-18; replaces the "Super Admin keeps the old look" part of D-53). UI only. As in D-53, board items with nothing behind them are **left out**: invoice numbers, payment proof screenshot, a reason in *Give extension*, the reminder email preview, admin *Change password* / *Sign out on all computers*, *Pick on the map*, the *System* actor. Real features that are not drawn stay in the board style: *Mark as seen*, decided doctor pairs, *Invoice due after*. *Record payment* is a side panel on wide Payments screens and a dialog elsewhere. |
+| D-59 | 2026-11-28 | **Patient names are capitalised when shown** ("ali khan" → "Ali Khan"), in the patient app and the clinic web, including old records: only the first letter of each part changes. The database keeps what was typed (push and in-app notification texts built there are unchanged). Names are capitalised as they are read, so printed slips and exports from the web show them capitalised too, and saving an edit form saves what it shows. The family profile button reads **Book a token** (no name). |
+| D-60 | 2026-11-28 | **A clinic with no active doctor is hidden from patients** (clinic lists, search and city list). The clinic web and Super Admin still show it. |
+| D-61 | 2026-11-28 | **FCM uses `register()` / `onRegistered`**: the app saves its Firebase Installation ID; `send-push` sends an ID in the `fid` field and an older registration token in `token`. Both are kept in `devices.fcm_token`. |
+| D-62 | 2026-11-28 | **No "Use another email" button at the bottom of profile setup.** It sat where *Verify* is on the code screen; the code is checked on the sixth digit, so a tap meant for *Verify* signed the new user out (seen on Sarbuland's phone and in the auth logs). The back arrow at the top still signs out. |
+| D-63 | 2026-11-28 | **Patient app page transition = board P11** (iPhone-style slide, 300 ms, swipe back, off with "Remove animations"). Replaces "platform default" (DESIGN.md §9). |
+| D-64 | 2026-11-28 | **Asani is in Lahore only for now.** The city pill (Home, Search, Account) opens the board P12 sheet: a Lahore sunset picture, a *Live now* chip, "Asani is in Lahore for now", the Lahore card ticked, and *Got it*. No other city can be chosen and Search no longer offers clinics in other cities; an old account with another city is moved back to Lahore when the sheet closes. The sunset colours are an illustration-only exception to the forest + cream palette. Replaces the city selector in F-02. When a second city goes live, the sheet becomes a picker again. |
+| D-65 | 2026-11-28 | **Family tab summary** (board P13). A card over the header shows *N visits so far* (completed tokens, all profiles) with one bar per member, **most visits first**; with more than four members the bars **scroll sideways**. Below: **live tokens** (today, waiting or being served; opens the Tokens tab) and **pending follow-ups** (opens the profile of the member whose follow-up is next; booking stays a separate tap). A button that would show **0 is hidden**; with no visits there is no chart; with all three at zero there is no card. It uses data the app already loads. |
 
 ## 10. Open questions (confirm before building the related part)
 

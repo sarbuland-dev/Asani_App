@@ -44,6 +44,31 @@ class AdminPage extends StatelessWidget {
       ]);
 }
 
+/// Placeholder blocks while the first data is still arriving.
+class AdminLoading extends StatelessWidget {
+  const AdminLoading({super.key, required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => AdminPage(
+        title: title,
+        subtitle: 'Loading…',
+        search: false,
+        children: [
+          Semantics(
+            label: 'Loading',
+            child: const Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Shimmer(height: 190),
+              SizedBox(height: 14),
+              Shimmer(height: 130),
+              SizedBox(height: 14),
+              Shimmer(height: 260),
+            ]),
+          ),
+        ],
+      );
+}
+
 /// Clinic search. "/" focuses it. Without [onChanged], Enter opens the
 /// clinics list with the words typed.
 class AdminSearch extends StatefulWidget {

@@ -70,7 +70,8 @@ Helpers in schema `private`: `jwt_role()`, `jwt_clinic()`, `is_super_admin()`, `
 
 ### `devices`
 PK (`user_id`, `device_id`): `fcm_token`, `platform` (`android`/`ios`), `app_version`, `updated_at`. The phone saves its
-FCM token after sign-in; `send-push` deletes tokens FCM reports as dead.
+Firebase Installation ID after sign-in (D-61; older installs saved an FCM registration token, and `fcm_token` holds either);
+`send-push` sends to `fid` or `token` to match, and deletes values FCM reports as dead.
 
 ### `notifications` (D-45)
 `id`, `user_id`, `type` (`queue`/`cancel`/`skip`/`followUp`), `title`, `body`, `route` (`/token/{id}` or a booking route),

@@ -29,13 +29,13 @@ class MainShell extends StatelessWidget {
           minimum: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
           child: Container(
             // Board (D-43): darkest green pill, soft shadow.
-            height: 70,
+            height: 58,
             decoration: BoxDecoration(
               color: AppColors.navy,
               borderRadius: BorderRadius.circular(Radii.pill),
               boxShadow: [BoxShadow(color: AppColors.navy.withValues(alpha: 0.28), blurRadius: 28, offset: const Offset(0, 12))],
             ),
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.all(5),
             child: Row(
               children: [
                 for (var i = 0; i < _items.length; i++)
@@ -105,7 +105,7 @@ class _NavItem extends StatelessWidget {
                 color: selected ? AppColors.primaryMid : Colors.transparent,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
-              padding: EdgeInsets.fromLTRB(showLabel ? 16 : 4, 14, showLabel ? 22 : 4, 14),
+              padding: EdgeInsets.fromLTRB(showLabel ? 16 : 4, 12, showLabel ? 22 : 4, 12),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -138,4 +138,4 @@ class _NavItem extends StatelessWidget {
 }
 
 /// Bottom padding so content scrolls clear of the floating bar.
-const double kNavBarClearance = 110;
+const double kNavBarClearance = 98;

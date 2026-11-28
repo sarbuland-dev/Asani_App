@@ -43,6 +43,9 @@ class SupabaseClinicRepository implements ClinicRepository {
 
   static const visibleStatuses = {'pilot', 'active', 'grace'};
 
+  /// Listed for patients: a visible status and at least one active doctor (D-60).
+  static bool _listed(Clinic c) => visibleStatuses.contains(c.status.name) && c.doctorCount > 0;
+
   Stream<List<Clinic>> _allClinics() => _db
       .from('clinics')
       .stream(primaryKey: ['id'])
@@ -50,14 +53,14 @@ class SupabaseClinicRepository implements ClinicRepository {
 
   @override
   Stream<List<String>> watchCities() => _allClinics().map((list) =>
-      (list.where((c) => visibleStatuses.contains(c.status.name)).map((c) => c.city).toSet().toList())..sort());
+      (list.where(_listed).map((c) => c.city).toSet().toList())..sort());
 
   @override
   Stream<List<Clinic>> watchClinics(String city) => _db
       .from('clinics')
       .stream(primaryKey: ['id'])
       .eq('city', city)
-      .map((rows) => Rows.parseAll(rows, Rows.clinic, 'clinic').where((c) => visibleStatuses.contains(c.status.name)).toList()
+      .map((rows) => Rows.parseAll(rows, Rows.clinic, 'clinic').where(_listed).toList()
         ..sort((a, b) => a.name.compareTo(b.name)));
 
   @override
