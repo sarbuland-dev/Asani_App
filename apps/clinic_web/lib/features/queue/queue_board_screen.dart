@@ -151,6 +151,8 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           duration: const Duration(seconds: 30),
+          // With an action Flutter keeps a SnackBar for ever unless told otherwise.
+          persist: false,
           content: Text(called == null ? 'Visit completed. No more patients waiting.' : 'Now serving ${called.label}, ${called.name}.'),
           action: SnackBarAction(label: 'Undo', onPressed: () => runAction(context, () => repo.undoNext(doctorId), success: 'Last Next undone.')),
         ));

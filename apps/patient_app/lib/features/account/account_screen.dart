@@ -369,7 +369,20 @@ class _Tile extends StatelessWidget {
               child: Icon(icon, size: 18, color: AppColors.primary),
             ),
             const SizedBox(width: Gap.md),
-            Expanded(child: Text(label, style: AppText.bodyLarge.copyWith(fontSize: 15))),
+            // A row with a button (Mobile number) puts its value under the label, so
+            // it is never cut; other values sit at the right edge.
+            if (action != null)
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: AppText.bodyLarge.copyWith(fontSize: 15)),
+                  if (value != null) Text(value!, style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700)),
+                ]),
+              )
+            else if (value != null) ...[
+              Text(label, style: AppText.bodyLarge.copyWith(fontSize: 15)),
+              const SizedBox(width: Gap.md),
+            ] else
+              Expanded(child: Text(label, style: AppText.bodyLarge.copyWith(fontSize: 15))),
             if (chip != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
@@ -381,8 +394,8 @@ class _Tile extends StatelessWidget {
                     style: AppText.labelSmall.copyWith(
                         fontSize: 11, fontWeight: FontWeight.w600, color: chipOn ? AppColors.successText : AppColors.dangerText)),
               ),
-            if (value != null)
-              Flexible(
+            if (value != null && action == null)
+              Expanded(
                 child: Text(value!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

@@ -215,6 +215,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
           const SizedBox(height: Gap.lg),
           _label('Relation'),
           GridView.count(
+            padding: EdgeInsets.zero,
             crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

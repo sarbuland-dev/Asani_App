@@ -12,6 +12,7 @@ import '../../core/net/connectivity.dart';
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
 import '../family/profile_form.dart';
+import '../../core/widgets/dead_end.dart';
 
 /// S-08 → S-09 → S-10: patient → date → confirm (PRD F-04).
 class BookingScreen extends ConsumerStatefulWidget {
@@ -29,6 +30,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   int _step = 0;
   String? _patientId;
   String? _date;
+
+  /// True while [_date] was chosen by the app, not by the patient.
+  bool _autoDate = false;
 
   /// D-50: which month of the booking window the calendar shows (‹ › arrows).
   int _monthIdx = 0;
@@ -115,12 +119,32 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final doctor = ref.watch(doctorProvider(widget.doctorId)).value;
-    final clinic = ref.watch(clinicProvider(widget.clinicId)).value;
+    final doctorAsync = ref.watch(doctorProvider(widget.doctorId));
+    final clinicAsync = ref.watch(clinicProvider(widget.clinicId));
+    final doctor = doctorAsync.value;
+    final clinic = clinicAsync.value;
     final patientsAsync = ref.watch(myPatientsProvider);
     final tokens = ref.watch(myTokensProvider).value ?? const <Token>[];
 
     if (doctor == null || clinic == null || !patientsAsync.hasValue) {
+      final failed = [doctorAsync, clinicAsync, patientsAsync].where((a) => a.hasError && !a.hasValue).firstOrNull;
+      if (failed != null) {
+        return LoadErrorScreen(
+          error: failed.error,
+          onRetry: () {
+            ref.invalidate(doctorProvider(widget.doctorId));
+            ref.invalidate(clinicProvider(widget.clinicId));
+            ref.invalidate(myPatientsProvider);
+          },
+        );
+      }
+      if ((doctorAsync.hasValue && doctor == null) || (clinicAsync.hasValue && clinic == null)) {
+        return const NotFoundScreen(
+          icon: Icons.medical_services_outlined,
+          title: 'Doctor not found',
+          message: 'This doctor is no longer listed at this clinic.',
+        );
+      }
       return const LoadingScreen();
     }
     final patients = patientsAsync.value!;
@@ -238,7 +262,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               setState(() {
                                 _step++;
                                 _error = null;
-                                if (_step == 1 && _date == null) _date = _firstBookableDate(doctor);
+                                if (_step == 1 && _date == null) {
+                                  _date = _firstBookableDate(doctor);
+                                  _autoDate = true;
+                                }
                               });
                             } else {
                               _confirm(doctor);
@@ -409,6 +436,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final schedule = selectedDate == null ? null : doctor.scheduleOn(selectedDate);
     final booked = selectedDay?.bookedCount ?? 0;
 
+    // The app picked this day before its queue had loaded; if it is full, pick again.
+    if (_autoDate && selectedDate != null && selectedDay != null &&
+        !availabilityFor(doctor: doctor, date: selectedDate, day: selectedDay, now: now).canBook) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_autoDate) return;
+        final next = _firstBookableDate(doctor);
+        if (next != _date) setState(() => _date = next);
+      });
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       children: [
@@ -440,6 +477,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             ]),
             const SizedBox(height: 4),
             GridView.count(
+              // Without this the grid adds the status bar's height on top.
+              padding: EdgeInsets.zero,
               crossAxisCount: 7,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -481,7 +520,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: canBook ? () => setState(() => _date = key) : null,
+                          onTap: canBook
+                              ? () => setState(() {
+                                    _autoDate = false;
+                                    _date = key;
+                                  })
+                              : null,
                           child: Center(
                             child: Text('${d.day}',
                                 style: AppText.labelMedium.copyWith(
@@ -694,7 +738,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             const SizedBox(width: Gap.sm),
             tile('Now serving', day.currentToken == 0 ? '—' : doctor.tokenLabel(day.currentToken), dark: true),
             const SizedBox(width: Gap.sm),
-            tile('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))}'),
+            tile('Est. wait', Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))),
           ]),
         ],
         const SizedBox(height: Gap.md),

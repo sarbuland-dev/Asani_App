@@ -19,6 +19,7 @@ class BottomSheetPage<T> extends Page<T> {
         settings: this,
         isScrollControlled: true,
         useSafeArea: true,
+        showDragHandle: false, // the screen draws its own
         backgroundColor: AppColors.surface,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
         builder: (_) => child,

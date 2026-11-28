@@ -213,7 +213,10 @@ class _LoginCard extends ConsumerWidget {
             icon: const Icon(Icons.logout_rounded, size: 18, color: AppColors.primarySoft),
             onPressed: () async {
               final ok = await confirmDialog(context, title: 'Log out?', message: 'You will need your email and password to log in again.', confirmLabel: 'Log out');
-              if (ok) await ref.read(repositoryProvider).signOut();
+              if (!ok || !context.mounted) return;
+              // A queue banner names a patient: it must not follow to the login page.
+              ScaffoldMessenger.of(context).clearSnackBars();
+              await ref.read(repositoryProvider).signOut();
             },
           ),
         ]),

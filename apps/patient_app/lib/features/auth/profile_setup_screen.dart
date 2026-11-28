@@ -234,18 +234,27 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // The whole row is the tap target (48 dp+); the box lines up with the fields' left edge.
-                    InkWell(
+                    // Screen readers get one named, full-width checkbox; the links stay separate.
+                    Semantics(
+                      container: true,
+                      checked: _agreed,
+                      label: 'Accept the Terms and Privacy Policy',
+                      onTap: _saving ? null : () => setState(() => _agreed = !_agreed),
+                      child: InkWell(
+                      excludeFromSemantics: true,
                       onTap: _saving ? null : () => setState(() => _agreed = !_agreed),
                       borderRadius: BorderRadius.circular(Radii.button),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: Gap.md),
                         child: Row(
                           children: [
-                            Checkbox(
-                              value: _agreed,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                              onChanged: _saving ? null : (v) => setState(() => _agreed = v ?? false),
+                            ExcludeSemantics(
+                              child: Checkbox(
+                                value: _agreed,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                                onChanged: _saving ? null : (v) => setState(() => _agreed = v ?? false),
+                              ),
                             ),
                             const SizedBox(width: Gap.sm),
                             Expanded(
@@ -259,6 +268,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           ],
                         ),
                       ),
+                    ),
                     ),
                     if (_error != null) ...[
                       Text(_error!, style: AppText.bodyMedium.copyWith(color: AppColors.danger)),

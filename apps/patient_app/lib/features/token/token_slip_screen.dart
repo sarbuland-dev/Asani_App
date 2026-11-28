@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:asani_core/asani_core.dart';
@@ -10,6 +11,9 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:asani_ui/asani_ui.dart';
 import '../../data/providers.dart';
+import '../clinic/clinic_card.dart' show clinicInitials;
+import '../../core/widgets/dead_end.dart';
+import '../../core/utils/slip_saver.dart';
 
 /// Full-screen token slip (board P5c, approved 2026-11-23): green header,
 /// the slip card (clinic, status, tear line, big token, details, asani mark),
@@ -28,13 +32,36 @@ class _TokenSlipScreenState extends ConsumerState<TokenSlipScreen> {
   bool _sharing = false;
   bool _autoShared = false;
 
+  /// The slip card as a PNG picture.
+  Future<Uint8List?> _picture() async {
+    final box = _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    final image = await box?.toImage(pixelRatio: 3);
+    return (await image?.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
+  }
+
+  Future<void> _save(Token token) async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final bytes = await _picture();
+      if (bytes == null) throw StateError('no slip picture');
+      await ref.read(saveImageProvider)(bytes, 'asani-token-${token.label}-${token.date}');
+      if (mounted) showSnack(context, 'Slip saved to your gallery.');
+    } on GalleryDenied {
+      if (mounted) showSnack(context, 'Allow Asani to save photos, then try again.');
+    } catch (e, st) {
+      AppLogger.error('Save slip failed', e, st);
+      if (mounted) showSnack(context, "Couldn't save the slip. Please try again.");
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
   Future<void> _share(Token token, Doctor doctor, Clinic clinic) async {
     if (_sharing) return;
     setState(() => _sharing = true);
     try {
-      final box = _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      final image = await box?.toImage(pixelRatio: 3);
-      final bytes = (await image?.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
+      final bytes = await _picture();
       final text = 'Asani token ${token.label} · ${doctor.name}, ${clinic.name} · ${Fmt.longDay(token.date)}';
       await SharePlus.instance.share(ShareParams(
         text: text,
@@ -50,10 +77,18 @@ class _TokenSlipScreenState extends ConsumerState<TokenSlipScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final token = ref.watch(tokenProvider(widget.tokenId)).value;
+    final tokenAsync = ref.watch(tokenProvider(widget.tokenId));
+    final token = tokenAsync.value;
     final doctor = token == null ? null : ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = token == null ? null : ref.watch(clinicProvider(token.clinicId)).value;
     if (token == null || doctor == null || clinic == null) {
+      if (token == null && tokenAsync.hasError) {
+        return LoadErrorScreen(error: tokenAsync.error, onRetry: () => ref.invalidate(tokenProvider(widget.tokenId)));
+      }
+      if (token == null && tokenAsync.hasValue) {
+        return const NotFoundScreen(
+            icon: Icons.confirmation_number_outlined, title: 'Token not found', message: 'This token is no longer available.');
+      }
       return const LoadingScreen(message: 'Loading your slip…');
     }
     final cancelled = token.status == TokenStatus.cancelled;
@@ -144,7 +179,7 @@ class _TokenSlipScreenState extends ConsumerState<TokenSlipScreen> {
                         height: 52,
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(backgroundColor: AppColors.surface),
-                          onPressed: _sharing ? null : () => _share(token, doctor, clinic),
+                          onPressed: _sharing ? null : () => _save(token),
                           icon: const Icon(Icons.download_rounded),
                           label: const Text('Save to gallery'),
                         ),
@@ -209,7 +244,7 @@ class _SlipCard extends StatelessWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(color: cancelled ? AppColors.cream : AppColors.primary, borderRadius: BorderRadius.circular(14)),
-                child: Text(Fmt.initials(clinic.name),
+                child: Text(clinicInitials(clinic.name),
                     style: AppText.labelLarge.copyWith(color: cancelled ? AppColors.textSecondary : AppColors.onPrimary, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),

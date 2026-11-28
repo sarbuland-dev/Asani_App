@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:asani_ui/asani_ui.dart';
 import 'package:asani_core/asani_core.dart';
 
-/// Online or not (ARCHITECTURE.md §8). Reads keep working from the Firestore
-/// cache; booking and cancelling need a connection. If the check itself
+/// Online or not (ARCHITECTURE.md §8). The Supabase reads keep no copy on the
+/// phone; booking and cancelling need a connection. If the check itself
 /// fails (e.g. in tests), we assume online rather than block the user.
 final onlineProvider = StreamProvider<bool>((ref) async* {
   final c = Connectivity();

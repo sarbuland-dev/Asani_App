@@ -29,6 +29,7 @@ import '../../features/shell/main_shell.dart';
 import '../../features/token/token_screen.dart';
 import '../../features/token/token_slip_screen.dart';
 import '../../features/tokens/tokens_screen.dart';
+import '../widgets/dead_end.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -64,6 +65,11 @@ class _AuthListenable extends ChangeNotifier {
   }
 }
 
+/// Every route builds Flutter's own MaterialPage. go_router looks for a
+/// different package's MaterialApp, finds none and would otherwise show each
+/// page with no transition at all (B12; the movement is DESIGN.md §9, D-63).
+Page<void> _page(GoRouterState s, Widget child) => MaterialPage<void>(key: s.pageKey, name: s.name ?? s.path, child: child);
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _AuthListenable(ref);
   ref.onDispose(refresh.dispose);
@@ -95,56 +101,59 @@ final routerProvider = Provider<GoRouter>((ref) {
           return null;
       }
     },
+    // An unknown link shows an Asani page, not the router's own error text (B9).
+    errorPageBuilder: (_, s) => _page(
+        s, const NotFoundScreen(icon: Icons.link_off_rounded, title: 'Page not found', message: 'This link does not open anything.')),
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
-      GoRoute(path: '/intro', builder: (_, _) => const IntroScreen()),
-      GoRoute(path: '/login/email', builder: (_, _) => const EmailScreen()),
-      GoRoute(path: '/login/otp', builder: (_, _) => const OtpScreen()),
-      GoRoute(path: '/login/profile', builder: (_, _) => const ProfileSetupScreen()),
+      GoRoute(path: '/splash', pageBuilder: (_, s) => _page(s, const SplashScreen())),
+      GoRoute(path: '/intro', pageBuilder: (_, s) => _page(s, const IntroScreen())),
+      GoRoute(path: '/login/email', pageBuilder: (_, s) => _page(s, const EmailScreen())),
+      GoRoute(path: '/login/otp', pageBuilder: (_, s) => _page(s, const OtpScreen())),
+      GoRoute(path: '/login/profile', pageBuilder: (_, s) => _page(s, const ProfileSetupScreen())),
       StatefulShellRoute.indexedStack(
-        builder: (_, _, shell) => MainShell(shell: shell),
+        pageBuilder: (_, s, shell) => _page(s, MainShell(shell: shell)),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/home', builder: (_, _) => const HomeScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/tokens', builder: (_, _) => const TokensScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/family', builder: (_, _) => const FamilyScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/account', builder: (_, _) => const AccountScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: '/home', pageBuilder: (_, s) => _page(s, const HomeScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: '/tokens', pageBuilder: (_, s) => _page(s, const TokensScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: '/family', pageBuilder: (_, s) => _page(s, const FamilyScreen()))]),
+          StatefulShellBranch(routes: [GoRoute(path: '/account', pageBuilder: (_, s) => _page(s, const AccountScreen()))]),
         ],
       ),
       // Clinics | Doctors tabs (D-31): /search?q=… or /search?tab=doctors&speciality=heart
       GoRoute(
         path: '/search',
-        builder: (_, s) => SearchTabsScreen(
+        pageBuilder: (_, s) => _page(s, SearchTabsScreen(
           initialQuery: s.uri.queryParameters['q'] ?? '',
           doctors: s.uri.queryParameters['tab'] == 'doctors',
           speciality: Speciality.fromKey(s.uri.queryParameters['speciality']),
-        ),
+        )),
       ),
-      GoRoute(path: '/clinic/:clinicId', builder: (_, s) => ClinicScreen(clinicId: s.pathParameters['clinicId']!)),
+      GoRoute(path: '/clinic/:clinicId', pageBuilder: (_, s) => _page(s, ClinicScreen(clinicId: s.pathParameters['clinicId']!))),
       // S-07b doctor profile (board P3b): from Search by doctor → Book token.
       GoRoute(
         path: '/doctor/:clinicId/:doctorId',
-        builder: (_, s) => DoctorProfileScreen(clinicId: s.pathParameters['clinicId']!, doctorId: s.pathParameters['doctorId']!),
+        pageBuilder: (_, s) => _page(s, DoctorProfileScreen(clinicId: s.pathParameters['clinicId']!, doctorId: s.pathParameters['doctorId']!)),
       ),
       // Clinic QR deep link (PRD F-11).
       GoRoute(path: '/c/:clinicId', redirect: (_, s) => '/clinic/${s.pathParameters['clinicId']}'),
       GoRoute(
         path: '/book/:clinicId/:doctorId',
-        builder: (_, s) => BookingScreen(
+        pageBuilder: (_, s) => _page(s, BookingScreen(
           clinicId: s.pathParameters['clinicId']!,
           doctorId: s.pathParameters['doctorId']!,
           initialPatientId: s.uri.queryParameters['patient'],
           initialDate: s.uri.queryParameters['date'],
-        ),
+        )),
       ),
-      GoRoute(path: '/booked/:tokenId', builder: (_, s) => BookingSuccessScreen(tokenId: s.pathParameters['tokenId']!)),
-      GoRoute(path: '/token/:tokenId', builder: (_, s) => TokenScreen(tokenId: s.pathParameters['tokenId']!)),
-      GoRoute(path: '/token/:tokenId/slip', builder: (_, s) => TokenSlipScreen(tokenId: s.pathParameters['tokenId']!)),
-      GoRoute(path: '/family/new', builder: (_, _) => const ProfileFormScreen()),
-      GoRoute(path: '/family/:patientId', builder: (_, s) => ProfileDetailScreen(patientId: s.pathParameters['patientId']!)),
-      GoRoute(path: '/family/:patientId/edit', builder: (_, s) => ProfileFormScreen(patientId: s.pathParameters['patientId'])),
+      GoRoute(path: '/booked/:tokenId', pageBuilder: (_, s) => _page(s, BookingSuccessScreen(tokenId: s.pathParameters['tokenId']!))),
+      GoRoute(path: '/token/:tokenId', pageBuilder: (_, s) => _page(s, TokenScreen(tokenId: s.pathParameters['tokenId']!))),
+      GoRoute(path: '/token/:tokenId/slip', pageBuilder: (_, s) => _page(s, TokenSlipScreen(tokenId: s.pathParameters['tokenId']!))),
+      GoRoute(path: '/family/new', pageBuilder: (_, s) => _page(s, const ProfileFormScreen())),
+      GoRoute(path: '/family/:patientId', pageBuilder: (_, s) => _page(s, ProfileDetailScreen(patientId: s.pathParameters['patientId']!))),
+      GoRoute(path: '/family/:patientId/edit', pageBuilder: (_, s) => _page(s, ProfileFormScreen(patientId: s.pathParameters['patientId']))),
       // S-17 primer as a bottom sheet (board P4, D-50).
       GoRoute(path: '/notifications', pageBuilder: (_, s) => BottomSheetPage(key: s.pageKey, child: PrimerScreen(next: s.uri.queryParameters['next']))),
-      GoRoute(path: '/inbox', builder: (_, _) => const NotificationsListScreen()), // S-19, D-45
+      GoRoute(path: '/inbox', pageBuilder: (_, s) => _page(s, const NotificationsListScreen())), // S-19, D-45
     ],
   );
 });

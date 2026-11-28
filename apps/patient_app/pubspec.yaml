@@ -61,6 +61,7 @@ dependencies:
   geolocator_web: ^4.1.3
   # D-52: Supabase backend (email code login, Postgres, Realtime). Firebase stays for FCM only.
   supabase_flutter: ^2.10.0
+  gal: ^3.0.1
 
 dev_dependencies:
   flutter_test:

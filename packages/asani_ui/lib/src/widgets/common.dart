@@ -253,7 +253,7 @@ class HeaderBackButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           onTap: onPressed ?? () => Navigator.of(context).maybePop(),
           child: SizedBox.square(
-            dimension: 44,
+            dimension: 48,
             child: Icon(icon, color: dark ? AppColors.textPrimary : AppColors.onPrimary, size: 28),
           ),
         ),

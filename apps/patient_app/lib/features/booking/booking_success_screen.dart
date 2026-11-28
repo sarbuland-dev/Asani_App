@@ -6,6 +6,7 @@ import 'package:asani_ui/asani_ui.dart';
 import 'package:asani_core/asani_core.dart';
 import '../../data/providers.dart';
 import '../token/cream_slip.dart';
+import '../../core/widgets/dead_end.dart';
 
 /// Booking done (board P5, animation "D"): green header with close and save,
 /// a check that pops in and draws its tick, "Token booked", then the cream
@@ -45,10 +46,18 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> wit
 
   @override
   Widget build(BuildContext context) {
-    final token = ref.watch(tokenProvider(widget.tokenId)).value;
+    final tokenAsync = ref.watch(tokenProvider(widget.tokenId));
+    final token = tokenAsync.value;
     final doctor = token == null ? null : ref.watch(doctorProvider(token.doctorId)).value;
     final clinic = token == null ? null : ref.watch(clinicProvider(token.clinicId)).value;
     if (token == null || doctor == null || clinic == null) {
+      if (token == null && tokenAsync.hasError) {
+        return LoadErrorScreen(error: tokenAsync.error, onRetry: () => ref.invalidate(tokenProvider(widget.tokenId)));
+      }
+      if (token == null && tokenAsync.hasValue) {
+        return const NotFoundScreen(
+            icon: Icons.confirmation_number_outlined, title: 'Token not found', message: 'This token is no longer available.');
+      }
       return const LoadingScreen(message: 'Loading your token…');
     }
     final isToday = token.date == dayKey(pktNow());
@@ -72,7 +81,7 @@ class _BookingSuccessScreenState extends ConsumerState<BookingSuccessScreen> wit
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: onTap,
-              child: SizedBox.square(dimension: 44, child: Icon(icon, color: AppColors.onPrimary, size: 20)),
+              child: SizedBox.square(dimension: 48, child: Icon(icon, color: AppColors.onPrimary, size: 20)),
             ),
           ),
         );

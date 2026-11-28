@@ -131,7 +131,7 @@ class _Segmented extends StatelessWidget {
             onTap: () => onChanged(value),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              height: 44,
+              height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected ? AppColors.cream : Colors.transparent,

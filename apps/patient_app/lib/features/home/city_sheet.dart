@@ -15,6 +15,7 @@ Future<void> showCitySheet(BuildContext context, WidgetRef ref) async {
     context: context,
     useRootNavigator: true, // above the floating nav bar
     isScrollControlled: true,
+    showDragHandle: false, // drawn on the picture (board P12)
     backgroundColor: AppColors.background,
     clipBehavior: Clip.antiAlias,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.header))),

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Asani saves your token slip to your photos when you tap Save to gallery.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Asani uses your location to show clinics and doctors near you.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

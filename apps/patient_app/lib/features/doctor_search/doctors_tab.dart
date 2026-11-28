@@ -97,6 +97,7 @@ class _DoctorsTabState extends ConsumerState<DoctorsTab> {
               style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
         ),
         GridView(
+          padding: EdgeInsets.zero,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -407,7 +408,7 @@ class _DoctorCardView extends ConsumerWidget {
                       Text(
                         running && day != null
                             ? '${day.currentToken == 0 ? '—' : d.tokenLabel(day.currentToken)} · ${day.bookedCount}/${d.maxTokensPerDay}'
-                            : '~${Fmt.wait(estimatedWaitMinutes(ahead, d.avgConsultMinutes))}',
+                            : Fmt.wait(estimatedWaitMinutes(ahead, d.avgConsultMinutes)),
                         style: AppText.labelMedium.copyWith(fontWeight: FontWeight.w700),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

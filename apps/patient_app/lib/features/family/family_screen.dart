@@ -75,7 +75,7 @@ class FamilyScreen extends ConsumerWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
                   onTap: () => context.push('/family/new'),
-                  child: const SizedBox.square(dimension: 44, child: Icon(Icons.add_rounded, color: AppColors.primary, size: 26)),
+                  child: const SizedBox.square(dimension: 48, child: Icon(Icons.add_rounded, color: AppColors.primary, size: 26)),
                 ),
               ),
             ),

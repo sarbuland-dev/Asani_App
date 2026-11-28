@@ -15,6 +15,7 @@ import '../../core/utils/launch.dart';
 import '../../data/location_service.dart';
 import '../../data/providers.dart';
 import '../clinic/clinic_card.dart' show clinicInitials;
+import '../../core/widgets/dead_end.dart';
 
 /// S-11 live token screen (PRD F-05; boards P5, P5b, P8). Notification target.
 /// Three looks: called (blue "Your turn now"), finished (grey visit summary)
@@ -39,14 +40,29 @@ class _TokenScreenState extends ConsumerState<TokenScreen> {
     final token = tokenAsync.value;
     if (tokenAsync.isLoading && token == null) return const LoadingScreen(message: 'Loading your token…');
     if (token == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const EmptyState(icon: Icons.confirmation_number_outlined, title: 'Token not found', message: 'This token is no longer available.'),
-      );
+      // A failed load is not the same as a token that does not exist (B8).
+      if (tokenAsync.hasError) {
+        return LoadErrorScreen(error: tokenAsync.error, onRetry: () => ref.invalidate(tokenProvider(widget.tokenId)));
+      }
+      return const NotFoundScreen(
+          icon: Icons.confirmation_number_outlined, title: 'Token not found', message: 'This token is no longer available.');
     }
-    final doctor = ref.watch(doctorProvider(token.doctorId)).value;
-    final clinic = ref.watch(clinicProvider(token.clinicId)).value;
-    if (doctor == null || clinic == null) return const LoadingScreen(message: 'Loading your token…');
+    final doctorAsync = ref.watch(doctorProvider(token.doctorId));
+    final clinicAsync = ref.watch(clinicProvider(token.clinicId));
+    final doctor = doctorAsync.value;
+    final clinic = clinicAsync.value;
+    if (doctor == null || clinic == null) {
+      if (doctorAsync.hasError || clinicAsync.hasError) {
+        return LoadErrorScreen(
+          error: doctorAsync.error ?? clinicAsync.error,
+          onRetry: () {
+            ref.invalidate(doctorProvider(token.doctorId));
+            ref.invalidate(clinicProvider(token.clinicId));
+          },
+        );
+      }
+      return const LoadingScreen(message: 'Loading your token…');
+    }
 
     final status = token.status;
     if (_cancelling) {
@@ -972,7 +988,9 @@ class _FinishedView extends ConsumerWidget {
                     child: FilledButton(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
                       onPressed: () => context.push('/book/${token.clinicId}/${token.doctorId}?patient=${token.patientId}'),
-                      child: Text(token.cancelledByClinic ? 'Book another day' : 'Book again', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      // Shrinks a little on narrow phones instead of cutting the words.
+                      child: FittedBox(
+                          fit: BoxFit.scaleDown, child: Text(token.cancelledByClinic ? 'Book another day' : 'Book again', maxLines: 1)),
                     ),
                   ),
                 ]),

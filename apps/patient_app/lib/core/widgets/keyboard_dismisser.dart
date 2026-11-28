@@ -15,6 +15,7 @@ class KeyboardDismisser extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      excludeFromSemantics: true, // not a control for screen readers
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: child,
     );

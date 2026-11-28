@@ -20,6 +20,14 @@ Postgres). Section numbers are kept so older notes still point to the right plac
 - [ ] iPhone: not tested at all.
 - [ ] With the app open, a cancel or skip push shows no in-app banner (the screens update live). Decide if it should.
 
+## 3. Left from the 28 November QA run (`qa-bug-hunt/`, local only)
+- [ ] Clinic QR / deep link (F-11): left out on purpose; waits for a real domain (Q-06).
+- [ ] Help page says "Call or WhatsApp the Asani team" with no number: **need the support number**.
+- [ ] Decide: profile page says "Visits · 3" but also lists today's active token as a 4th row.
+- [ ] Decide: Account says "Queue alerts"; board P10 says "Notifications".
+- [ ] No offline copy of data on Supabase: opening the app offline probably shows no data (not reproduced).
+- [ ] Not tested: a real phone (including Save to gallery and swipe back), iPhone, real TalkBack.
+
 ## 4. Launch preparation
 - [ ] Crash reporting + basic analytics (PRD F-12).
 - [ ] Privacy Policy and Terms pages, real domain for links (PRD Q-06).

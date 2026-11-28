@@ -13,6 +13,7 @@ import '../doctor_search/doctor_search_providers.dart';
 import '../doctor_search/doctors_tab.dart' show weeklyTimings;
 import 'clinic_card.dart' show clinicInitials, clinicOpenInfo;
 import '../../core/widgets/bottom_clearance.dart';
+import '../../core/widgets/dead_end.dart';
 
 /// S-07 Clinic page: choose a doctor (PRD F-03).
 class ClinicScreen extends ConsumerWidget {
@@ -27,17 +28,14 @@ class ClinicScreen extends ConsumerWidget {
     final clinic = clinicAsync.value;
 
     if (clinicAsync.hasError) {
-      return StatusBarScrim(
-      child: Scaffold(appBar: AppBar(), body: ErrorState(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(clinicId)))));
+      return LoadErrorScreen(error: clinicAsync.error, onRetry: () => ref.invalidate(clinicProvider(clinicId)));
     }
     if (clinicAsync.isLoading && clinic == null) {
       return const LoadingScreen(message: 'Loading clinic…');
     }
     if (clinic == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const EmptyState(icon: Icons.local_hospital_outlined, title: 'Clinic not found', message: 'This clinic link is not valid any more.'),
-      );
+      return const NotFoundScreen(
+          icon: Icons.local_hospital_outlined, title: 'Clinic not found', message: 'This clinic link is not valid any more.');
     }
     final now = nowFrom(ref);
 
@@ -136,7 +134,7 @@ class ClinicHeader extends ConsumerWidget {
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: () => callNumber(context, clinic.phone),
-                    child: const SizedBox.square(dimension: 44, child: Icon(Icons.call_outlined, size: 19, color: AppColors.onPrimary)),
+                    child: const SizedBox.square(dimension: 48, child: Icon(Icons.call_outlined, size: 19, color: AppColors.onPrimary)),
                   ),
                 ),
               ),
@@ -332,7 +330,7 @@ class _DoctorCard extends ConsumerWidget {
                   const VerticalDivider(width: 24, color: AppColors.border),
                   QueueStat('In queue', '${day.waitingCount}', AppColors.textPrimary),
                   const VerticalDivider(width: 24, color: AppColors.border),
-                  QueueStat('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes))}', AppColors.textPrimary),
+                  QueueStat('Est. wait', Fmt.wait(estimatedWaitMinutes(day.waitingCount, doctor.avgConsultMinutes)), AppColors.textPrimary),
                 ]),
               ),
             ),
@@ -342,12 +340,12 @@ class _DoctorCard extends ConsumerWidget {
             label: '$booked of ${doctor.maxTokensPerDay} tokens booked today',
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
+              child: ExcludeSemantics(child: LinearProgressIndicator(
                 value: fill,
                 minHeight: 6,
                 backgroundColor: AppColors.cream,
                 valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-              ),
+              )),
             ),
           ),
           for (final o in also) _AlsoAt(o: o),

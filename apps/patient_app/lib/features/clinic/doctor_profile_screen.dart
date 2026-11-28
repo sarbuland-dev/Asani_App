@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/widgets/error_state.dart';
 import '../../data/providers.dart';
 import 'clinic_screen.dart' show ClinicHeader, DoctorFace, QueueStat;
 import '../../core/widgets/bottom_clearance.dart';
+import '../../core/widgets/dead_end.dart';
 
 /// S-07b Doctor profile (board P3b): opened from "Search by doctor" → Book
 /// token, so the patient sees this doctor at this clinic before booking.
@@ -26,23 +26,18 @@ class DoctorProfileScreen extends ConsumerWidget {
     final clinic = clinicAsync.value;
     final doctor = doctorAsync.value;
     if (clinicAsync.hasError || doctorAsync.hasError) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: ErrorState(
-          error: clinicAsync.error ?? doctorAsync.error,
-          onRetry: () {
-            ref.invalidate(clinicProvider(clinicId));
-            ref.invalidate(doctorProvider(doctorId));
-          },
-        ),
+      return LoadErrorScreen(
+        error: clinicAsync.error ?? doctorAsync.error,
+        onRetry: () {
+          ref.invalidate(clinicProvider(clinicId));
+          ref.invalidate(doctorProvider(doctorId));
+        },
       );
     }
     if (clinic == null || doctor == null) {
       if (clinicAsync.isLoading || doctorAsync.isLoading) return const LoadingScreen(message: 'Loading doctor…');
-      return Scaffold(
-        appBar: AppBar(),
-        body: const EmptyState(icon: Icons.medical_services_outlined, title: 'Doctor not found', message: 'This doctor is no longer listed.'),
-      );
+      return const NotFoundScreen(
+          icon: Icons.medical_services_outlined, title: 'Doctor not found', message: 'This doctor is no longer listed.');
     }
 
     final now = nowFrom(ref);
@@ -216,7 +211,7 @@ class _DoctorToday extends StatelessWidget {
                 const VerticalDivider(width: 20, color: AppColors.border),
                 QueueStat('In queue', '${day!.waitingCount}', AppColors.textPrimary),
                 const VerticalDivider(width: 20, color: AppColors.border),
-                QueueStat('Est. wait', '~${Fmt.wait(estimatedWaitMinutes(day!.waitingCount, doctor.avgConsultMinutes))}',
+                QueueStat('Est. wait', Fmt.wait(estimatedWaitMinutes(day!.waitingCount, doctor.avgConsultMinutes)),
                     AppColors.textPrimary),
               ]),
             ),
@@ -225,12 +220,12 @@ class _DoctorToday extends StatelessWidget {
         const SizedBox(height: 11),
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: ExcludeSemantics(child: LinearProgressIndicator(
             value: fill,
             minHeight: 6,
             backgroundColor: AppColors.cream,
             valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-          ),
+          )),
         ),
       ]);
     } else {

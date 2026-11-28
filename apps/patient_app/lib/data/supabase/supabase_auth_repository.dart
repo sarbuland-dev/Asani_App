@@ -265,14 +265,15 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> deleteAccount() async {
     try {
-      await beforeSignOut?.call(); // remove this phone's device token while still signed in
-    } catch (e) {
-      AppLogger.warn('beforeSignOut failed: $e');
-    }
-    try {
       await _client.rpc('delete_my_account');
     } catch (e) {
+      // Nothing was removed: the person stays signed in and keeps getting alerts.
       throw _mapDb(e, 'Could not delete your account. Please try again.');
+    }
+    try {
+      await beforeSignOut?.call(); // this phone stops expecting alerts
+    } catch (e) {
+      AppLogger.warn('beforeSignOut failed: $e');
     }
     cancelLogin();
     await _client.auth.signOut().catchError((Object _) {});

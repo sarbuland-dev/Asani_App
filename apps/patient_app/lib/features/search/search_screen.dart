@@ -120,7 +120,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 height: 52,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: Gap.screen, vertical: Gap.sm),
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.screen, vertical: 2), // chips keep 48 dp
                   children: [
                     Center(child: Text('Recent', style: AppText.labelMedium.copyWith(color: AppColors.textSecondary))),
                     const SizedBox(width: Gap.sm),

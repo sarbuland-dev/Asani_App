@@ -170,8 +170,8 @@ class _Header extends ConsumerWidget {
                 const Spacer(),
                 // S-19 / D-45: notifications list with the unread count.
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: const BoxDecoration(color: AppColors.primaryMid, shape: BoxShape.circle),
                   child: const Center(child: NotificationsBell(color: AppColors.onPrimary)),
                 ),
@@ -197,7 +197,7 @@ class _Header extends ConsumerWidget {
                     customBorder: const StadiumBorder(),
                     onTap: () => showCityPicker(context, ref),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
+                      padding: const EdgeInsets.fromLTRB(10, 14, 14, 14),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.location_on_outlined, size: 18, color: AppColors.onPrimary),
                         const SizedBox(width: 6),
@@ -264,21 +264,32 @@ class _ActiveTokensState extends State<_ActiveTokens> {
   Widget build(BuildContext context) {
     final tokens = widget.tokens;
     if (tokens.length == 1) return _ActiveTokenCard(token: tokens.first);
-    // Grows with the user's text size so the card never clips.
-    final f = MediaQuery.textScalerOf(context).scale(14) / 14;
     final page = _page.clamp(0, tokens.length - 1);
     return Column(children: [
-      SizedBox(
-        height: 112 + 110 * f,
-        child: PageView.builder(
-          itemCount: tokens.length,
-          onPageChanged: (i) => setState(() => _page = i),
-          itemBuilder: (_, i) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: Align(alignment: Alignment.topCenter, child: _ActiveTokenCard(token: tokens[i])),
+      // As tall as the tallest card, at any text size: an unseen copy of the
+      // cards sets the height and the pager fills it (no clipping, no gap).
+      Stack(children: [
+        ExcludeSemantics(
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0,
+              child: IndexedStack(children: [
+                for (final t in tokens) Padding(padding: const EdgeInsets.symmetric(horizontal: 3), child: _ActiveTokenCard(token: t)),
+              ]),
+            ),
           ),
         ),
-      ),
+        Positioned.fill(
+          child: PageView.builder(
+            itemCount: tokens.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Align(alignment: Alignment.topCenter, child: _ActiveTokenCard(token: tokens[i])),
+            ),
+          ),
+        ),
+      ]),
       const SizedBox(height: Gap.sm),
       Semantics(
         label: 'Token ${page + 1} of ${tokens.length}. Swipe for more.',
@@ -338,7 +349,7 @@ class _ActiveTokenCard extends ConsumerWidget {
       big = pos.ahead == 0 ? "You're next" : '${pos.ahead} ahead';
       small = token.isNextUp
           ? 'Called right after the current patient'
-          : '~${Fmt.wait(pos.waitMinutes)}${serving == null ? '' : ' · serving $serving'}';
+          : '${Fmt.wait(pos.waitMinutes)}${serving == null ? '' : ' · serving $serving'}';
     } else if (isToday) {
       big = '';
       small = switch (session) {
@@ -357,13 +368,13 @@ class _ActiveTokenCard extends ConsumerWidget {
       container: true,
       label: 'Token ${token.label} for ${token.patientSnapshot.name} with ${doctor?.name ?? 'the doctor'}. $big. $small',
       child: _Cream(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             _chip(chipText, chipBg, chipFg),
-            const Spacer(),
-            Flexible(
+            const SizedBox(width: Gap.sm),
+            Expanded(
               child: Text('${clinic?.name ?? ''} · ${isToday ? 'Today' : Fmt.shortDay(token.date)}',
-                  style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  textAlign: TextAlign.right, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ]),
           const SizedBox(height: Gap.sm),
@@ -421,10 +432,10 @@ class _BookAgainCard extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           _chip('Book again', AppColors.surface, AppColors.primary),
-          const Spacer(),
-          Flexible(
+          const SizedBox(width: Gap.sm),
+          Expanded(
             child: Text('Last visit · ${Fmt.shortDay(token.date)}',
-                style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                textAlign: TextAlign.right, style: AppText.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ]),
         const SizedBox(height: Gap.md),

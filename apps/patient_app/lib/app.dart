@@ -45,6 +45,8 @@ class AsaniApp extends ConsumerWidget {
         ?..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           duration: const Duration(seconds: 6),
+          // With an action Flutter keeps a SnackBar for ever unless told otherwise.
+          persist: false,
           backgroundColor: alert.step.ahead == 0 ? AppColors.info : AppColors.textPrimary,
           content: Column(
             mainAxisSize: MainAxisSize.min,

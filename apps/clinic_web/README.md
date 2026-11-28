@@ -1,48 +1,32 @@
 # Asani Clinic Web
 
-Flutter Web app for clinic staff (Queue Board, check-in, walk-ins, printing,
-follow-ups, doctors, staff, settings, billing) **and** the Super Admin panel.
-Spec: [`PRD-CLINIC-WEB.md`](../../PRD-CLINIC-WEB.md). Same brand and widgets as
-the patient app (teal `#0F766E`, Inter), laid out for desktop (≥ 1280 px).
+Flutter Web app for clinic staff (Queue Board, check-in, walk-ins, printing, follow-ups, doctors, settings, billing)
+**and** the Super Admin panel. Spec: [`PRD-CLINIC-WEB.md`](../../PRD-CLINIC-WEB.md). It uses the shared theme in
+`packages/asani_ui` (the web keeps the "Monochrome green" colours, `WebColors`, D-44) and is laid out for desktop
+(1280 px and wider).
 
 ## Status
 
 Two backends behind one `ClinicRepository` interface (`lib/data/`):
 
 - **Demo** (default): in-memory data seeded around "now" in Pakistan time. A reload starts fresh.
-- **Firebase** (`--dart-define=BACKEND=firebase`): the real backend, same project as the patient app.
-  Firebase Auth email + password, roles from custom claims, Firestore listeners for reads, and every
-  write through the clinic/admin Cloud Functions (`functions/src/clinic`, `functions/src/admin`).
-  An app booking shows on the Queue Board within seconds; Next / Arrived / Skip move the patient's
-  queue and send the 3-2-1 / Your-turn notifications.
+- **Supabase** (`--dart-define=BACKEND=supabase`, D-52): the `asani-dev` project, same as the patient app. Email +
+  password login, roles from `app_metadata`, Realtime for live data, and every write through Postgres functions and
+  the `admin-clinic-login` Edge Function. An app booking shows on the Queue Board; Next / Skip move the patient's
+  queue and send the notifications.
 
 ## Run
 
 ```bash
 cd apps/clinic_web
-flutter pub get
-flutter run -d chrome                                                    # demo
-flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_FUNCTIONS_EMULATOR=true
-flutter run -d chrome --dart-define=BACKEND=firebase --dart-define=USE_EMULATOR=true   # all emulators
+flutter run -d chrome                                                   # demo
+flutter run -d chrome --web-port 8092 --dart-define=BACKEND=supabase    # asani-dev
 ```
 
-Release build: `flutter build web --release [--dart-define=BACKEND=firebase]` → `build/web`.
+Release build: `flutter build web --release --dart-define=BACKEND=supabase` (output in `build/web`).
 
-## Firebase setup (once)
-
-1. **Console → Authentication → Sign-in method → Email/Password: Enable** (asani-b2b17).
-   Optional: Templates → Password reset → subject "Set your Asani password".
-2. Functions: `cd functions && npm run build`, then run them on the emulator
-   (`npm run serve:dev`) until the project is on Blaze.
-3. Rules + indexes must include the clinic-web parts (`firestore.rules`, `firestore.indexes.json`):
-   on the dev project Sarbuland deploys them (`firebase deploy --only firestore --project dev`).
-4. Logins (tools/admin-scripts, add `--project dev` for the dev project):
-   ```bash
-   node create-super-admin.js --email <your email> --name "Sarbuland"
-   node create-clinic-login.js --clinic c_alshifa --email <clinic email> --owner "Dr. Tariq"
-   node backfill-clinic-ids.js            # patients who booked before the clinic web existed
-   ```
-   Each prints a one-time link to set the password. New clinics come from the New clinic wizard.
+Supabase setup (auth settings, redirect URL on port 8092, dev logins with `tools/db-test/create-login.js`):
+[`docs/02-setup.md`](../../docs/02-setup.md) §2b. New clinics are made with the Super Admin's New clinic wizard.
 
 ## Demo accounts (demo backend only)
 
@@ -72,7 +56,7 @@ the receptionist. No receptionist or doctor accounts. Password for all: `asani12
 
 ```
 lib/
-  core/        theme (copied from patient app), widgets, router, print/download/QR helpers
+  core/        widgets, router, print/download/QR helpers (the theme is in packages/asani_ui)
   data/        models.dart, clinic_repository.dart (interface), demo_clinic_repository.dart, providers.dart
   features/
     auth/      W-01 login
@@ -101,4 +85,4 @@ To skip the print dialog, start Chrome with `--kiosk-printing` (guide on the Hel
 - Q-W11 (manager PIN for sensitive pages) is not built; still open.
 - "New doctors" seen-state is kept per browser session in demo mode.
 - Q-W09: QR/link domain is a placeholder in `lib/core/config/links.dart`.
-- `asani_core` is a path dependency (like `patient_app`), not yet a pub workspace (PRD §2.1).
+- `asani_core` and `asani_ui` come from the Dart pub workspace at the repo root (PRD §2.1).
