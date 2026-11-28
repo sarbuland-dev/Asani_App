@@ -90,8 +90,7 @@ class HelpScreen extends StatelessWidget {
           Text('Need a hand?', style: ClinicText.cardTitle.copyWith(color: AppColors.onPrimary)),
           const SizedBox(height: 10),
           Text(
-            'Call or WhatsApp the Asani team from 10 AM to 8 PM, Monday to Saturday.\n'
-            'Tell us your clinic name and what happened (a screenshot helps).',
+            'When you contact the Asani team, tell us your clinic name and what happened (a screenshot helps).',
             style: AppText.bodyMedium.copyWith(color: AppColors.onPrimaryMuted, height: 1.6),
           ),
         ]),

@@ -72,12 +72,12 @@ class PatientDetail extends ConsumerWidget {
     final buttons = Wrap(spacing: 10, runSpacing: 10, children: [
       // D-40: only walk-ins (no app account) are edited by the clinic.
       if (user.role.canRunQueue && p.ownerUid == null)
-        OutlinedButton(style: outlined, onPressed: () => _edit(context, ref, p), child: const Text('Edit details')),
+        OutlinedButton(style: outlined, onPressed: writable ? () => _edit(context, ref, p) : null, child: const Text('Edit details')),
       // D-52 (S-2): reception links a walk-in to the patient's app account, in person.
       if (user.role.canRunQueue && p.ownerUid == null && p.status == PatientStatus.active)
         OutlinedButton(
           style: outlined,
-          onPressed: () => showLinkAccountDialog(context, clinicId: clinicId, walkIn: p),
+          onPressed: writable ? () => showLinkAccountDialog(context, clinicId: clinicId, walkIn: p) : null,
           child: const Text('Link to app account'),
         ),
       if (user.role.canRunQueue)

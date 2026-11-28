@@ -297,6 +297,7 @@ class _TokenScreenState extends ConsumerState<TokenScreen> {
           child: InkWell(
             onTap: onTap,
             child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: on ? AppColors.onPrimary : Colors.transparent, width: 3)),

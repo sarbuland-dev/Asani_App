@@ -26,6 +26,8 @@ const check = (ok, label, extra = '') => {
   if (!ok) failures++;
 };
 
+const NO_LOGIN_ID = 'sm_no_login';
+
 async function cleanup(pg) {
   await pg.query(`delete from public.clinics where name = $1`, [CLINIC_NAME]);
   await pg.query(`delete from public.admin_users where id = $1`, [ADMIN.id]);
@@ -90,7 +92,12 @@ async function call(u, body) {
       check(left === 0, 'invite refused → the half-made clinic was removed (no clinic without a login)', `${r.status} ${r.body.message}`);
     }
 
-    r = await call(ADMIN, { action: 'resend', clinicId: 'c_alshifa' });
+    // A clinic of our own with no login: using a real clinic would email its login a password link.
+    await pg.query(`insert into public.clinics (id, name, city, status, lat, lng) values ($1, $2, 'Lahore', 'active', 31.5, 74.3)`, [
+      NO_LOGIN_ID,
+      CLINIC_NAME,
+    ]);
+    r = await call(ADMIN, { action: 'resend', clinicId: NO_LOGIN_ID });
     check(r.status === 400 && r.body.error === 'not-found', 'resend for a clinic without a login → not-found', `${r.status} ${r.body.error}`);
   } catch (e) {
     console.error('ERROR', e.message);

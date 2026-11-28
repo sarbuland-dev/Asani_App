@@ -240,7 +240,7 @@ class _StatusBanner extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
       child: NoteBox(
         suspended
-            ? 'This clinic is suspended. You can view and export, but no new tokens or Next until the payment is recorded.'
+            ? 'This clinic is suspended. You can view, export and cancel tokens; other changes wait until the payment is recorded.'
             : 'Payment pending. Please pay${suspendOn == null ? '' : ' by ${WebFmt.date(suspendOn)}'} to avoid interruption.',
         fg: fg,
         bg: suspended ? AppColors.dangerContainer : AppColors.warningContainer,

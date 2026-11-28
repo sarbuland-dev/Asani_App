@@ -206,4 +206,34 @@ void main() {
     expect(midway, greaterThan(20), reason: 'the page appeared at once');
     expect(t.getTopLeft(find.byType(CustomScrollView).last).dx, 0);
   });
+
+  testWidgets('B14 "Book again" opens the date step with an open day already chosen', (t) async {
+    await start(t);
+    late String patientId;
+    await t.runAsync(() async => patientId = (await backend.watchMyPatients().first).first.id);
+    await go(t, '/book/c_alshifa/d_sana?patient=$patientId');
+    expect(find.text('Pick a date'), findsOneWidget, reason: 'precondition: starts on the date step');
+    expect(find.text('No dates available'), findsNothing);
+    await t.tap(find.text('Continue'));
+    await settle(t);
+    expect(find.text('Review and confirm'), findsOneWidget, reason: 'Continue must work without tapping a date');
+  });
+
+  testWidgets('Q1 a profile lists the active token apart, so the Visits list matches its count (D-68)', (t) async {
+    await start(t);
+    late String patientId;
+    var completed = 0;
+    await t.runAsync(() async {
+      final shazia = (await backend.watchMyPatients().first).firstWhere((p) => p.name == 'Shazia Begum');
+      patientId = shazia.id;
+      await backend.bookToken(clinicId: 'c_alshifa', doctorId: 'd_ayesha', patientId: shazia.id, date: dayKey(DateTime.now()));
+      completed = (await backend.watchMyTokens().first)
+          .where((x) => x.patientId == shazia.id && x.status == TokenStatus.completed)
+          .length;
+    });
+    await go(t, '/family/$patientId');
+    expect(find.text('Visits · $completed'), findsOneWidget);
+    expect(find.text('Active token'), findsOneWidget);
+    expect(find.text('Visits'), completed > 0 ? findsOneWidget : findsNothing);
+  });
 }

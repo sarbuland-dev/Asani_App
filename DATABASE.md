@@ -118,7 +118,7 @@ One row per person who sees a doctor. Walk-ins have no account (`owner_uid` null
 `name`, `name_lower` (generated), `area`, `city`, `address`, `phone`, `lat`/`lng` (**required** for new clinics and
 settings, inside Pakistan; D-31), `search_keywords`, `status` (`pilot`/`active`/`grace`/`suspended`/`cancelled`),
 `doctor_count`, `timezone`, `print_format` (`thermal80`/`a5`/`none`), `next_doctor_letter` (BW-7, never reused).
-Patients see `pilot`/`active`/`grace`; `suspended` only under Recent. Suspended / cancelled clinics have a read-only queue.
+Patients see `pilot`/`active`/`grace`; `suspended` only under Recent. Suspended / cancelled clinics are read-only (`private.require_writable`) but can still cancel tokens (`queue_action` cancel, `cancel_doctor_tokens`). `queue_action` also refuses `not-today`: arrive, callNow, skip, hold and backToQueue work only on the token's own day, noShow not before it (migration `20261128000100_qa_fixes.sql`, D-68; that migration also publishes `clinic_stats` and `doctor_private` to Realtime).
 
 ### `clinic_billing` (Super Admin + own clinic)
 `plan` (`pilot`/`basic`/`premium`), `plan_after_pilot`, `monthly_fee`, `billing_day` (1–28), `pilot_ends_at`,

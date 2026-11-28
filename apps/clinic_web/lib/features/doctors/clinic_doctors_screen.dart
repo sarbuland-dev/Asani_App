@@ -34,21 +34,23 @@ class _ClinicDoctorsScreenState extends ConsumerState<ClinicDoctorsScreen> {
   Widget build(BuildContext context) {
     final doctors = ref.watch(allDoctorsProvider(widget.clinicId));
     final selected = doctors.where((d) => d.id == _selectedId).firstOrNull ?? doctors.firstOrNull;
+    // D-68: a suspended clinic only looks.
+    final writable = ref.watch(clinicProvider(widget.clinicId))?.status.acceptsBookings ?? false;
     void add() => addDoctor(context, ref, widget.clinicId);
 
     return ClinicPage(
       title: 'Doctors',
       subtitle: '${doctors.length} doctor${doctors.length == 1 ? '' : 's'} · a doctor can be booked as soon as you save. '
           'Letters (A, B, C…) are given automatically and never reused.',
-      actions: [FilledButton.icon(onPressed: add, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add doctor'))],
+      actions: [FilledButton.icon(onPressed: writable ? add : null, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add doctor'))],
       children: [
         if (selected == null)
           EmptyState(
             icon: Icons.medical_services_outlined,
             title: 'Add your first doctor',
             message: 'Patients can book once a doctor with a weekly schedule is added.',
-            actionLabel: 'Add doctor',
-            onAction: add,
+            actionLabel: writable ? 'Add doctor' : null,
+            onAction: writable ? add : null,
           )
         else
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -292,6 +294,8 @@ class _DoctorEditorState extends ConsumerState<_DoctorEditor> {
     }
   }
 
+  bool get _writable => ref.watch(clinicProvider(widget.clinicId))?.status.acceptsBookings ?? false;
+
   @override
   Widget build(BuildContext context) => Panel(
         padding: EdgeInsets.zero,
@@ -319,13 +323,13 @@ class _DoctorEditorState extends ConsumerState<_DoctorEditor> {
                 Row(children: [
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(foregroundColor: widget.doctor.active ? AppColors.danger : AppColors.primary),
-                    onPressed: () => toggleDoctorActive(context, ref, widget.doctor),
+                    onPressed: _writable ? () => toggleDoctorActive(context, ref, widget.doctor) : null,
                     child: Text(widget.doctor.active ? 'Deactivate doctor' : 'Reactivate doctor'),
                   ),
                   const Spacer(),
                   FilledButton(
                     style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32)),
-                    onPressed: _save,
+                    onPressed: _writable ? _save : null,
                     child: const Text('Save'),
                   ),
                 ]),
@@ -492,10 +496,10 @@ class _DoctorEditorState extends ConsumerState<_DoctorEditor> {
             side: BorderSide.none,
             deleteIconColor: AppColors.dangerText,
             deleteButtonTooltipMessage: 'Remove leave',
-            onDeleted: () => runAction(context, () => repo.removeLeave(d.id, l), success: 'Leave removed.'),
+            onDeleted: _writable ? () => runAction(context, () => repo.removeLeave(d.id, l), success: 'Leave removed.') : null,
           ),
         TextButton.icon(
-          onPressed: d.active ? () => addDoctorLeave(context, ref, d) : null,
+          onPressed: d.active && _writable ? () => addDoctorLeave(context, ref, d) : null,
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Add leave'),
         ),

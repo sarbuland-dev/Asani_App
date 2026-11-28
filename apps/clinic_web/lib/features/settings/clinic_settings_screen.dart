@@ -149,7 +149,11 @@ class _ClinicSettingsScreenState extends ConsumerState<ClinicSettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Align(alignment: Alignment.centerRight, child: FilledButton(onPressed: _save, child: const Text('Save changes'))),
+          Align(
+            alignment: Alignment.centerRight,
+            // D-68: no changes while suspended.
+            child: FilledButton(onPressed: c.status.acceptsBookings ? _save : null, child: const Text('Save changes')),
+          ),
         ]),
       ),
     );

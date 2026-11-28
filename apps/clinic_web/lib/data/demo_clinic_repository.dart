@@ -424,7 +424,8 @@ class DemoClinicRepository implements ClinicRepository {
     _requireUser();
     final t = _tokens[tokenId];
     if (t == null) throw AppException.generic;
-    if (action != TokenAction.reprint) _requireWritable(t.token.clinicId);
+    // D-68: a suspended clinic can still cancel.
+    if (action != TokenAction.reprint && action != TokenAction.cancel) _requireWritable(t.token.clinicId);
     if (t.status == TokenStatus.completed && action != TokenAction.reprint) {
       throw const AppException('completed', 'A completed token cannot be changed.'); // BW-4
     }
@@ -551,6 +552,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> setFollowUp(String tokenId, String dueDate, {String? note}) async {
     _requireUser();
     final t = _tokens[tokenId] ?? (throw AppException.generic);
+    _requireWritable(t.token.clinicId); // D-68
     await _latency();
     final existing = _followUps.values
         .where((f) => f.patientId == t.token.patientId && f.doctorId == t.token.doctorId && f.status == FollowUpStatus.pending)
@@ -576,6 +578,7 @@ class DemoClinicRepository implements ClinicRepository {
     final p = _patients[patientId] ?? (throw AppException.generic);
     // D-40: app profiles are managed by the family in the app.
     if (p.ownerUid != null) throw const AppException('managed-by-app', 'This patient manages their details in the Asani app.');
+    _requireWritable(clinicId); // D-68
     await _latency();
     _patients[patientId] = p.copyWith(name: name.trim(), birthYear: birthYear, gender: gender);
     _log(clinicId, 'edited patient details', name.trim());
@@ -586,6 +589,7 @@ class DemoClinicRepository implements ClinicRepository {
   @override
   Future<int> linkWalkInToAccount(String clinicId, String walkInId, {required String accountPhone, String? targetPatientId}) async {
     _requireUser();
+    _requireWritable(clinicId); // D-68
     await _latency();
     final w = _patients[walkInId];
     if (w == null || w.status != PatientStatus.active) throw const AppException('not-found', 'Walk-in profile not found at this clinic.');
@@ -621,6 +625,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<Doctor> saveDoctor(String clinicId, Doctor doctor, {bool isNew = false, String? pmdcNumber}) async {
     // D-19: the clinic manages its own doctors; the Super Admin only views.
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
+    _requireWritable(clinicId); // D-68
     await _latency();
     var d = doctor;
     if (isNew) {
@@ -794,6 +799,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<int> addLeave(String doctorId, String date) async {
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
+    _requireWritable(d.clinicId); // D-68
     await _latency();
     if (!d.onLeaveDates.contains(date)) {
       _doctors[doctorId] = _copyDoctor(d, onLeaveDates: [...d.onLeaveDates, date]..sort());
@@ -807,6 +813,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> removeLeave(String doctorId, String date) async {
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
+    _requireWritable(d.clinicId); // D-68
     await _latency();
     _doctors[doctorId] = _copyDoctor(d, onLeaveDates: d.onLeaveDates.where((x) => x != date).toList());
     _log(d.clinicId, 'removed leave', '${d.name} · ${Fmt0.day(date)}');
@@ -833,6 +840,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> setDoctorActive(String doctorId, bool active) async {
     if (!_requireUser().role.canManageDoctors) throw AppException.notAllowed;
     final d = _doctors[doctorId] ?? (throw AppException.generic);
+    _requireWritable(d.clinicId); // D-68
     if (!active) _requirePinUnlocked(d.clinicId); // D-41
     await _latency();
     _doctors[doctorId] = _copyDoctor(d, active: active);
@@ -880,6 +888,7 @@ class DemoClinicRepository implements ClinicRepository {
   Future<void> updateClinicSettings(String clinicId, {String? address, String? area, String? phone, PrintFormat? printFormat, String? name, GeoPoint? location}) async {
     _requireUser();
     final c = _clinics[clinicId] ?? (throw AppException.generic);
+    _requireWritable(clinicId); // D-68
     if ((location ?? c.clinic.location) == null) throw _noLocation; // D-31, BW-12
     await _latency();
     _clinics[clinicId] = c.copyWith(

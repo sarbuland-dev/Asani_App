@@ -40,7 +40,21 @@ class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
     final tokens = (ref.watch(myTokensProvider).value ?? const <Token>[]).where((t) => t.patientId == widget.patientId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final followUps = ref.watch(upcomingFollowUpsProvider).where((f) => f.patientId == widget.patientId).toList();
-    final visits = tokens.where((t) => t.status == TokenStatus.completed).length;
+    // The Visits list is exactly what the tab counts: completed visits. A token
+    // still in play and the ones that were not visited have their own headings (D-68).
+    final live = ref.watch(tokenIsLiveProvider);
+    final active = tokens.where(live).toList();
+    final completed = tokens.where((t) => t.status == TokenStatus.completed && !live(t)).toList();
+    final notVisited = tokens.where((t) => t.status != TokenStatus.completed && !live(t)).toList();
+    final visits = completed.length;
+
+    Widget heading(String text) => Padding(
+          padding: const EdgeInsets.only(top: Gap.sm, bottom: Gap.sm),
+          child: Semantics(
+            header: true,
+            child: Text(text, style: AppText.labelMedium.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+          ),
+        );
 
     Widget tab(String label, bool on, VoidCallback onTap) => Expanded(
           child: Semantics(
@@ -49,6 +63,7 @@ class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
             child: InkWell(
               onTap: onTap,
               child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: on ? AppColors.onPrimary : Colors.transparent, width: 3)),
@@ -130,12 +145,21 @@ class _ProfileDetailScreenState extends ConsumerState<ProfileDetailScreen> {
                   for (final f in followUps) _FollowUpCard(followUp: f),
                 ] else ...[
                   if (followUps.isNotEmpty) _FollowUpCard(followUp: followUps.first),
-                  if (tokens.isEmpty)
+                  if (active.isNotEmpty) ...[
+                    heading(active.length == 1 ? 'Active token' : 'Active tokens'),
+                    for (final t in active) _VisitCard(token: t),
+                    if (completed.isNotEmpty) heading('Visits'),
+                  ],
+                  if (completed.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: Gap.xl),
                       child: Text('No visits yet.', textAlign: TextAlign.center, style: AppText.bodyMedium),
                     ),
-                  for (final t in tokens) _VisitCard(token: t),
+                  for (final t in completed) _VisitCard(token: t),
+                  if (notVisited.isNotEmpty) ...[
+                    heading('Not visited'),
+                    for (final t in notVisited) _VisitCard(token: t),
+                  ],
                   const SizedBox(height: Gap.md),
                   FilledButton(
                     onPressed: () => context.go('/home'),

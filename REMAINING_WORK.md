@@ -22,8 +22,9 @@ Postgres). Section numbers are kept so older notes still point to the right plac
 
 ## 3. Left from the 28 November QA run (`qa-bug-hunt/`, local only)
 - [ ] Clinic QR / deep link (F-11): left out on purpose; waits for a real domain (Q-06).
-- [ ] Help page says "Call or WhatsApp the Asani team" with no number: **need the support number**.
-- [ ] Decide: profile page says "Visits · 3" but also lists today's active token as a 4th row.
+- [ ] Support number for the clinic Help page (the call / WhatsApp line is hidden until then, D-68).
+- [ ] A suspended clinic can only bulk-cancel on days already marked as leave, and has no cancel button for other
+      future days (Upcoming has no actions, as for any clinic).
 - [ ] Decide: Account says "Queue alerts"; board P10 says "Notifications".
 - [ ] No offline copy of data on Supabase: opening the app offline probably shows no data (not reproduced).
 - [ ] Not tested: a real phone (including Save to gallery and swipe back), iPhone, real TalkBack.

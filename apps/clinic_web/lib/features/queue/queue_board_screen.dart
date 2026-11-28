@@ -251,7 +251,9 @@ class _QueueBoardScreenState extends ConsumerState<QueueBoardScreen> {
                   ? null
                   : TokenPanel(
                       tokenId: _selectedTokenId!,
-                      readOnly: readOnly,
+                      readOnly: widget.readOnly,
+                      // D-68: suspended = read-only, but tokens can still be cancelled.
+                      cancelOnly: !widget.readOnly && !clinic.status.acceptsBookings,
                       nextUp: _selectedTokenId == nextUpId,
                       panelWidth: panelWidth,
                       onClose: () => setState(() => _selectedTokenId = null),

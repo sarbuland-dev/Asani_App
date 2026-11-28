@@ -15,10 +15,13 @@ import 'token_slip.dart';
 
 /// W-11: token detail panel (slip, actions, history).
 class TokenPanel extends ConsumerWidget {
-  const TokenPanel({super.key, required this.tokenId, required this.onClose, this.readOnly = false, this.nextUp = false, this.panelWidth = width});
+  const TokenPanel({super.key, required this.tokenId, required this.onClose, this.readOnly = false, this.cancelOnly = false, this.nextUp = false, this.panelWidth = width});
   final String tokenId;
   final VoidCallback onClose;
   final bool readOnly;
+
+  /// A suspended clinic: only "Cancel token" changes anything (D-68).
+  final bool cancelOnly;
 
   /// This is the token Next patient will call.
   final bool nextUp;
@@ -36,7 +39,9 @@ class TokenPanel extends ConsumerWidget {
     final doctor = ref.watch(allDoctorsProvider(clinicId)).where((d) => d.id == t.token.doctorId).firstOrNull;
     final patient = ref.watch(clinicPatientProvider((clinicId, t.token.patientId)));
     final online = ref.watch(isOnlineProvider);
-    final actions = readOnly ? const <TokenAction>[] : QueueActions.available(t, user.role);
+    final actions = readOnly
+        ? const <TokenAction>[]
+        : QueueActions.available(t, user.role).where((a) => !cancelOnly || a == TokenAction.cancel).toList();
 
     // This patient's completed visits here before today's token.
     final earlier = (patient?.visits ?? const <QueueToken>[])
@@ -99,7 +104,7 @@ class TokenPanel extends ConsumerWidget {
           ],
           const SizedBox(height: 8),
           Wrap(spacing: 4, runSpacing: 4, children: [
-            if (!readOnly && user.role.canRunQueue && (t.status == TokenStatus.called || t.status == TokenStatus.completed))
+            if (!readOnly && !cancelOnly && user.role.canRunQueue && (t.status == TokenStatus.called || t.status == TokenStatus.completed))
               TextButton.icon(
                 onPressed: () => showFollowUpDialog(context, ref, t),
                 icon: const Icon(Icons.event_repeat_rounded, size: 18),

@@ -11,7 +11,8 @@ class AppException implements Exception {
   static const disabled = AppException('disabled', 'This clinic login has been disabled. Please contact Asani support.');
   static const offline = AppException('offline', 'You are offline. Actions are disabled until the internet is back.');
   static const suspended =
-      AppException('suspended', 'This clinic is suspended. The queue is read-only until the payment is recorded.');
+      AppException(
+      'suspended', 'This clinic is suspended. It is read-only until the payment is recorded; you can still cancel tokens.');
   static const notAllowed = AppException('not-allowed', "You don't have permission to do this.");
   static const generic = AppException('unknown', 'Something went wrong. Please try again.');
 

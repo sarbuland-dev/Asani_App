@@ -149,6 +149,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
     final patients = patientsAsync.value!;
     _applyPrefill(doctor, patients);
+    // "Book again" and alert links open on the date step: pick the first open day there too (B14).
+    if (_step == 1 && _date == null) {
+      _date = _firstBookableDate(doctor);
+      _autoDate = _date != null;
+    }
 
     final titles = ['Who is the patient?', 'Pick a date', 'Review and confirm'];
     final patient = patients.where((p) => p.id == _patientId).firstOrNull;

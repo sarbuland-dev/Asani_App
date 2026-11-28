@@ -395,7 +395,8 @@ class _WalkInDialogState extends ConsumerState<_WalkInDialog> {
           ]),
         ),
         const SizedBox(height: 10),
-        Text('If this person installs the Asani app with this number, these visits show up in their account.', style: ClinicText.small),
+        Text("These visits don't appear in the Asani app automatically. To add them, use Patients → Link to app account.",
+            style: ClinicText.small),
       ]);
 }
 

@@ -397,7 +397,7 @@ Defaulters screen: clinic, amount due, days overdue, contact phone (tap to copy)
 | BW-5 | Check-in search is limited to **today + this clinic**. |
 | BW-6 | A clinic sees patients only through visits/bookings at **its own clinic**. |
 | BW-7 | Doctor letters are unique per clinic and never reused. |
-| BW-8 | A suspended clinic is **read-only**: no new tokens (app or walk-in), no Next; the clinic can still view and export. Patients see "Online booking isn't available right now." |
+| BW-8 | A suspended or cancelled clinic is **read-only** (PRD.md D-68): no new tokens (app or walk-in), no Next, no changes to doctors, leave, follow-ups, patients or settings. It **can still cancel tokens**, view, export, open billing and change its password. Patients see "Online booking isn't available right now." |
 | BW-9 | Billing data is only visible to the clinic login (own clinic) and Super Admin. |
 | BW-10 | Every clinic/admin action that changes data creates an activity log entry (actor = Super Admin or the clinic login). |
 | BW-11 | Doctor records are linked **only** by the Super Admin (D-32). Linking or a pending suggestion never blocks adding, editing or booking a doctor. Clinics never see suggestions or other clinics' doctors. |
